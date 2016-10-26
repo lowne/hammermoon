@@ -12,6 +12,7 @@
 /.mgit/bundle*
 /.mgit/luajit/
 /.mgit/luajit.exclude
+/.mgit/objc/
 /.mgit/objc.exclude
 
 /user.lua
