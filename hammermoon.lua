@@ -6,25 +6,49 @@ if not c.AXIsProcessTrustedWithOptions(c.toobj{AXTrustedCheckOptionPrompt=1}) th
   print'Please enable accessibility!'
   os.exit()
 end
+c.load'AppKit'
 
-package.path=package.path..';hammermoon/?.lua;hammermoon/?/init.lua;' --./extensions/?.lua;./extensions/?/init.lua'
+
+---@function [parent=#global] errorf
+--@param #string fmt
+--@param ...
+errorf=function(fmt,...)error(sformat(fmt,...))end
+
+---@function [parent=#global] assertf
+--@param #string fmt
+--@param ...
+assertf=function(v,fmt,...)if not v then errorf(fmt,...) end end
+
+---@function [parent=#global] printf
+--@param #string fmt
+--@param ...
+printf=function(fmt,...)return print(sformat(fmt,...)) end
+
+---@type hammermoon
+
+---@field [parent=#global] #hammermoon hm hammermoon namespace
+
+--package.path=package.path..';hammermoon/?.lua;hammermoon/?/init.lua;' --./extensions/?.lua;./extensions/?/init.lua'
 
 local tinsert,sformat=table.insert,string.format
-local log
+local log --extensions.logger#logger
 local destroyers={}
 local function luaSetup()
   print'----- Hammermoon starting up -----'
-  local rawerror=error
-  ---globals
-  errorf=function(fmt,...)error(sformat(fmt,...))end
-  assertf=function(v,fmt,...)if not v then errorf(fmt,...) end end
-  printf=function(fmt,...)return print(sformat(fmt,...)) end
+
   ---debug options
+
+  ---@type hm.debug
+  --@field #boolean retain_user_objects if false, user objects (timers, watchers, etc.) will get gc'ed unless the userscript keeps a global reference
+  --@field #boolean cache_uielements if false, uielement objects (including applications and windows) are not cached
+
+  ---@field [parent=#hammermoon] #hm.debug debug
+
   local hmdebug={
     retain_user_objects=true,
     cache_uielements=true,
   }
-  --  error=function(str)print(debug.traceback('ERROR: '..str,2))os.exit()end
+
   local rawrequire=require
   require=function(modname)
     local pfx=modname:sub(1,3)
@@ -33,9 +57,9 @@ local function luaSetup()
     if type(mod)=='table' then tinsert(destroyers,rawget(mod,'_hmdestroy')) end
     return mod
   end
-  hm=setmetatable({
-    --    _newWatcher=newWatcher,
-    },{__index=function(t,k)
+
+  hm=setmetatable({debug=hmdebug,},
+    {__index=function(t,k)
       print('-----       Loading extension: '..k)
       local ok,res=xpcall(require,debug.traceback,'extensions.'..k)
       if ok and res then rawset(t,k,res) return res
@@ -48,7 +72,15 @@ local function luaSetup()
   local newproxy,getmetatable,setmetatable=newproxy,getmetatable,setmetatable
   local function hmstaticmodule(name)
   end
-  --  local classes={}
+  ---@type hm.module
+  --@field #table _class the class for the extension's objects
+  --@field extensions.logger#logger log the extension's module-level logger instance
+
+  ---@function [parent=#hm.core] module declare a hammermoon extension module
+  --@param #string name
+  --@param #table classmt metatable for the class (if any); can contain __tostring, __eq, __gc, etc
+  --@return #hm.module
+
   local function hmmodule(name,classmt)
     local log=hm.logger.new(name)
     local clsname='<'..name..'>'
@@ -65,6 +97,8 @@ local function luaSetup()
         o.__proxy=proxy
         return make(o)
       end
+      ---@function [parent=#hm.module] _new
+      --@param #table t initial values
       cls._new=new
     end
     return {log=log,_class=cls}
@@ -73,6 +107,8 @@ local function luaSetup()
   local function cacheKeys(t) return setmetatable(t or {},{__mode='k'}) end
   local function retainValues() return hmdebug.retain_user_objects and {} or cacheValues() end
   local function retainKeys() return hmdebug.retain_user_objects and {} or cacheKeys() end
+
+  ---@type hm.core
   local core={rawrequire=require,log=log,module=hmmodule,
     cacheValues=cacheValues,cacheKeys=cacheKeys,retainValues=retainValues,retainKeys=retainKeys,
   --    class=function(name) return setmetatable({},{__tostring=function()return name end}) end, -- class table for objects
@@ -100,6 +136,7 @@ local function luaSetup()
     if priority then tinsert(workspaceObserverCallbacks[event],1,cb)
     else tinsert(workspaceObserverCallbacks[event],cb) end
   end
+  ---@field [parent=#hm.core] systemWideAccessibility
   setmetatable(core,{__index=function(t,k)
     if k=='systemWideAccessibility' then
       local axsw=c.AXUIElementCreateSystemWide()
@@ -108,7 +145,7 @@ local function luaSetup()
       return axsw
     else return nil end
   end})
-  hm._core=core
+  hm._core=core --#hm.core
   --[[
   -- preload ax modules
   local preload={'uielement','window','application'}
@@ -131,7 +168,6 @@ local function luaDestroy()
   log.d'Removing observers for workspace notifications'
   for _,obs in ipairs(core.workspaceObservers) do core.notificationCenter:removeObserver(obs,nil) end
 end
-c.load'AppKit'
 luaSetup()
 luaDestroy()
 --require'app'(luaSetup,luaDestroy)

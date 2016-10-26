@@ -1,3 +1,4 @@
+
 --- === hs.logger ===
 ---
 --- Simple logger for debugging purposes
@@ -24,6 +25,7 @@ local lasttime,lastid=0
 local idlen,idf,idempty=20,'%20.20s:','                     '
 local timeempty='        '
 
+---@module logger
 local logger = {} -- module
 local instances=setmetatable({},{__mode='kv'})
 
