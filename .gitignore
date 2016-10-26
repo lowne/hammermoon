@@ -1,4 +1,10 @@
 .DS_Store
+# LDT stuff
+/.buildpath
+/.project
+/.settings/
+
+# artifacts from mgit repos
 /.bundle-tmp
 /.metadata
 /bin/
@@ -15,5 +21,6 @@
 /.mgit/objc/
 /.mgit/objc.exclude
 
+# dev
 /user.lua
 /scratchpad.lua
