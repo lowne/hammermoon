@@ -1,7 +1,7 @@
 local c=require'objc'
 c.load'CoreFoundation'
 
-local tolua=function(o) return o~=nil and c.tolua(o) or nil end
+local tolua,toobj,nptr=c.tolua,c.toobj,c.nptr
 --c.load'AppKit'
 --c.load'ApplicationServices.framework/Versions/Current/Frameworks/HIServices'
 local AXCreateApp=c.AXUIElementCreateApplication

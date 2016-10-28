@@ -1,7 +1,7 @@
 local c=require'objc'
 c.load'CoreFoundation'
 
-local tolua=function(o) return o~=nil and c.tolua(o) or nil end
+local tolua,toobj,nptr=c.tolua,c.toobj,c.nptr
 -- private API yeah!
 c.addfunction('_AXUIElementGetWindow',{retval='i','^{__AXUIElement=}','^i'},false)
 --c.addfunction('_AXUIElementGetWindow',{retval='i','^v','^i'},false)

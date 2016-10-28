@@ -1,4 +1,6 @@
 local c=require'objc'
+c.debug.logtopics.addmethod=true
+c.debug.logtopics.refcount=true
 c.load'Foundation'
 c.load'ApplicationServices.HIServices'
 c.addfunction('AXIsProcessTrustedWithOptions', {retval='B','@"NSDict"'})
@@ -42,7 +44,7 @@ local function luaSetup()
   --@field #boolean retain_user_objects if false, user objects (timers, watchers, etc.) will get gc'ed unless the userscript keeps a global reference
   --@field #boolean cache_uielements if false, uielement objects (including applications and windows) are not cached
 
-  ---@field [parent=#hammermoon] #hm.debug debug
+  ---@field [parent=#hammermoon] #hm.debug debug advanced options go here
 
   local hmdebug={
     retain_user_objects=true,
@@ -72,14 +74,19 @@ local function luaSetup()
   local newproxy,getmetatable,setmetatable=newproxy,getmetatable,setmetatable
   local function hmstaticmodule(name)
   end
-  ---@type hm.module
-  --@field #table _class the class for the extension's objects
-  --@field extensions.logger#logger log the extension's module-level logger instance
 
   ---@function [parent=#hm.core] module declare a hammermoon extension module
   --@param #string name
   --@param #table classmt metatable for the class (if any); can contain __tostring, __eq, __gc, etc
   --@return #hm.module
+
+  ---@type hm.module
+  --@field #hm.class _class the class for the extension's objects
+  --@field extensions.logger#logger log the extension's module-level logger instance
+
+  ---@type hm.class
+
+
 
   local function hmmodule(name,classmt)
     local log=hm.logger.new(name)
@@ -97,7 +104,7 @@ local function luaSetup()
         o.__proxy=proxy
         return make(o)
       end
-      ---@function [parent=#hm.module] _new
+      ---@function [parent=#hm.class] _new
       --@param #table t initial values
       cls._new=new
     end
@@ -145,7 +152,8 @@ local function luaSetup()
       return axsw
     else return nil end
   end})
-  hm._core=core --#hm.core
+  ---@field [parent=#hammermoon] #hm.core _core hammerspoon core "module" (internal use only)
+  hm._core=core
   --[[
   -- preload ax modules
   local preload={'uielement','window','application'}
@@ -156,9 +164,9 @@ local function luaSetup()
   end
 --]]  
 
-  --  local ok,user=pcall(require'user')
-  --  if ok then return user() end
-  require'user'()
+  local ok,user=pcall(require,'user')
+  print(ok,user)
+  if ok then return user() end
 end
 
 local function luaDestroy()
@@ -168,7 +176,7 @@ local function luaDestroy()
   log.d'Removing observers for workspace notifications'
   for _,obs in ipairs(core.workspaceObservers) do core.notificationCenter:removeObserver(obs,nil) end
 end
-luaSetup()
-luaDestroy()
---require'app'(luaSetup,luaDestroy)
+--luaSetup()
+--luaDestroy()
+require'hammermoon_app'(luaSetup,luaDestroy)
 

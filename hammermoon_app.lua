@@ -41,7 +41,7 @@ local function appSetup(didFinishLaunchingCB,shouldTerminateCB)
 
   app:activateIgnoringOtherApps(true)
   win:makeKeyAndOrderFront(nil)
-
+  win.alphaValue=0.5
   app:run()
 end
 
