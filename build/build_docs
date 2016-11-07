@@ -1,0 +1,5 @@
+#!/bin/bash
+cd "${0%/*}"
+#cd "$(dirname "$(realpath "$0")")";
+/usr/bin/env lua -e "require'docbuilder'{format='md',dir='docs/md',modeldir='docs/models',heuristics=true,'../hm'}"
+/usr/bin/env lua -e "require'docbuilder'{format='md',what='apichanges',file='docs/md/API_CHANGES',heuristics=false,'../hm'}"
