@@ -212,9 +212,9 @@ function watcher:start()
   self._isRunning=true
   if not next(runningWatchers) then
     for event in pairs(NStoHSnotifications) do
-      hm._core.registerWorkspaceObserver(event,workspaceObserverCallback)
+      hm._core.wsNotificationCenter:register(event,workspaceObserverCallback)
     end
-    hm._core.registerWorkspaceObserver('NSWorkspaceDidTerminateApplicationNotification',clearCache)
+    hm._core.wsNotificationCenter:register('NSWorkspaceDidTerminateApplicationNotification',clearCache)
   end
   runningWatchers[self]=true -- retain ref to avoid gc
   return self

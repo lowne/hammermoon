@@ -1,9 +1,3 @@
-
---- === hs.logger ===
----
---- Simple logger for debugging purposes
----
---- Note: "methods" in this module are actually "static" functions - see `hs.logger.new()`
 local date,time = os.date,os.time
 local min,max,tmove=math.min,math.max,table.move
 local sformat,ssub,slower,srep,sfind=string.format,string.sub,string.lower,string.rep,string.find
@@ -25,19 +19,22 @@ local lasttime,lastid=0
 local idlen,idf,idempty=20,'%20.20s:','                     '
 local timeempty='        '
 
----@module logger
-local logger = {} -- module
+---Simple logger for debugging purposes.
+-- @module hm.logger
+-- @static
+local logger = hm._core.propertyTable()
+
 local instances=setmetatable({},{__mode='kv'})
 
---- hs.logger.setGlobalLogLevel(lvl)
---- Function
+---A string or number describing a log level.
+-- Can be `'nothing'`, `'error'`, `'warning'`, `'info'`, `'debug'`, or `'verbose'`, or a corresponding number between 0 and 5.
+-- @type loglevel
+-- @extends #string
+
+
 --- Sets the log level for all logger instances (including objects' loggers)
----
---- Parameters:
----  * lvl
----
---- Returns:
----  * None
+--@function [parent=#hm.logger] setGlobalLogLevel
+--@param #loglevel lvl
 logger.setGlobalLogLevel=function(lvl)
   lvl=toLogLevel(lvl)
   for log in pairs(instances) do
@@ -45,19 +42,11 @@ logger.setGlobalLogLevel=function(lvl)
   end
 end
 
---- hs.logger.setModulesLogLevel(lvl)
---- Function
---- Sets the log level for all currently loaded modules
----
---- Parameters:
----  * lvl
----
---- Returns:
----  * None
----
---- Notes:
----  * This function only affects *module*-level loggers, object instances with their own loggers (e.g. windowfilters) won't be affected;
----    you can use `hs.logger.setGlobalLogLevel()` for those
+---Sets the log level for all currently loaded modules.
+-- This function only affects *module*-level loggers, object instances with their own loggers (e.g. windowfilters) won't be affected;
+-- you can use `hs.logger.setGlobalLogLevel()` for those
+-- @function [parent=#hm.logger] setModulesLogLevel
+-- @param #loglevel lvl
 logger.setModulesLogLevel=function(lvl)
   for ext,mod in pairs(package.loaded) do
     if string.sub(ext,1,3)=='hs.' and mod~=hs then
@@ -68,19 +57,19 @@ end
 
 local history={}
 local histIndex,histSize=0,0
---- hs.logger.historySize([size]) -> number
---- Function
---- Sets or gets the global log history size
----
---- Parameters:
----  * size - (optional) the desired number of log entries to keep in the history;
----    if omitted, will return the current size; the starting value is 0 (disabled)
----
---- Returns:
----  * the current or new history size
----
---- Notes:
----  * if you change history size (other than from 0) after creating any logger instances, things will likely break
+
+---@private
+function logger._set_historySize(v) assert(type(v)=='number','size must be a number') histSize=min(v,100000) end
+---@private
+function logger._get_historySize() return histSize end
+
+---The number of log entries to keep in the history.
+-- The starting value is 0 (history is disabled). To enable the log history, set this at the top of your userscript.
+-- If you change history size (other than from 0) after creating any logger instances, things will likely break.
+-- @field [parent=#hm.logger] #number historySize
+-- @apichange function hm.logger.historySize([v]) -> field hm.logger.historySize
+
+
 logger.historySize=function(sz)
   if sz==nil then return histSize end
   if type(sz)~='number' then error('size must be a number')end
@@ -183,36 +172,27 @@ end
 logger.truncateID = "tail"
 logger.truncateIDWithEllipsis = false
 
---- hs.logger.defaultLogLevel
---- Variable
 --- Default log level for new logger instances.
----
---- The starting value is 'warning'; set this (to e.g. 'info') at the top of your `init.lua` to affect
---- all logger instances created without specifying a `loglevel` parameter
+-- The starting value is 'warning'; set this (to e.g. 'info') at the top of your `init.lua` to affect
+-- all logger instances created without specifying a `loglevel` parameter
+-- @field [parent=#hm.logger] #loglevel defaultLogLevel
 logger.defaultLogLevel = 'warning'
 
---- hs.logger.new(id, loglevel) -> logger
---- Function
---- Creates a new logger instance
----
---- Parameters:
----  * id - a string identifier for the instance (usually the module name)
----  * loglevel - (optional) can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose', or a corresponding number
----    between 0 and 5; uses `hs.logger.defaultLogLevel` if omitted
----
---- Returns:
----  * the new logger instance
----
---- Notes:
----  * the logger instance created by this method is not a regular object, but a plain table with "static" functions;
----    therefore, do not use the colon syntax for so-called "methods" in this module (as in `mylogger:setLogLevel(3)`);
----    you must instead use the regular dot syntax: `mylogger.setLogLevel(3)`
----
---- Usage:
---- ```
---- local log = hs.logger.new('mymodule','debug')
---- log.i('Initializing') -- will print "[mymodule] Initializing" to the console
---- ```
+
+---A logger instance.
+--@type logger
+
+--- Create a new logger instance.
+-- The logger instance created by this method is not a regular object, but a plain table with "static" functions;
+-- therefore, do *not* use the colon syntax for so-called "methods" in this module (as in `mylogger:setLogLevel(3)`);
+-- you must instead use the regular dot syntax: `mylogger.setLogLevel(3)`
+-- @function [parent=#hm.logger] new
+-- @param #string id a string identifier for the instance (usually the module name)
+-- @param #loglevel loglevel (optional) can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose',
+-- or a corresponding number between 0 and 5; uses `hs.logger.defaultLogLevel` if omitted
+-- @return #logger the new logger instance
+-- @usage local log = hs.logger.new('mymodule','debug')
+-- @usage log.i('Initializing') -- will print "[mymodule] Initializing" to the console
 function logger.new(id,loglevel)
   if type(id)~='string' then error('id must be a string',2) end
   --  id=sformat('%10s','['..sformat('%.8s',id)..']')
@@ -227,13 +207,14 @@ function logger.new(id,loglevel)
     d = function(...) return l(loglevel,DEBUG,id,...) end,
     v = function(...) return l(loglevel,VERBOSE,id,...) end,
 
-    ef = function(fmt,...) return lf(loglevel,ERROR,id,fmt,...) end,
-    wf = function(fmt,...) return lf(loglevel,WARNING,id,fmt,...) end,
-    f = function(fmt,...) return lf(loglevel,INFO,id,fmt,...) end,
-    df = function(fmt,...) return lf(loglevel,DEBUG,id,fmt,...) end,
-    vf = function(fmt,...) return lf(loglevel,VERBOSE,id,fmt,...) end,
+    fe = function(fmt,...) return lf(loglevel,ERROR,id,fmt,...) end,
+    fe = function(fmt,...) return lf(loglevel,WARNING,id,fmt,...) end,
+    fi= function(fmt,...) return lf(loglevel,INFO,id,fmt,...) end,
+    fd = function(fmt,...) return lf(loglevel,DEBUG,id,fmt,...) end,
+    fv = function(fmt,...) return lf(loglevel,VERBOSE,id,fmt,...) end,
   }
-  r.log=r.i r.logf=r.f
+  r.ef=r.fe r.wf=r.fw r.f=r.fi r.df=r.fd r.vf=r.fv --hs compatibility
+  --  r.log=r.i r.logf=r.f
   instances[r]=true
   return setmetatable(r,{
     __index=function(t,k)
@@ -246,132 +227,64 @@ function logger.new(id,loglevel)
 end
 return logger
 
---- hs.logger:setLogLevel(loglevel)
---- Method
 --- Sets the log level of the logger instance
----
---- Parameters:
----  * loglevel - can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose'; or a corresponding number between 0 and 5
----
---- Returns:
----  * None
+-- @function [parent=#logger] setLogLevel
+-- @param #loglevel loglevel can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose'; or a corresponding number between 0 and 5
 
---- hs.logger:getLogLevel() -> number
---- Method
 --- Gets the log level of the logger instance
----
---- Parameters:
----  * None
----
---- Returns:
----  * The log level of this logger as a number between 0 and 5
+-- @function [parent=#logger] getLogLevel
+-- @return #number The log level of this logger as a number between 0 ('nothing') and 5 ('verbose')
 
---- hs.logger.level
---- Field
 --- The log level of the logger instance, as a number between 0 and 5
+-- @field [parent=#logger] #number level
 
---- hs.logger:e(...)
---- Method
 --- Logs an error to the console
----
---- Parameters:
----  * ... - one or more message strings
----
---- Returns:
----  * None
+-- @function [parent=#logger] e
+-- @param ... one or more message strings
 
---- hs.logger:ef(fmt,...)
---- Method
 --- Logs a formatted error to the console
----
---- Parameters:
----  * fmt - formatting string as per string.format
----  * ... - arguments to fmt
----
---- Returns:
----  * None
+-- @function [parent=#logger] fe
+-- @param #string fmt formatting string as per `string.format`
+-- @param ... one or more message strings
+--@apichange logger.ef -> logger.fe
 
---- hs.logger:w(...)
---- Method
 --- Logs a warning to the console
----
---- Parameters:
----  * ... - one or more message strings
----
---- Returns:
----  * None
+-- @function [parent=#logger] w
+-- @param ... one or more message strings
 
---- hs.logger:wf(fmt,...)
---- Method
 --- Logs a formatted warning to the console
----
---- Parameters:
----  * fmt - formatting string as per string.format
----  * ... - arguments to fmt
----
---- Returns:
----  * None
+-- @function [parent=#logger] fw
+-- @param #string fmt formatting string as per `string.format`
+-- @param ... one or more message strings
+--@apichange logger.wf -> logger.fw
 
---- hs.logger:i(...)
---- Method
 --- Logs info to the console
----
---- Parameters:
----  * ... - one or more message strings
----
---- Returns:
----  * None
+-- @function [parent=#logger] i
+-- @param ... one or more message strings
 
---- hs.logger:f(fmt,...)
---- Method
 --- Logs formatted info to the console
----
---- Parameters:
----  * fmt - formatting string as per string.format
----  * ... - arguments to fmt
----
---- Returns:
----  * None
+-- @function [parent=#logger] fi
+-- @param #string fmt formatting string as per `string.format`
+-- @param ... one or more message strings
+--@apichange logger.f -> logger.fi
 
---- hs.logger:d(...)
---- Method
 --- Logs debug info to the console
----
---- Parameters:
----  * ... - one or more message strings
----
---- Returns:
----  * None
+-- @function [parent=#logger] d
+-- @param ... one or more message strings
 
---- hs.logger:df(fmt,...)
---- Method
 --- Logs formatted debug info to the console
----
---- Parameters:
----  * fmt - formatting string as per string.format
----  * ... - arguments to fmt
----
---- Returns:
----  * None
+-- @function [parent=#logger] fd
+-- @param #string fmt formatting string as per `string.format`
+-- @param ... one or more message strings
+--@apichange logger.df -> logger.fd
 
---- hs.logger:v(...)
---- Method
 --- Logs verbose info to the console
----
---- Parameters:
----  * ... - one or more message strings
----
---- Returns:
----  * None
+-- @function [parent=#logger] v
+-- @param ... one or more message strings
 
---- hs.logger:vf(fmt,...)
---- Method
 --- Logs formatted verbose info to the console
----
---- Parameters:
----  * fmt - formatting string as per string.format
----  * ... - arguments to fmt
----
---- Returns:
----  * None
+-- @function [parent=#logger] fv
+-- @param #string fmt formatting string as per `string.format`
+-- @param ... one or more message strings
+--@apichange logger.vf -> logger.fv
 

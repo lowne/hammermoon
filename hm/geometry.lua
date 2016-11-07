@@ -168,6 +168,36 @@ function geometry.__tostring(t)
   return sformat('hs.geometry.%s(%s)',typ,fmt)
 end
 
+-- objc
+local function fromNSPoint(nspoint) return new(nspoint.x,nspoint.y) end
+local function fromNSSize(nssize) return new(nil,nil,nssize.width,nssize.height) end
+local function fromNSRect(nsrect) local p,s=nsrect.origin,nsrect.size return new(p.x,p.y,s.width,s.height) end
+local pcall=pcall
+function geometry._fromobj(nsobj)
+  local function getmember(o,m)
+    local ok,res=pcall(function()return o[m]end)
+    return ok and res
+  end
+  if getmember(nsobj,'origin') then return fromNSRect(nsobj)
+  elseif getmember(nsobj,'x') then return fromNSPoint(nsobj)
+  else return fromNSSize(nsobj) end
+end
+geometry._fromNSPoint=fromNSPoint geometry._fromNSSize=fromNSSize geometry._fromNSRect=fromNSRect
+local NSMakePoint,NSMakeSize,NSMakeRect
+do
+  local ok,c=pcall(require,'objc')
+  if ok then NSMakePoint,NSMakeSize,NSMakeRect=c.NSMakePoint,c.NSMakeSize,c.NSMakeRect end
+end
+function geometry._toobj(t)
+  local tp=gettype(t)
+  if tp=='rect' then return NSMakeRect(t._x,t._y,t._w,t._h)
+  elseif tp=='point' then return NSMakePoint(t._x,t._y)
+  elseif tp=='size' then return NSMakeSize(t._w,t._h)
+  elseif tp=='unitrect' then error'cannot convert unitrect to objc'
+  else error'cannot convert, not a geometry object' end
+end
+
+
 -- getters and setters
 --- hs.geometry.x
 --- Field

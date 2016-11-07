@@ -262,7 +262,7 @@ local obs_t=ffi.typeof'AXObserverRef[1]'
 local observers={}--setmetatable({},{__mode='kv'})
 function watcher:start(events)
   if not globalWatcher then
-    hm._core.registerWorkspaceObserver('NSWorkspaceDidTerminateApplicationNotification',stopChildrenWatchers)
+    hm._core.wsNotificationCenter:register('NSWorkspaceDidTerminateApplicationNotification',stopChildrenWatchers,true)
     globalWatcher=true
   elseif self._isRunning then logw.w(self,'is already running') return self end
   self._isRunning=true
