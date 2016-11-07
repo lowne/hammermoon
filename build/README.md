@@ -23,15 +23,32 @@ TODO: [dashing] to be used to build the `.docset` file.
 
 ### To build the docs:
 
-> It's a bit of a mess; you've been warned!
 
-- You'll need a *vanilla* Lua 5.1 interpreter (required by metalua) + LuaRocks; the easiest way is:
+You'll need a *vanilla* Lua 5.1 interpreter (required by metalua); the easiest way is:
 
 ```bash
 brew install lua51
-# and if necessary:
-ln -s /usr/local/Cellar/lua51/<version>/bin/lua5.1 /usr/local/bin/lua
 ```
+
+If you already have an appropriate interpreter, make sure that 
+`lua5.1` is symlinked to it (if not, `ln -s` accordingly):
+
+```bash
+which lua5.1
+```
+
+The required modules are provided (inside `lib`), so this should now work:
+
+```bash
+./build_docs
+```
+
+
+#### To install the dependencies via luarocks (not required):
+
+In case `./build_docs` complains of missing modules, or if you want to do things properly:
+
+- Install luarocks if necessary (`brew` installs it automatically with Lua)
 
 - Install luadocumentor + dependencies (including metalua):
 
@@ -53,6 +70,4 @@ eval luarocks-5.1 path
 set -xg LUA_PATH (lua -e "print(package.path)")";"(luarocks-5.1 path --lr-path)
 set -xg LUA_CPATH (lua -e "print(package.cpath)")";"(luarocks-5.1 path --lr-cpath)
 ```
-
-- Now, if the planets happened to be correctly aligned, `./build_docs` should work!
 
