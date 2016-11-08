@@ -11,6 +11,7 @@ local tinsert,sformat=table.insert,string.format
 errorf=function(fmt,...)error(sformat(fmt,...))end
 
 ---@function [parent=#global] assertf
+--@param v
 --@param #string fmt
 --@param ...
 assertf=function(v,fmt,...)if not v then errorf(fmt,...) end end
@@ -21,11 +22,15 @@ assertf=function(v,fmt,...)if not v then errorf(fmt,...) end end
 printf=function(fmt,...)return print(sformat(fmt,...)) end
 
 package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
+package.cpath=package.cpath..';./lib/?.so'
+require'checks'
 require'compat53'
 
 --- Hammermoon main module
 --@module hm
 --@static
+--@internalchange Using the 'checks' library for userscript argument checking.
+--@internalchange Using the 'compat53' library, but syntax-level things (such as # not using __len) are still Lua 5.1
 
 local log --hm.logger#logger
 local destroyers={}
@@ -43,11 +48,22 @@ function hm._lua_setup()
 
   ---Debug options
   --@type hm.debug
-  --@field #boolean retain_user_objects if false, user objects (timers, watchers, etc.) will get gc'ed unless the userscript keeps a global reference
-  --@field #boolean cache_uielements if false, uielement objects (including applications and windows) are not cached
   --@static
   --@dev
-  --@apichange doesn't exist in Hammerspoon
+  --@apichange Doesn't exist in Hammerspoon
+
+  ---Retain user objects internally (default `true`).
+  -- User objects (timers, watchers, etc.) are retained internally by default, so
+  -- userscripts needn't worry about their lifecycle.
+  -- If falsy, they will get gc'ed unless the userscript keeps a global reference.
+  -- @field [parent=#hm.debug] #boolean retain_user_objects
+  -- @internalchange User objects are retained
+
+  ---Cache uielement objects (default `true`).
+  -- Uielement objects (including applications and windows) are cached internally for performance; this can be disabled.
+  -- @field [parent=#hm.debug] #boolean cache_uielements
+  -- @internalchange Uielements are cached
+
   local hmdebug={
     retain_user_objects=true,
     cache_uielements=true,
@@ -98,6 +114,7 @@ function hm._lua_setup()
         f.value=v
       else rawset(t,k,v) end
     end,
+    __type='hm#module',
   }
   ---Add a user-facing field to a module with a custom getter and setter
   -- @function [parent=#hm._core] property
@@ -105,6 +122,8 @@ function hm._lua_setup()
   -- @param #string fieldname
   -- @param #function getter
   -- @param #function setter
+  -- @apichange Doesn't exist in Hammerspoon
+  -- @internalchange Modules don't need to handle properties internally.
 
   local function property(t,fieldname,getter,setter)
     assert(getmetatable(t)==fancymt,'table was not created by hm._core.module()')
@@ -113,6 +132,22 @@ function hm._lua_setup()
     properties[t]=properties[t] or {}
     properties[t][fieldname]={get=getter,set=setter}
   end
+  ---Deprecate a field or function of a module
+  -- @function [parent=#hm._core] deprecate
+  -- @param #module module
+  -- @param #string fieldname
+  -- @param #string replacement The replacement field or function to direct users to
+  -- @apichange Doesn't exist in Hammerspoon
+  -- @internalchange Deprecation facility
+
+  ---Disallow a field or function of a module (after deprecation)
+  -- @function [parent=#hm._core] disallow
+  -- @param #module module
+  -- @param #string fieldname
+  -- @param #string replacement The replacement field or function to direct users to
+  -- @apichange Doesn't exist in Hammerspoon
+  -- @internalchange Deprecation facility
+
   local function deprecate(allow,t,fieldname,replacement)
     assert(getmetatable(t)==fancymt,'table was not created by hm._core.module()')
     local fld=rawget(t,fieldname)
@@ -133,25 +168,11 @@ function hm._lua_setup()
 
   local function fancyTable(t) return setmetatable(t or {},fancymt) end
 
-
   ---Hammermoon core facilities for use by extensions.
   --@type hm._core
   --@field hm.logger#logger log Logger instance for Hammermoon's core
   --@static
   --@dev
-
-  ---Deprecate a field or function of a module
-  -- @function [parent=#hm._core] deprecate
-  -- @param #module module
-  -- @param #string fieldname
-  -- @param #string replacement The replacement field or function to direct users to
-
-  ---Disallow a field or function of a module (after deprecation)
-  -- @function [parent=#hm._core] disallow
-  -- @param #module module
-  -- @param #string fieldname
-  -- @param #string replacement The replacement field or function to direct users to
-
   local core={rawrequire=require,protoModule=fancyTable, -- used only by logger
     property=property,deprecate=function(...)return deprecate(true,...)end,
     disallow=function(...)return deprecate(false,...) end,
@@ -182,7 +203,7 @@ function hm._lua_setup()
   --Use this function to create the table for your module.
   --If your module instantiates objects, you should pass `classmt` (even just an empty table),
   --and retrieve the metatable for your objects (and the constructor) via the `_class` field
-  --of the returned module table. Note that the `__gc` operator, if present, *must* be already
+  --of the returned module table. Note that the `__gc` metamethod, if present, *must* be already
   --in `classmt` (i.e. you cannot add it afterwards) for Hammermoon's allocation debugging to work.
   --@function [parent=#hm._core] module
   --@param #string name module name (without the '`hm.` prefix)
@@ -195,6 +216,8 @@ function hm._lua_setup()
   --@usage function myclass:mymethod() ... end
   --@usage ...
   --@usage return mymodule -- at the end of the file
+  --@apichange Doesn't exist in Hammerspoon
+  --@internalchange Allows allocation tracking, properties, deprecation; handled by core
 
   ---Type for Hammermoon extensions.
   --Hammermoon extensions (usually created via `hm._core.module()`) can be `require`d normally
@@ -215,6 +238,7 @@ function hm._lua_setup()
     local clsname='<'..name..'>'
     local cls=setmetatable({},{__tostring=function()return clsname end})
     if classmt then
+      classmt.__type='hm.'..name..'#'..name
       classmt.__index=cls
       local make=function(o) setmetatable(o,classmt) log.v('allocated:',o) return o end
       local gc=classmt.__gc
@@ -259,6 +283,9 @@ function hm._lua_setup()
       --@param #string event
       --@param #function cb
       --@param #boolean priority
+      --@dev
+      --@internalchange Centralized callback registry for notification centers, to be used by extensions.
+
       register=function(self,event,cb,priority)
         assert(type(event)=='string')
         if not self._events[event] then
@@ -301,6 +328,7 @@ function hm._lua_setup()
 
   ---`AXUIElementCreateSystemWide()` instance
   --@field [parent=#hm._core] #cdata systemWideAccessibility
+  --@internalchange Instance to be used by extensions.
 
   setmetatable(core,{__index=function(t,k)
     if k=='systemWideAccessibility' then

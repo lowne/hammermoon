@@ -1,5 +1,8 @@
 # Module `hm`
 
+> INTERNAL CHANGE: Using the 'checks' library for userscript argument checking.
+Using the 'compat53' library, but syntax-level things (such as # not using __len) are still Lua 5.1
+
 Hammermoon main module
 
 
@@ -21,6 +24,8 @@ Hammermoon core facilities for use by extensions.
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
+> INTERNAL CHANGE: Deprecation facility
+
 Deprecate a field or function of a module
 
 **Parameters:**
@@ -36,6 +41,8 @@ Deprecate a field or function of a module
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
+> INTERNAL CHANGE: Deprecation facility
+
 Disallow a field or function of a module (after deprecation)
 
 **Parameters:**
@@ -50,6 +57,8 @@ Disallow a field or function of a module (after deprecation)
 ### Function `hm._core.module(name,classmt)` -> [`<#module>`](hm.md#type-module)
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
+
+> INTERNAL CHANGE: Allows allocation tracking, properties, deprecation; handled by core
 
 Declare a new Hammermoon extension.
 
@@ -83,6 +92,8 @@ return mymodule -- at the end of the file
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
+> INTERNAL CHANGE: Modules don't need to handle properties internally.
+
 Add a user-facing field to a module with a custom getter and setter
 
 **Parameters:**
@@ -92,6 +103,13 @@ Add a user-facing field to a module with a custom getter and setter
 * `getter`: `<#function>` 
 * `setter`: `<#function>` 
 
+
+
+
+### Field `hm._core.systemWideAccessibility`: `<#cdata>`
+> INTERNAL CHANGE: Instance to be used by extensions.
+
+`AXUIElementCreateSystemWide()` instance
 
 
 
@@ -112,12 +130,16 @@ Debug options
 
 
 ### Field `hm.debug.cache_uielements`: `<#boolean>`
+> INTERNAL CHANGE: Uielements are cached
+
 Cache uielement objects (default `true`).
 
 Uielement objects (including applications and windows) are cached internally for performance; this can be disabled.
 
 
 ### Field `hm.debug.retain_user_objects`: `<#boolean>`
+> INTERNAL CHANGE: User objects are retained
+
 Retain user objects internally (default `true`).
 
 User objects (timers, watchers, etc.) are retained internally by default, so
@@ -128,19 +150,7 @@ If falsy, they will get gc'ed unless the userscript keeps a global reference.
 
 -----------
 
------------
-
-
-
-# Module `hm.logger`
-
-Simple logger for debugging purposes.
-
-
-
------------
-
-## Module `hm.logger`
+## Type `<#notificationCenter>`
 
 
 
@@ -148,93 +158,20 @@ Simple logger for debugging purposes.
 
 
 
-### Field `hm.logger.historySize`: `<#number>`
-> **API CHANGE**: function hm.logger.historySize([v]) -> field hm.logger.historySize
 
-The number of log entries to keep in the history.
+### Method `<#notificationCenter>:register(event,cb,priority)`
 
-The starting value is 0 (history is disabled). To enable the log history, set this at the top of your userscript.
-If you change history size (other than from 0) after creating any logger instances, things will likely break.
+> **Internal/advanced use only** (e.g. for extension developers)
 
+> INTERNAL CHANGE: Centralized callback registry for notification centers, to be used by extensions.
 
 
------------
-
-## Type `<#logger>`
-
-
-
-A logger instance.
-
-
-
-
-### Function `<#logger>.fd(fmt,...)`
-
-> **API CHANGE**: logger.df -> logger.fd
-
-Logs formatted debug info to the console
 
 **Parameters:**
 
-* `fmt`: `<#string>` formatting string as per `string.format`
-* `...`: `?` one or more message strings
-
-
-
-
-### Function `<#logger>.fe(fmt,...)`
-
-> **API CHANGE**: logger.ef -> logger.fe
-
-Logs a formatted error to the console
-
-**Parameters:**
-
-* `fmt`: `<#string>` formatting string as per `string.format`
-* `...`: `?` one or more message strings
-
-
-
-
-### Function `<#logger>.fi(fmt,...)`
-
-> **API CHANGE**: logger.f -> logger.fi
-
-Logs formatted info to the console
-
-**Parameters:**
-
-* `fmt`: `<#string>` formatting string as per `string.format`
-* `...`: `?` one or more message strings
-
-
-
-
-### Function `<#logger>.fv(fmt,...)`
-
-> **API CHANGE**: logger.vf -> logger.fv
-
-Logs formatted verbose info to the console
-
-**Parameters:**
-
-* `fmt`: `<#string>` formatting string as per `string.format`
-* `...`: `?` one or more message strings
-
-
-
-
-### Function `<#logger>.fw(fmt,...)`
-
-> **API CHANGE**: logger.wf -> logger.fw
-
-Logs a formatted warning to the console
-
-**Parameters:**
-
-* `fmt`: `<#string>` formatting string as per `string.format`
-* `...`: `?` one or more message strings
+* `event`: `<#string>` 
+* `cb`: `<#function>` 
+* `priority`: `<#boolean>` 
 
 
 
