@@ -106,6 +106,7 @@ local function traverse(o,flt,i,parent)
   local function setItemTTag(t) t.ttag=getItemTTag(t) return t.ttag end
   local function _getItemType(t,typeref)
     --TODO for singlefile, all refs must be absolute (so, module must be included for internaltyperef)
+    if not t then return 'notype','' end
     local tag=t.tag
     if tag=='primitivetyperef' then
       if t.typename=='nil' then return 'niltype','nil'
@@ -150,9 +151,11 @@ local function traverse(o,flt,i,parent)
       for k,v in sortedpairs(o.globalvars) do
         if setItemTTag(v) then
           local f=traverse(v,flt,i+1)
-          tinsert(v.ttag=='function' and t.globalfunctions or t.globalfields,f)
-          print('Found global '..f.name)
-          t.anchors[sformat('%s#().%s',t.name,f.name)]=f
+          if f then
+            tinsert(v.ttag=='function' and t.globalfunctions or t.globalfields,f)
+            print('Found global '..f.name)
+            t.anchors[sformat('%s#().%s',t.name,f.name)]=f
+          end
         end
       end
       local moduleType
@@ -327,157 +330,6 @@ end
 
 
 
-
-local LINE='\n'
-local BR='\n\n'
-local TEMPLATE_MD={
-  ['module']='$(title)## Overview\n\n>(globalfunctions)>(globalfields)>(types)>>(globalfunctions)>>(globalfields)>>(types)',
-  ['module.title']='# Module $(fullname)\n\n$(short)\n\n$(long)\n\n',
-  ['module.fullname']='`$(name)`',
-  ['globalfunctions.index.pre']='| Global functions| |\n| :--- | :--- |\n',--function()return mdtableheader('Global functions')..'\n' end,
-  ['globalfunctions.index.sep']=LINE,
-  ['globalfunctions.index.post']=LINE,
-  ['globalfields.index.pre']='| Global fields | |\n| :--- | :--- |\n',--function()return mdtableheader('Global fields')..'\n' end,
-  ['globalfields.index.sep']=LINE,
-  ['globalfields.index.post']=LINE,
-
-  ['function.index']='$(htag) [`$(fullname)(>(parameters))`]($(link))>(returns) | $(short)',
-  ['function.link']='@{#($(plainparent)).$(name)}',
-
-  ['field.index']='$(htag) [`$(fullname)`]($(link)) : @@(type) | $(short)',
-  ['field.link']='@{#($(plainparent)).$(name)}',
-
-  ['types.index.pre']=LINE,
-  ['types.index.sep']='',
-  ['types.index.post']=BR,
-
-  ['type.index']='| $(htag) [$(fullname)]($(link)) | $(short) |\n| :--- | :---\n>(functions)>(fields)\n\n',
-  ['type.link']='@{#($(name))}',
-
-  ['functions.index.pre']='',
-  ['functions.index.sep']=LINE,
-  ['functions.index.post']=LINE,
-  ['fields.index.pre']='',
-  ['fields.index.sep']=LINE,
-  ['fields.index.post']=LINE,
-
-  ['globalfunctions.pre']='\n\n-----------\n\n## Global functions\n\n',
-  ['globalfunctions.sep']='',
-  ['globalfunctions.post']=BR,
-
-  ['globalfields.pre']='\n\n-----------\n\n## Global fields\n\n',
-  ['globalfields.sep']='',
-  ['globalfields.post']=BR,
-
-
-  ['types.pre']='\n\n-----------\n\n',
-  ['type']='$(title)>>(functions)>>(fields)',
-  ['type.title']='## $(header)\n\n$(static)\n\n@(extra)$(short)\n\n?(long)',
-  ['type.header']='$(htag) `$(fullname)`',
-  ['type.fullname']=function(o)return sformat(o.extra.static and '%s' or '<#%s>',o.name) end,
-  ['types.sep']='\n\n-----------\n\n',
-  ['types.post']=LINE,
-
-  ['fullname']='?(parent)$(invokator)$(name)',
-  ['parent']='$(fullname)',
-  ['plainparent']='?(parent.name)',
-
-  ['functions.pre']=LINE,
-  ['function']='$(title)>>(parameters)>>(returns)?(long)$(usage)',
-  ['function.title']='### $(header)\n\n@(extra)$(short)\n\n',
-  ['long']='$()\n\n',
-  ['function.header']='$(htag) `$(fullname)(>(parameters))`>(returns)',
-  ['functions.sep']=LINE,
-  ['functions.post']=LINE,
-
-  ['parameters.index.pre']='',
-  ['parameter.index']='$(name)',
-  ['parameters.index.sep']=',',
-  ['parameters.index.post']='',
-
-  ['returns.index.pre']=' -> ',
-  ['returntuple.index']='>(returntypes)',
-  ['returntypes.index.pre']='',
-  ['returntypes.index.sep']=',',
-  ['returntypes.index.post']='',
-  ['returns.index.sep']=' or ',
-  ['returns.index.post']='',
-
-  ['parameters.pre']='**Parameters:**\n\n',
-  ['parameter']='* `$(name)`: @@(type) $(short)',
-  ['parameters.sep']=LINE,
-  ['parameters.post']=BR,
-
-  ['returns.pre']='**Returns:**\n\n',
-  ['returntuple']='* >(returntypes) $(short)',
-  ['returntypes.pre']='',
-  ['returntypes.sep']=LINE,
-  ['returntypes.post']=LINE,
-  ['returns.sep']=LINE,
-  ['returns.post']=BR,
-
-
-  ['fields.pre']='',
-  ['field']='$(title)?(long)$(usage)',
-  ['field.title']='### $(header)\n\@(extra)$(short)\n\n',
-  ['field.header']='$(htag) `$(fullname)`: @@(type)',
-  ['fields.sep']=LINE,
-  ['fields.post']='',
-
-
-  ['type.static']=function(o)
-    assert(o.type.ttag=='internaltype')
-    return o.extra.static and '> Static table' or sformat('> Metatable for `<#%s>` objects',o.name)
-  end,
-  ['type.static']='',
-  ['extra']='?(dev)?(apichange)?(internalchange)',
-
-  ['dev']='> **Internal/advanced use only** (e.g. for extension developers)\n\n',
-  ['apichange']='> **API CHANGE**: $(short)\n\n',
-  ['internalchange']='> INTERNAL CHANGE: $(short)\n\n',
-
-  ['usage']=function(o) return o.extra.usage and sformat('**Usage**:\n\n```lua\n%s\n```',o.extra.usage.short) or '' end,
-
-  ['notype']='`?`',
-  ['notype.index']='`?`',
-  ['varargtype']='`...`',
-  ['varargtype.index']='`...`',
-  ['niltype']='`nil`',
-  ['niltype.index']='`nil`',
-  ['primitivetype']='`<#$(name)>`',
-  ['primitivetype.index']='`<#$(name)>`',
-
-  ['internaltype']='[`<#$(name)>`]($(typelink))',
-  ['internaltype.index']='[`<#$(name)>`]($(typelink))',
-  ['staticinternaltype']='[`$(name)`]($(typelink))',
-  ['staticinternaltype.index']='[`$(name)]($(typelink))',
-  ['externaltype']='[`<$(module)#$(name)>`]($(typelink))',
-  ['externaltype.index']='[`<$(module)#$(name)>`]($(typelink))',
-  --  ['externaltypelink']='$(module).md$(typelink)',
-  ['typelink']='@{$(module)#($(name))}',
-  --  ['typelink']=function(o)return '#'..slugify('<#'..o.name..'>') end, --FIXME
-  --  _['slugify']=function(o)local str=_[o.ttag..'.header'](o) return str:lower():gsub('%s','-'):gsub('[^%w%-_]','') end
-
-  ---special fn to generate anchors for resolveLinks
-  ['anchor']=function(s) assert(type(s)=='string') return s:lower():gsub('%s','-'):gsub('[^%w%-_]','') end,
-  ----make filename
-  ['filename']=function(dir,moduleName)
-    if not moduleName then moduleName=dir dir=nil end
-    if moduleName:sub(-3):lower()~='.md' then moduleName=moduleName..'.md' end
-    if dir then moduleName=dir..fs.separator..moduleName end
-    return moduleName
-  end,
-
-  ['toc']='# Documentation\n\n>>(docfiles)',
-  ['docfiles.pre']='| Module | |\n| :--- | :---|\n',
-  ['docfile']='| [`$(name)`]($(link)) | $(short) |',
-  ['docfiles.sep']=LINE,
-  ['docfiles.post']=BR,
-}
-
-
-
-
 ---Build docs.
 -- Args table:
 -- - format: 'html', 'md' or 'api'
@@ -534,13 +386,14 @@ local function makeDocs(args)
       end
     else print('Skipped, no module name') end
   end
-  local templ=args.format=='md' and TEMPLATE_MD or error'not implemented'
+  local templ=require'doctemplates'[args.what][args.format]
+  --  local templ=args.format=='md' and TEMPLATE_MD or error'not implemented'
   if not args.file then args.tocfile=templ.filename(args.dir,args.tocfile or (args.format=='md' and 'README.md' or 'index.html')) end
   for _,module in ipairs(modules) do
     print('Applying template for '..module.name)
     local body=template(module,templ)
     print('Resolving links for '..module.name)
-    body=resolveLinks(module.name,body,anchors,templ)
+    body=resolveLinks(args.file and 'N/A' or module.name,body,anchors,templ)
     tinsert(docs,args.file and body or {body=body,name=module.name,link=templ.filename(module.name),short=module.short,ttag='docfile'})
   end
   if args.file then

@@ -3,3 +3,4 @@ cd "${0%/*}"
 #cd "$(dirname "$(realpath "$0")")";
 /usr/bin/env lua5.1 -e "package.path=package.path..';./lib/?.lua;./lib/?/init.lua' package.cpath=package.cpath..';./lib/?.so' require'docbuilder'{format='md',dir='docs/md',modeldir='docs/models',heuristics=true,'../hm'}"
 /usr/bin/env lua5.1 -e "package.path=package.path..';./lib/?.lua;./lib/?/init.lua' package.cpath=package.cpath..';./lib/?.so' require'docbuilder'{format='md',what='apichanges',file='docs/md/API_CHANGES',heuristics=false,'../hm'}"
+/usr/bin/env lua5.1 -e "package.path=package.path..';./lib/?.lua;./lib/?/init.lua' package.cpath=package.cpath..';./lib/?.so' require'docbuilder'{format='md',what='internalchanges',file='docs/md/INTERNAL_CHANGES',heuristics=false,'../hm'}"
