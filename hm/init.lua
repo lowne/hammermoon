@@ -1,14 +1,34 @@
+
 local c=require'objc'
 c.load'AppKit'
 local tolua=c.tolua
 
 local tinsert,sformat=table.insert,string.format
-local log --hm.logger#logger
-local destroyers={}
+
+---@function [parent=#global] errorf
+--@param #string fmt
+--@param ...
+errorf=function(fmt,...)error(sformat(fmt,...))end
+
+---@function [parent=#global] assertf
+--@param #string fmt
+--@param ...
+assertf=function(v,fmt,...)if not v then errorf(fmt,...) end end
+
+---@function [parent=#global] printf
+--@param #string fmt
+--@param ...
+printf=function(fmt,...)return print(sformat(fmt,...)) end
+
+--package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
+--require'compat53'
 
 --- Hammermoon main module
 --@module hm
 --@static
+
+local log --hm.logger#logger
+local destroyers={}
 
 --- Hammermoon's namespace, globally accessible from userscripts
 hm={} --#hm
@@ -19,7 +39,7 @@ hs=hm
 ---@private
 function hm._lua_setup()
   print'----- Hammermoon starting up -----'
-  local newproxy,getmetatable,setmetatable,rawget=newproxy,getmetatable,setmetatable,rawget
+  local newproxy,getmetatable,setmetatable,rawget,rawset,type=newproxy,getmetatable,setmetatable,rawget,rawset,type
 
   ---Debug options
   --@type hm.debug
@@ -49,10 +69,70 @@ function hm._lua_setup()
   local function retainValues() return hmdebug.retain_user_objects and {} or cacheValues() end
   local function retainKeys() return hmdebug.retain_user_objects and {} or cacheKeys() end
 
-  local function propertyTable() return setmetatable({},{
-    __index=function(t,k) local getter=rawget(t,'_get_'..k) if getter then return getter() else return rawget(t,'_prop_'..k) end end,
-    __newindex=function(t,k,v) local setter=rawget(t,'_set_'..k) if setter then setter(v) end end,
-  }) end
+  local moduleNames=cacheKeys()
+  local properties={}
+  local deprecationWarnings=cacheValues()
+  local deprecatedFields={}
+
+  local function warnDeprecation(f)
+    if not f.allow then error(f.msg)
+    elseif not deprecationWarnings[f.key] then
+      deprecationWarnings[f.key]={} -- don't bother us for a bit
+      log.w(f.msg)
+    end
+  end
+  local fancymt={
+    __index=function(t,k)
+      if properties[t][k] then return properties[t][k].get()
+      elseif deprecatedFields[t] and deprecatedFields[t][k] then
+        local f=deprecatedFields[t][k]
+        warnDeprecation(f)
+        return f.value
+      else return nil end
+    end,
+    __newindex=function(t,k,v)
+      if properties[t] and properties[t][k] then properties[t][k].set(v)
+      elseif deprecatedFields[t] and deprecatedFields[t][k] then
+        local f=deprecatedFields[t][k]
+        warnDeprecation(f)
+        f.value=v
+      else rawset(t,k,v) end
+    end,
+  }
+  ---Add a user-facing field to a module with a custom getter and setter
+  -- @function [parent=#hm._core] property
+  -- @param #module module
+  -- @param #string fieldname
+  -- @param #function getter
+  -- @param #function setter
+
+  local function property(t,fieldname,getter,setter)
+    assert(getmetatable(t)==fancymt,'table was not created by hm._core.module()')
+    assert(type(getter)=='function' and type(setter)=='function','invalid getter or setter')
+    assert(rawget(t,fieldname)==nil,'property is shadowed by existing field')
+    properties[t]=properties[t] or {}
+    properties[t][fieldname]={get=getter,set=setter}
+  end
+  local function deprecate(allow,t,fieldname,replacement)
+    assert(getmetatable(t)==fancymt,'table was not created by hm._core.module()')
+    local fld=rawget(t,fieldname)
+    if not fld then error(rawget(properties[t][fieldname])and 'NYI: deprecate property' or 'no such field:'..fieldname) end
+    local key=sformat('%s.%s',moduleNames[t],fieldname)
+    if type(fld)=='function' then
+      local f={key=key,allow=allow,msg=sformat('%s() is deprecated. Use %s instead',key,replacement)}
+      rawset(t,fieldname,function(...)
+        warnDeprecation(f)
+        return fld(...)
+      end)
+    else
+      deprecatedFields[t]=deprecatedFields[t] or {}
+      deprecatedFields[t][fieldname]={value=fld,key=key,allow=allow,msg=sformat('%s is deprecated. Use %s instead',key,replacement)}
+      rawset(t,fieldname,nil)
+    end
+  end
+
+  local function fancyTable(t) return setmetatable(t or {},fancymt) end
+
 
   ---Hammermoon core facilities for use by extensions.
   --@type hm._core
@@ -60,7 +140,21 @@ function hm._lua_setup()
   --@static
   --@dev
 
-  local core={rawrequire=require,log=log,propertyTable=propertyTable,
+  ---Deprecate a field or function of a module
+  -- @function [parent=#hm._core] deprecate
+  -- @param #module module
+  -- @param #string fieldname
+  -- @param #string replacement The replacement field or function to direct users to
+
+  ---Disallow a field or function of a module (after deprecation)
+  -- @function [parent=#hm._core] disallow
+  -- @param #module module
+  -- @param #string fieldname
+  -- @param #string replacement The replacement field or function to direct users to
+
+  local core={rawrequire=require,protoModule=fancyTable, -- used only by logger
+    property=property,deprecate=function(...)return deprecate(true,...)end,
+    disallow=function(...)return deprecate(false,...) end,
     cacheValues=cacheValues,cacheKeys=cacheKeys,retainValues=retainValues,retainKeys=retainKeys}
 
   ---@field [parent=#hm] #hm._core _core
@@ -80,6 +174,9 @@ function hm._lua_setup()
   hm.logger.defaultLogLevel=5
   log=hm.logger.new'core'
   log.d'Autoload extensions ready'
+  core.log=log
+
+  --  local function deprecate()
 
   ---Declare a new Hammermoon extension.
   --Use this function to create the table for your module.
@@ -137,7 +234,9 @@ function hm._lua_setup()
       --@dev
       cls._new=new
     end
-    return {log=mlog,_class=cls}
+    local m=fancyTable{log=mlog,_class=cls}
+    moduleNames[m]=name
+    return m
   end
 
   core.module=hmmodule
