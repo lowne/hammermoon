@@ -10,25 +10,7 @@ if not c.AXIsProcessTrustedWithOptions(c.toobj{AXTrustedCheckOptionPrompt=1}) th
 end
 c.load'AppKit'
 
-local tolua=c.tolua
-
----@function [parent=#global] errorf
---@param #string fmt
---@param ...
-errorf=function(fmt,...)error(sformat(fmt,...))end
-
----@function [parent=#global] assertf
---@param #string fmt
---@param ...
-assertf=function(v,fmt,...)if not v then errorf(fmt,...) end end
-
----@function [parent=#global] printf
---@param #string fmt
---@param ...
-printf=function(fmt,...)return print(sformat(fmt,...)) end
-
 require'hm'
---hm._lua_setup()
---while true do end
+
 require'hammermoon_app'(hm._lua_setup,hm._lua_destroy)
 

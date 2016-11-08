@@ -20,8 +20,8 @@ assertf=function(v,fmt,...)if not v then errorf(fmt,...) end end
 --@param ...
 printf=function(fmt,...)return print(sformat(fmt,...)) end
 
---package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
---require'compat53'
+package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
+require'compat53'
 
 --- Hammermoon main module
 --@module hm
