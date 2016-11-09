@@ -15,9 +15,9 @@ Not even.
 - [x] `geometry` (in Lua)
 
 ### Docs
-- [User documentation](docs/md/README.md)
-- [API changes](docs/md/apichanges.md) from Hammerspoon
-- [Internal changes](docs/md/internalchanges.md) from Hammerspoon
+- [User documentation](build/docs/md/README.md)
+- [API changes](build/docs/md/API_CHANGES.md) from Hammerspoon
+- [Internal changes](build/docs/md/INTERNAL_CHANGES.md) from Hammerspoon
 
 ### Setup
 ```bash
