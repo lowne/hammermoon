@@ -2,7 +2,10 @@ local pathSep=require'fs.lfs'.separator
 local pairs,sformat=pairs,string.format
 
 local function extend(base,base2,t)
-  local r={}
+  local r=setmetatable({},
+    {__index=function(t,k)return function(o)
+      error((o.type and o.type.ttag or '?')..' '..o.name..': tag not implemented: '..k)
+    end end})
   for k,v in pairs(base) do r[k]=v end
   for k,v in pairs(base2) do r[k]=v end
   for k,v in pairs(t or {}) do r[k]=v end
@@ -147,6 +150,11 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,{
   ['internaltype.index']='[`<#$(name)>`]($(typelink))',
   ['staticinternaltype']='[`$(name)`]($(typelink))',
   ['staticinternaltype.index']='[`$(name)]($(typelink))',
+  --  ['listtype']='`{`[`<#$(valuetype.name)>`](@{$(valuetype.module)#($(valuetype.name))})`, ...}`',
+  ['listtype']='`{`@@(valuetype)`, ...}`',
+  ['listtype.index']='`{`@@(valuetype)`, ...}`',
+  ['maptype']='`{ [`@@(keytype)`] =`@@(valuetype)`, ...}`',
+  ['maptype.index']='`{ [`@@(keytype)`] =`@@(valuetype)`, ...}`',
   ['externaltype']='[`<$(module)#$(name)>`]($(typelink))',
   ['externaltype.index']='[`<$(module)#$(name)>`]($(typelink))',
   --  ['externaltypelink']='$(module).md$(typelink)',
@@ -188,7 +196,7 @@ local TEMPLATE_INTERNALCHANGES_MD=extend(TEMPLATE_MD,TEMPLATE_INTERNALCHANGES_BA
   })
 return {
   all={md=TEMPLATE_MD,html=TEMPLATE_HTML},
-  apichanges={md=TEMPLATE_APICHANGES_MD,html=TEMPLATE_APICHANGES_HTML},
-  internalchanges={md=TEMPLATE_INTERNALCHANGES_MD,html=TEMPLATE_INTERNALCHANGES_HTML},
+  apichange={md=TEMPLATE_APICHANGES_MD,html=TEMPLATE_APICHANGES_HTML},
+  internalchange={md=TEMPLATE_INTERNALCHANGES_MD,html=TEMPLATE_INTERNALCHANGES_HTML},
 }
 
