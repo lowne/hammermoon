@@ -1,7 +1,7 @@
 local date,time = os.date,os.time
-local min,max,tmove=math.min,math.max,table.move
+local min,max,tmove,tinsert=math.min,math.max,table.move,table.insert
 local sformat,ssub,slower,srep,sfind=string.format,string.sub,string.lower,string.rep,string.find
-local type,select,rawget,rawset,print=type,select,rawget,rawset,print
+local ipairs,type,select,rawget,rawset,print=ipairs,type,select,rawget,rawset,print
 local function printf(...) return print(sformat(...)) end
 local ERROR,WARNING,INFO,DEBUG,VERBOSE=1,2,3,4,5
 local MAXLEVEL=VERBOSE
@@ -22,7 +22,7 @@ local timeempty='        '
 ---Simple logger for debugging purposes.
 -- @module hm.logger
 -- @static
-local logger = hm._core.propertyTable()
+local logger = hm._core.protoModule()
 
 local instances=setmetatable({},{__mode='kv'})
 
@@ -32,7 +32,7 @@ local instances=setmetatable({},{__mode='kv'})
 -- @extends #string
 
 
---- Sets the log level for all logger instances (including objects' loggers)
+---Sets the log level for all logger instances (including objects' loggers)
 --@function [parent=#hm.logger] setGlobalLogLevel
 --@param #loglevel lvl
 logger.setGlobalLogLevel=function(lvl)
@@ -49,7 +49,8 @@ end
 -- @param #loglevel lvl
 logger.setModulesLogLevel=function(lvl)
   for ext,mod in pairs(package.loaded) do
-    if string.sub(ext,1,3)=='hs.' and mod~=hs then
+    local prefix=string.sub(ext,1,3)
+    if prefix=='hs.' or prefix=='hm.' and mod~=hs then
       if mod.setLogLevel then mod.setLogLevel(lvl) end
     end
   end
@@ -58,44 +59,30 @@ end
 local history={}
 local histIndex,histSize=0,0
 
----@private
-function logger._set_historySize(v) assert(type(v)=='number','size must be a number') histSize=min(v,100000) end
----@private
-function logger._get_historySize() return histSize end
-
 ---The number of log entries to keep in the history.
 -- The starting value is 0 (history is disabled). To enable the log history, set this at the top of your userscript.
 -- If you change history size (other than from 0) after creating any logger instances, things will likely break.
 -- @field [parent=#hm.logger] #number historySize
 -- @apichange function hm.logger.historySize([v]) -> field hm.logger.historySize
+hm._core.property(logger,'historySize',
+  function() return histSize end,
+  function(v) assert(type(v)=='number','size must be a number') histSize=min(v,1000000) end)
+--cannot deprecate the previous function as it has the same name
 
-
-logger.historySize=function(sz)
-  if sz==nil then return histSize end
-  if type(sz)~='number' then error('size must be a number')end
-  sz=min(sz,100000) histSize=sz
-  return sz
-end
 local function store(s)
   histIndex=histIndex+1
   if histIndex>histSize then histIndex=1 end
   history[histIndex]=s
 end
 
---- hs.logger.history() -> list of log entries
---- Function
---- Returns the global log history
----
---- Parameters:
----  * None
----
---- Returns:
----  * a list of (at most `hs.logger.historySize()`) log entries produced by all the logger instances, in chronological order;
----    each entry is a table with the following fields:
----    * time - timestamp in seconds since the epoch
----    * level - a number between 1 (error) and 5 (verbose)
----    * id - a string containing the id of the logger instance that produced this entry
----    * message - a string containing the logged message
+---Returns the global log history.
+-- Each log entry in the returned list is a table with the following fields:
+--   * time - timestamp in seconds since the epoch
+--   * level - a number between 1 (error) and 5 (verbose)
+--   * id - a string containing the id of the logger instance that produced this entry
+--   * message - a string containing the logged message
+-- @function [parent=#hm.logger] history
+-- @return a list of (at most `hs.logger.historySize`) log entries produced by all the logger instances, in chronological order
 logger.history=function()
   local start=histIndex+1
   if not history[start] then return history end
@@ -107,35 +94,32 @@ logger.history=function()
   return history
 end
 
-
---- hs.logger.printHistory([entries[, level[, filter[, caseSensitive]]]])
---- Function
---- Prints the global log history to the console
----
---- Parameters:
----  * entries - (optional) the maximum number of entries to print; if omitted, all entries in the history will be printed
----  * level - (optional) the desired log level (see `hs.logger:setLogLevel()`); if omitted, defaults to `verbose`
----  * filter - (optional) a string to filter the entries (by logger id or message) via `string.find` plain matching
----  * caseSensitive - (optional) if true, filtering is case sensitive
----
---- Returns:
----  * None
-logger.printHistory=function(entries,lvl,flt,case)
+logger.filterHistory=function(flt,lvl,case,entries)
   entries=entries or histSize
   local hist=logger.history()
-  local filt=hist
+  local filt={}
   if flt and not case then flt=slower(flt) end
-  if lvl or flt then
-    lvl=toLogLevel(lvl or 5)
-    filt={}
-    for _,e in ipairs(hist) do
-      if e.level<=lvl and (not flt or sfind(case and e.id or slower(e.id),flt,1,true) or sfind(case and e.mesage or slower(e.message),flt,1,true)) then
-        filt[#filt+1]=e
-      end
+  lvl=toLogLevel(lvl or 5)
+  local n=0
+  for i=#hist,1,-1 do
+    local e=hist[i]
+    if e.level<=lvl and (not flt or sfind(case and e.id or slower(e.id),flt,1,true) or sfind(case and e.mesage or slower(e.message),flt,1,true)) then
+      tinsert(filt,1,e)
+      n=n+1
+      if n>=entries then break end
     end
   end
-  for i=max(1,#filt-entries+1),#filt do
-    local e=filt[i]
+  return filt
+end
+
+---Prints the global log history to the console.
+-- @function [parent=#hm.logger] printHistory
+-- @param #string filter (optional) a string to filter the entries (by logger id or message) via `string.find` plain matching
+-- @param #loglevel level (optional) the desired log level; if omitted, defaults to `verbose`
+-- @param #boolean caseSensitive (optional) if true, filtering is case sensitive
+-- @param #number entries (optional) the maximum number of entries to print; if omitted, all entries in the history will be printed
+logger.printHistory=function(...)
+  for _,e in ipairs(logger.filterHistory(...)) do
     printf('%s %s%s %s%s',date('%X',e.time),LEVELFMT[e.level][1],sformat(idf,e.id),LEVELFMT[e.level][2],e.message)
     --     printf('%s %s%s %s%s',date('%X',e.time),LEVELFMT[e.level][1],sformat(idf,e.id),LEVELFMT[e.level][2],e.message)
   end
@@ -172,8 +156,8 @@ end
 logger.truncateID = "tail"
 logger.truncateIDWithEllipsis = false
 
---- Default log level for new logger instances.
--- The starting value is 'warning'; set this (to e.g. 'info') at the top of your `init.lua` to affect
+---Default log level for new logger instances.
+-- The starting value is `'warning'`; set this (to e.g. `'info'`) at the top of your userscript to affect
 -- all logger instances created without specifying a `loglevel` parameter
 -- @field [parent=#hm.logger] #loglevel defaultLogLevel
 logger.defaultLogLevel = 'warning'
@@ -182,7 +166,7 @@ logger.defaultLogLevel = 'warning'
 ---A logger instance.
 --@type logger
 
---- Create a new logger instance.
+---Creates a new logger instance.
 -- The logger instance created by this method is not a regular object, but a plain table with "static" functions;
 -- therefore, do *not* use the colon syntax for so-called "methods" in this module (as in `mylogger:setLogLevel(3)`);
 -- you must instead use the regular dot syntax: `mylogger.setLogLevel(3)`

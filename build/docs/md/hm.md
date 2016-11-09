@@ -38,6 +38,7 @@ Function [`hm._core.retainValues()`](#function-hm_coreretainvalues) |
 Field [`hm._core.defaultNotificationCenter`](#field-hm_coredefaultnotificationcenter-notificationcenter) : [`<#notificationCenter>`](#type-notificationcenter) | The default Notification Center.
 Field [`hm._core.log`](#field-hm_corelog-hmloggerlogger) : [`<hm.logger#logger>`](hm.logger.md#type-logger) | Logger instance for Hammermoon's core
 Field [`hm._core.rawrequire`](#field-hm_corerawrequire-) : `?` | 
+Field [`hm._core.sharedWorkspace`](#field-hm_coresharedworkspace-cdata) : `<#cdata>` | The shared `NSWorkspace` instance
 Field [`hm._core.systemWideAccessibility`](#field-hm_coresystemwideaccessibility-cdata) : `<#cdata>` | `AXUIElementCreateSystemWide()` instance
 Field [`hm._core.wsNotificationCenter`](#field-hm_corewsnotificationcenter-notificationcenter) : [`<#notificationCenter>`](#type-notificationcenter) | The shared workspace's Notification Center.
 
@@ -291,6 +292,12 @@ Logger instance for Hammermoon's core
 
 ### Field `hm._core.rawrequire`: `?`
 
+
+
+
+
+### Field `hm._core.sharedWorkspace`: `<#cdata>`
+The shared `NSWorkspace` instance
 
 
 

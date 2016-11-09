@@ -313,7 +313,7 @@ function M.makeModel(metamodel)
   local moduleTypeRef=assert(metamodel:moduletyperef(),'no module typeref!') assert(moduleTypeRef.tag=='internaltyperef')
   local moduleTypeDef=assert(metamodel.types[moduleTypeRef.typename],'no module type!') assert(moduleTypeDef.tag=='recordtypedef')
   --- add module's type
-  local moduleType=newType(moduleTypeDef) moduleType.htag='Module'
+  local moduleType=newType(moduleTypeDef) moduleType.extra.static=module.extra.static moduleType.htag='Module'
   --- gather types
   for k,v in sortedpairs(metamodel.types) do if v~=moduleTypeDef then
     assert(v.tag=='functiontypedef' or v.tag=='recordtypedef',v.name..' found inside types: '..v.tag)

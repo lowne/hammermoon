@@ -47,10 +47,15 @@ local screen=hm._core.module('screen',{
   __gc=function(self)end, --TODO
 })
 
----@type hm.screen.object
+---@type screen
 --@extends hm#module.class
 local scr=screen._class
 
+---@type screenlist
+--@list <#screen>
+
+--@type screenmap
+--@map <#number,#screen> haha
 local new,log=scr._new,screen.log
 
 
@@ -89,7 +94,16 @@ end
 cacheScreens()
 hm._core.defaultNotificationCenter:register('NSApplicationDidChangeScreenParametersNotification',cacheScreens)
 
+--TODO enable/disable screen
+
+---Returns all the screens currently connected and enabled.
+-- @function [parent=#hm.screen] allScreens
+-- @return #screenlist
 function screen.allScreens() return allScreens end
+
+---Returns the main screen.
+-- The main screen is the one containing the currently focused window
+-- @return #screen
 function screen.mainScreen() return newScreen(NSScreen:mainScreen()) end
 function screen.primaryScreen() return allScreens[1] end
 

@@ -245,3 +245,41 @@ Logs a formatted warning to the console
 
 -----------
 
+
+
+# Module `hm.screen`
+
+
+
+
+
+-----------
+
+## Type `<#screen>`
+
+
+
+
+
+
+
+
+### Method `<#screen>:currentMode()` -> `<#string>`
+
+> **API CHANGE**: Returns a string instead of a table
+
+Get the current display mode
+
+**Returns:**
+
+* `<#string>` 
+
+
+
+
+
+
+-----------
+
+-----------
+

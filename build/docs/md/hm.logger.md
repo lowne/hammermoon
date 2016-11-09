@@ -9,7 +9,9 @@ Simple logger for debugging purposes.
 
 | Module [hm.logger](#module-hmlogger) |  |
 | :--- | :---
-Function [`hm.logger.new(id,loglevel)`](#function-hmloggernewidloglevel---logger) -> [`<#logger>`](#type-logger) | Create a new logger instance.
+Function [`hm.logger.history()`](#function-hmloggerhistory---) -> `?` | Returns the global log history.
+Function [`hm.logger.new(id,loglevel)`](#function-hmloggernewidloglevel---logger) -> [`<#logger>`](#type-logger) | Creates a new logger instance.
+Function [`hm.logger.printHistory(filter,level,caseSensitive,entries)`](#function-hmloggerprinthistoryfilterlevelcasesensitiveentries) | Prints the global log history to the console.
 Function [`hm.logger.setGlobalLogLevel(lvl)`](#function-hmloggersetgloballoglevellvl) | Sets the log level for all logger instances (including objects' loggers)
 Function [`hm.logger.setModulesLogLevel(lvl)`](#function-hmloggersetmodulesloglevellvl) | Sets the log level for all currently loaded modules.
 Field [`hm.logger.defaultLogLevel`](#field-hmloggerdefaultloglevel-loglevel) : [`<#loglevel>`](#type-loglevel) | Default log level for new logger instances.
@@ -52,9 +54,24 @@ Field [`<#logger>.level`](#field-loggerlevel-number) : `<#number>` | The log lev
 
 
 
+### Function `hm.logger.history()` -> `?`
+
+Returns the global log history.
+
+**Returns:**
+
+* `?` a list of (at most `hs.logger.historySize`) log entries produced by all the logger instances, in chronological order
+
+Each log entry in the returned list is a table with the following fields:
+  * time - timestamp in seconds since the epoch
+  * level - a number between 1 (error) and 5 (verbose)
+  * id - a string containing the id of the logger instance that produced this entry
+  * message - a string containing the logged message
+
+
 ### Function `hm.logger.new(id,loglevel)` -> [`<#logger>`](#type-logger)
 
-Create a new logger instance.
+Creates a new logger instance.
 
 **Parameters:**
 
@@ -76,6 +93,20 @@ you must instead use the regular dot syntax: `mylogger.setLogLevel(3)`
 local log = hs.logger.new('mymodule','debug')
 log.i('Initializing') -- will print "[mymodule] Initializing" to the console
 ```
+### Function `hm.logger.printHistory(filter,level,caseSensitive,entries)`
+
+Prints the global log history to the console.
+
+**Parameters:**
+
+* `filter`: `<#string>` (optional) a string to filter the entries (by logger id or message) via `string.find` plain matching
+* `level`: [`<#loglevel>`](#type-loglevel) (optional) the desired log level; if omitted, defaults to `verbose`
+* `caseSensitive`: `<#boolean>` (optional) if true, filtering is case sensitive
+* `entries`: `<#number>` (optional) the maximum number of entries to print; if omitted, all entries in the history will be printed
+
+
+
+
 ### Function `hm.logger.setGlobalLogLevel(lvl)`
 
 Sets the log level for all logger instances (including objects' loggers)
@@ -102,7 +133,7 @@ you can use `hs.logger.setGlobalLogLevel()` for those
 ### Field `hm.logger.defaultLogLevel`: [`<#loglevel>`](#type-loglevel)
 Default log level for new logger instances.
 
-The starting value is 'warning'; set this (to e.g. 'info') at the top of your `init.lua` to affect
+The starting value is `'warning'`; set this (to e.g. `'info'`) at the top of your userscript to affect
 all logger instances created without specifying a `loglevel` parameter
 
 
@@ -291,4 +322,9 @@ A string or number describing a log level.
 
 Can be `'nothing'`, `'error'`, `'warning'`, `'info'`, `'debug'`, or `'verbose'`, or a corresponding number between 0 and 5.
 
+
+
+-----------
+
+-----------
 

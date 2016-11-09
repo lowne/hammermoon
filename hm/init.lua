@@ -26,6 +26,7 @@ package.cpath=package.cpath..';./lib/?.so'
 require'checks'
 require'compat53'
 
+
 --- Hammermoon main module
 --@module hm
 --@static
@@ -264,7 +265,8 @@ function hm._lua_setup()
   end
 
   core.module=hmmodule
-  core.sharedWorkspace=c.NSWorkspace:sharedWorkspace()
+  ---The shared `NSWorkspace` instance
+  core.sharedWorkspace=c.NSWorkspace:sharedWorkspace() -- #cdata
 
   ---@type notificationCenter
 

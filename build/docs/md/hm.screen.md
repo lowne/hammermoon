@@ -10,18 +10,18 @@
 | Module [hm.screen](#module-hmscreen) |  |
 | :--- | :---
 Function [`hm.screen._toCocoa(g)`](#function-hmscreen_tococoag) | 
-Function [`hm.screen.allScreens()`](#function-hmscreenallscreens) | 
-Function [`hm.screen.mainScreen()`](#function-hmscreenmainscreen) | 
+Function [`hm.screen.allScreens()`](#function-hmscreenallscreens---screen-) -> `{`[`<#screen>`](#type-screen)`, ...}` | Returns all the screens currently connected and enabled.
+Function [`hm.screen.mainScreen()`](#function-hmscreenmainscreen---screen) -> [`<#screen>`](#type-screen) | Returns the main screen.
 Function [`hm.screen.primaryScreen()`](#function-hmscreenprimaryscreen) | 
 
 
-| Type [<#hm.screen.object>](#type-hmscreenobject) |  |
+| Type [<#screen>](#type-screen) |  |
 | :--- | :---
-Method [`<#hm.screen.object>:currentMode()`](#method-hmscreenobjectcurrentmode---string) -> `<#string>` | Get the current display mode
-Method [`<#hm.screen.object>:frame()`](#method-hmscreenobjectframe) | 
-Method [`<#hm.screen.object>:id()`](#method-hmscreenobjectid) | 
-Method [`<#hm.screen.object>:name()`](#method-hmscreenobjectname) | 
-Method [`<#hm.screen.object>:visibleFrame()`](#method-hmscreenobjectvisibleframe) | 
+Method [`<#screen>:currentMode()`](#method-screencurrentmode---string) -> `<#string>` | Get the current display mode
+Method [`<#screen>:frame()`](#method-screenframe) | 
+Method [`<#screen>:id()`](#method-screenid) | 
+Method [`<#screen>:name()`](#method-screenname) | 
+Method [`<#screen>:visibleFrame()`](#method-screenvisibleframe) | 
 
 
 
@@ -52,18 +52,26 @@ Method [`<#hm.screen.object>:visibleFrame()`](#method-hmscreenobjectvisibleframe
 
 
 
-### Function `hm.screen.allScreens()`
+### Function `hm.screen.allScreens()` -> `{`[`<#screen>`](#type-screen)`, ...}`
+
+Returns all the screens currently connected and enabled.
+
+**Returns:**
+
+* `{`[`<#screen>`](#type-screen)`, ...}` 
 
 
 
 
+### Function `hm.screen.mainScreen()` -> [`<#screen>`](#type-screen)
 
+Returns the main screen.
 
-### Function `hm.screen.mainScreen()`
+**Returns:**
 
+* [`<#screen>`](#type-screen) 
 
-
-
+The main screen is the one containing the currently focused window
 
 
 ### Function `hm.screen.primaryScreen()`
@@ -77,7 +85,7 @@ Method [`<#hm.screen.object>:visibleFrame()`](#method-hmscreenobjectvisibleframe
 
 -----------
 
-## Type `<#hm.screen.object>`
+## Type `<#screen>`
 
 
 
@@ -86,7 +94,7 @@ Method [`<#hm.screen.object>:visibleFrame()`](#method-hmscreenobjectvisibleframe
 
 
 
-### Method `<#hm.screen.object>:currentMode()` -> `<#string>`
+### Method `<#screen>:currentMode()` -> `<#string>`
 
 > **API CHANGE**: Returns a string instead of a table
 
@@ -99,32 +107,37 @@ Get the current display mode
 
 
 
-### Method `<#hm.screen.object>:frame()`
+### Method `<#screen>:frame()`
 
 
 
 
 
 
-### Method `<#hm.screen.object>:id()`
+### Method `<#screen>:id()`
 
 
 
 
 
 
-### Method `<#hm.screen.object>:name()`
+### Method `<#screen>:name()`
 
 
 
 
 
 
-### Method `<#hm.screen.object>:visibleFrame()`
+### Method `<#screen>:visibleFrame()`
 
 
 
 
 
 
+
+
+-----------
+
+-----------
 
