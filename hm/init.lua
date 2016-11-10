@@ -21,11 +21,23 @@ assertf=function(v,fmt,...)if not v then errorf(fmt,...) end end
 --@param ...
 printf=function(fmt,...)return print(sformat(fmt,...)) end
 
+---Quits Hammermoon.
+-- This function will make sure to properly close the Lua state, so that all the __gc metamethods will run.
+--@function [parent=#global] quit
+quit=function()os.exit(1,1)end
+
+---@dev
+inspect=function(t,inline,depth)
+  if type(t)~='table' then return print(t)
+  else return print(require'lib.inspect'(t,{depth=depth or (inline and 3 or 6),newline=inline and ' ' or '\n'})) end
+end
+
 package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
 package.cpath=package.cpath..';./lib/?.so'
 require'checks'
 require'compat53'
-
+local type,floor=type,math.floor
+checkers.uint=function(v)return type(v)=='number' and v>0 and floor(v)==v end
 
 --- Hammermoon main module
 --@module hm
@@ -34,7 +46,7 @@ require'compat53'
 --@internalchange Using the 'compat53' library, but syntax-level things (such as # not using __len) are still Lua 5.1
 
 local log --hm.logger#logger
-local destroyers={}
+--local destroyers={}
 
 --- Hammermoon's namespace, globally accessible from userscripts
 hm={} --#hm
@@ -45,7 +57,7 @@ hs=hm
 ---@private
 function hm._lua_setup()
   print'----- Hammermoon starting up -----'
-  local newproxy,getmetatable,setmetatable,rawget,rawset,type=newproxy,getmetatable,setmetatable,rawget,rawset,type
+  local newproxy,getmetatable,setmetatable,rawget,rawset=newproxy,getmetatable,setmetatable,rawget,rawset
 
   ---Debug options
   --@type hm.debug
@@ -65,10 +77,19 @@ function hm._lua_setup()
   -- @field [parent=#hm.debug] #boolean cache_uielements
   -- @internalchange Uielements are cached
 
-  local hmdebug={
+  ---Disable type checks (default `false`).
+  -- If set to `true`, type checks are disabled for slightly better performance.
+  -- @field [parent=#hm.debug] #boolean disableTypeChecks
+  -- @internalchange Centralized switch for type checking - Hammermoon modules should all use `checks()`
+
+  local rawchecks=checks
+  local hmdebug=setmetatable({
     retain_user_objects=true,
     cache_uielements=true,
-  }
+  },{__newindex=function(t,k,v)
+    if k=='disableTypeChecks' then checks=v and rawchecks or function()end
+    else error('Invalid debug field '..k) end
+  end})
   ---@field [parent=#hm] #hm.debug debug
   hm.debug=hmdebug
 
@@ -77,7 +98,16 @@ function hm._lua_setup()
     local pfx=modname:sub(1,3)
     if pfx=='hs.' then modname='hm.'..modname:sub(4) end
     local mod=rawrequire(modname)
-    if type(mod)=='table' then tinsert(destroyers,rawget(mod,'_hmdestroy')) end
+    if type(mod)=='table' then
+      --      tinsert(destroyers,rawget(mod,'_hmdestroy'))
+      local gc=rawget(mod,'__gc')
+      if gc then
+        assert(not rawget(mod,'__proxy'))
+        local proxy=newproxy(true)
+        getmetatable(proxy).__gc=function()mod.log.i('Unloading') return gc(mod) end
+        rawset(mod,'__proxy',proxy)
+      end
+    end
     return mod
   end
 
@@ -232,7 +262,9 @@ function hm._lua_setup()
   --@type module.class
   --@dev
 
-
+  ---Implement this function to perform any required cleanup when a module is unloaded
+  --@function [parent=#module] __gc
+  --@dev
 
   local function hmmodule(name,classmt)
     local mlog=hm.logger.new(name)
@@ -245,10 +277,10 @@ function hm._lua_setup()
       local gc=classmt.__gc
       local new=not gc and make or function(o)
         -- attach gc handler to our objects; if/when luajit gets the new gc that directly allows __gc in the metatable, this will be unnecessary
-        assert(not o.__proxy)
+        assert(not rawget(o,'__proxy'))
         local proxy=newproxy(true)
         getmetatable(proxy).__gc=function()log.v('collected:',o) return gc(o) end
-        o.__proxy=proxy
+        rawset(o,'__proxy',proxy)
         return make(o)
       end
       ---Create a new instance.
@@ -358,8 +390,8 @@ end
 
 ---@private
 function hm._lua_destroy()
-  for _,destroyer in ipairs(destroyers) do destroyer() end
-  --  for ext in pairs(package.loaded) do if ext._hmdestroy then ext._hmdestroy() end end
+  log.i'Shutting down'
+  --  for _,destroyer in ipairs(destroyers) do log.i'Shutting down'destroyer() end
   local core=hm._core
   log.d'Removing observers for notifications'
   for _,nc in ipairs{core.defaultNotificationCenter,core.wsNotificationCenter} do
@@ -367,5 +399,9 @@ function hm._lua_destroy()
   end
   --  for _,obs in ipairs(core.wsNCObservers) do core.wsNotificationCenter:removeObserver(obs,nil) end
 end
+
+---@private
+hm.__proxy=newproxy(true)
+getmetatable(hm.__proxy).__gc=hm._lua_destroy
 
 return hm
