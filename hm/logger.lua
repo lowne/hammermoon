@@ -127,7 +127,7 @@ end
 
 -- logger
 local lf = function(loglevel,lvl,id,fmt,...)
-  if histSize<=0 and loglevel<lvl then return end
+  if histSize<=0 and loglevel<lvl then if lvl==ERROR then return nil,sformat(fmt,...) else return end end
   local ct = time()
   local msg=sformat(fmt,...)
   if histSize>0 then store({time=ct,level=lvl,id=id,message=msg}) end
@@ -139,10 +139,10 @@ local lf = function(loglevel,lvl,id,fmt,...)
   if id==lastid and lvl>3 then id=idempty else lastid=id end
   if lvl==ERROR then print'********' end
   printf('%s %s%s %s%s',stime,LEVELFMT[lvl][1],id,LEVELFMT[lvl][2],msg)
-  if lvl==ERROR then print'********' end
+  if lvl==ERROR then print'********' return nil,msg end
 end
 local l = function(loglevel,lvl,id,...)
-  if histSize>0 or loglevel>=lvl then return lf(loglevel,lvl,id,srep('%s',select('#',...),' '),...) end
+  if histSize>0 or loglevel>=lvl or lvl==ERROR then return lf(loglevel,lvl,id,srep('%s',select('#',...),' '),...) end
 end
 
 logger.idLength=function(len)
@@ -211,64 +211,68 @@ function logger.new(id,loglevel)
 end
 return logger
 
---- Sets the log level of the logger instance
+---Sets the log level of the logger instance
 -- @function [parent=#logger] setLogLevel
 -- @param #loglevel loglevel can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose'; or a corresponding number between 0 and 5
 
---- Gets the log level of the logger instance
+---Gets the log level of the logger instance
 -- @function [parent=#logger] getLogLevel
 -- @return #number The log level of this logger as a number between 0 ('nothing') and 5 ('verbose')
 
---- The log level of the logger instance, as a number between 0 and 5
+---The log level of the logger instance, as a number between 0 and 5
 -- @field [parent=#logger] #number level
 
---- Logs an error to the console
+---Logs an error to the console
 -- @function [parent=#logger] e
 -- @param ... one or more message strings
+-- @return #nil,#string nil and the error message
+-- @apichange returns nil,error as per Lua informal standard; module functions can use the idiom `return log.e(...)` to fail
 
---- Logs a formatted error to the console
+---Logs a formatted error to the console
 -- @function [parent=#logger] fe
 -- @param #string fmt formatting string as per `string.format`
 -- @param ... one or more message strings
---@apichange logger.ef -> logger.fe
+-- @return #nil,#string nil and the error message
+-- @apichange logger.ef -> logger.fe
+-- @apichange returns nil,error as per Lua informal standard; module functions can use the idiom `return log.fe(fmt,...)` to fail
 
---- Logs a warning to the console
+---Logs a warning to the console
 -- @function [parent=#logger] w
 -- @param ... one or more message strings
 
---- Logs a formatted warning to the console
+---Logs a formatted warning to the console
 -- @function [parent=#logger] fw
 -- @param #string fmt formatting string as per `string.format`
 -- @param ... one or more message strings
---@apichange logger.wf -> logger.fw
+-- @apichange logger.wf -> logger.fw
 
---- Logs info to the console
+---Logs info to the console
 -- @function [parent=#logger] i
 -- @param ... one or more message strings
 
---- Logs formatted info to the console
+---Logs formatted info to the console
 -- @function [parent=#logger] fi
 -- @param #string fmt formatting string as per `string.format`
 -- @param ... one or more message strings
---@apichange logger.f -> logger.fi
+-- @apichange logger.f -> logger.fi
 
---- Logs debug info to the console
+---Logs debug info to the console
 -- @function [parent=#logger] d
 -- @param ... one or more message strings
 
---- Logs formatted debug info to the console
+---Logs formatted debug info to the console
 -- @function [parent=#logger] fd
 -- @param #string fmt formatting string as per `string.format`
 -- @param ... one or more message strings
---@apichange logger.df -> logger.fd
+-- @apichange logger.df -> logger.fd
 
---- Logs verbose info to the console
+---Logs verbose info to the console
 -- @function [parent=#logger] v
 -- @param ... one or more message strings
 
---- Logs formatted verbose info to the console
+---Logs formatted verbose info to the console
 -- @function [parent=#logger] fv
 -- @param #string fmt formatting string as per `string.format`
 -- @param ... one or more message strings
---@apichange logger.vf -> logger.fv
+-- @apichange logger.vf -> logger.fv
 
