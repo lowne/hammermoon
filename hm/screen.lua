@@ -163,7 +163,7 @@ end
 -- @param #screen self
 -- @param #string pattern A pattern to filter the modes as per `string.find`; e.g. passing `"/60" will only return modes with a refresh rate of 60Hz
 -- @return #screenModeList
--- @apichange Returns a plain list of strings
+-- @apichange Returns a plain list of strings. Allows filtering.
 function scr:availableModes(pattern) checks('hm.screen#screen','?string')
   pattern=pattern or ''
   c.CGSGetNumberOfDisplayModes(self._sid,idx_out)
@@ -184,7 +184,7 @@ end
 ---
 -- @param #screen self
 -- @param #screenMode mode
--- @apichange Refresh rate is supported
+-- @apichange Refresh rate, color depth are supported.
 -- @internalchange Will pick the highest refresh rate (if not specified) and color depth=4 (if available, and unless specified to 8).
 -- @internalchange depth==8 isn't supported in HS!
 function scr:setMode(mode) checks('hm.screen#screen','hm.screen#screenMode|table')
@@ -219,13 +219,13 @@ local function getGammaTable(sid)
   local size=c.CGDisplayGammaTableCapacity(sid)
   local g={gammaTable_t(size),gammaTable_t(size),gammaTable_t(size)}
   local ok=c.CGGetDisplayTransferByTable(sid,size,g[1],g[2],g[3],idx_out)
-  if not ok then return log.e('Error',ok,'getting gamma table on',screens[sid]) end
+  if not ok then return log.e('Error',require'bridge.cgerror'[ok],'getting gamma table on',screens[sid]) end
   g.size=idx_out[0]
   return g
 end
 local function setGammaTable(sid,g)
   local ok=c.CGSetDisplayTransferByTable(sid,g.size,g[1],g[2],g[3])
-  if not ok then return log.e('Error',ok,'setting gamma table on',screens[sid]) end
+  if not ok then return log.e('Error',require'bridge.cgerror'[ok],'setting gamma table on',screens[sid]) end
 end
 
 local originalGammas,currentGammas={},{}
@@ -273,7 +273,7 @@ local function displayReconfigurationCallback(id,flags,_)
   if band(flags,kCGDisplayAddFlag) then storeOriginalGamma(id)
   elseif band(flags,kCGDisplayRemoveFlag) then originalGammas[id]=nil currentGammas[id]=nil
   elseif band(flags,kCGDisplayDisabledFlag) then currentGammas[id]=nil
-  elseif band(flags,kCGDisplayEnabledFlag) then
+  elseif band(flags,kCGDisplayEnabledFlag) then -- should this restore our desired gamma?
   elseif band(flags,kCGDisplayBeginConfigurationFlag) then
   else reapplyGammaTimer:start() end
 end
@@ -291,7 +291,7 @@ function scr:getGamma() checks'hm.screen#screen'
   local last=g.size-1
   return {{g[1][0],g[2][0],g[3][0]},{g[1][last],g[2][last],g[3][last]}}
 end
-function scr:setGamma(gammaTable,_hscompat) checks'hm.screen#screen' --other args later
+function scr:setGamma(gammaTable,_hscompat) checks'hm.screen#screen' --other args checked in setgamma
   gammaInit()
   if _hscompat then gammaTable={hsGammaPoint(_hscompat),hsGammaPoint(gammaTable)} end
   return setGamma(self._sid,gammaTable)
