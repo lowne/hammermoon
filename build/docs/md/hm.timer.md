@@ -21,14 +21,15 @@ Function [`hm.timer.toSeconds(timeString)`](hm.timer.md#function-hmtimertosecond
 | Class [<#timer>](hm.timer.md#class-timer) | Type for timer objects. |
 | :--- | :---
 Method [`<#timer>:cancel()`](hm.timer.md#method-timercancel) | Unschedule a timer.
-Method [`<#timer>:destroy()`](hm.timer.md#method-timerdestroy) | 
 Method [`<#timer>:run()`](hm.timer.md#method-timerrun) | Executes the timer now.
 Method [`<#timer>:runAfter(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunafterpredicatefncheckintervalcontinueonerror) | Schedules execution of the timer after a given predicate becomes false.
 Method [`<#timer>:runEvery(repeatInterval,delayOrStartTime,continueOnError)`](hm.timer.md#method-timerruneveryrepeatintervaldelayorstarttimecontinueonerror) | Schedules repeated execution of the timer.
 Method [`<#timer>:runIn(delay)`](hm.timer.md#method-timerrunindelay) | Schedules execution of the timer after a given delay.
 Method [`<#timer>:runWhen(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunwhenpredicatefncheckintervalcontinueonerror) | Schedules execution of the timer every time a given predicate is true.
 Method [`<#timer>:runWhile(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunwhilepredicatefncheckintervalcontinueonerror) | Schedules repeated execution of the timer while a given predicate remains true.
-Field [`<#timer>.running`](hm.timer.md#field-timerrunning-boolean) : _`<#boolean>`_ | 
+Property (read-only) [`<#timer>.lastRun`](hm.timer.md#property-read-only-timerlastrun-number) : _`<#number>`_ | The timer's last execution time, in seconds since.
+Property [`<#timer>.nextRun`](hm.timer.md#property-timernextrun-number) : _`<#number>`_ | The timer's scheduled next execution time, in seconds from now.
+Property [`<#timer>.scheduled`](hm.timer.md#property-timerscheduled-boolean) : _`<#boolean>`_ | `true` if the timer is scheduled for execution.
 
 
 | Type [<#intervalString>](hm.timer.md#type-intervalstring) | A string describing a time interval. |
@@ -144,13 +145,6 @@ Unschedule a timer.
 The timer's [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) will not be executed again until you call one of its `:run...()` methods.
 
 
-### Method `<#timer>:destroy()`
-
-
-
-
-
-
 ### Method `<#timer>:run()`
 
 Executes the timer now.
@@ -263,10 +257,24 @@ The given `predicateFn` will start being checked right away. While it returns `t
 execute; as soon as it returns `false` the timer will be canceled.
 
 
-### Field `<#timer>.running`: _`<#boolean>`_
+### Property (read-only) `<#timer>.lastRun`: _`<#number>`_
+The timer's last execution time, in seconds since.
+
+If the timer has never been executed, this value is the time since creation.
 
 
+### Property `<#timer>.nextRun`: _`<#number>`_
+The timer's scheduled next execution time, in seconds from now.
 
+If this value is `nil`, the timer is currently unscheduled.
+You cannot set this value to a negative number; setting it to `0` triggers timer execution right away;
+setting it to `nil` unschedules the timer.
+
+
+### Property `<#timer>.scheduled`: _`<#boolean>`_
+`true` if the timer is scheduled for execution.
+
+Setting this to `false` or `nil` unschedules the timer.
 
 
 

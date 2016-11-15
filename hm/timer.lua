@@ -32,10 +32,8 @@ local HIGH_FREQUENCY_THRESHOLD=1 -- (seconds) inclusive
 
 local nextTrigger -- fw decl
 local function nextTriggerToString(self)
-  if not self._isRunning then return 'not scheduled' end
   local delta=nextTrigger(self)
-  if delta<0 then return 'not scheduled' end
-  if delta>314496000 then return 'on hold' end
+  if not delta then return 'not scheduled' end
   local h,m,s=floor(delta/3600),floor(delta/60)%60,delta<10 and sformat('%.2f',delta%60) or floor(delta%60)
   h,m=h>0 and tostring(h)..'h ' or '',m>0 and tostring(m)..'m ' or ''
   return sformat('%s in %s%s%ss',self._isPredicate and 'check predicate' or 'scheduled to execute',h,m,s)
@@ -134,7 +132,8 @@ local tmr=timer._class
 local new=tmr._new
 
 local runningTimers=hm._core.retainValues()
-local timers,timerCount=hm._core.retainKeys(),0
+local timerCount=0
+
 ---Creates a new timer.
 -- @param #timerFunction fn a function to be executed later
 -- @param data (optional) arbitrary data that will be passed to `fn`; if the special string `"elapsed"`, `fn` will be passed the time in seconds since the previous execution (or creation)
@@ -143,8 +142,9 @@ local timers,timerCount=hm._core.retainKeys(),0
 function timer.new(fn,data) hmcheck'function'
   timerCount=timerCount+1
   local o=new{_ref=timerCount,_runcb=fn,_timercb=fn,_data=data,isRunning=false,_lastTrigger=CFAbsoluteTimeGetCurrent(),_elapsed=data=='elapsed' or nil}
-  timers[o]=true return o
+  log.d('Created',o) return o
 end
+
 ---A function that will be executed by a timer.
 -- @function [parent=#hm.timer] timerFunction
 -- @param #timer timer the timer that scheduled execution of this function
@@ -154,7 +154,6 @@ end
 
 
 local function start(self,nextTrigger)
-  if self._isDestroyed then return log.e(self,'was destroyed, cannot schedule!') end
   CFRunLoopTimerSetNextFireDate(self._timer,nextTrigger)
   if self._isRunning then log.v('Rescheduled',self) return end
   self._isRunning=true
@@ -165,8 +164,8 @@ end
 
 local function stop(self)
   if not self._isRunning or not self._timer then return end
-  log.d('Unscheduled',self)
   self._isRunning=false
+  log.d('Unscheduled',self)
   runningTimers[nptr(self._timer)]=nil
   CFRunLoopRemoveTimer(currentRL,self._timer,kCFRunLoopDefaultMode)
 end
@@ -189,19 +188,15 @@ local function getTimer(cftimer) return runningTimers[nptr(cftimer)] or error'ti
 local timerCallback=function(cftimer,_) return getTimer(cftimer):_timercb() end
 local function makeTimer(self,interval,timercb)
   local highFreq=interval>0 and interval<=HIGH_FREQUENCY_THRESHOLD or nil
-
   if self._timer and highFreq~=self._highFrequency then
     stop(self) self._timer=nil -- have the wrong sort of timer, throw away the old one
   end
   if not self._timer then
-    --    self._timer=c.CFRunLoopTimerCreateWithHandler(nil,CFAbsoluteTimeGetCurrent()+delay,highFreq and interval or DISTANT_FUTURE,0,0,timerCallback)
-    --    self._timer=c.CFRunLoopTimerCreateWithHandler(nil,0,highFreq and interval or DISTANT_FUTURE,0,0,timerCallback) --FIXME
     self._timer=c.CFRunLoopTimerCreate(nil,0,highFreq and interval or DISTANT_FUTURE,0,0,timerCallback,nil)
     self._highFrequency=highFreq
   end
-  --  self._interval=interval>HIGH_FREQUENCY_THRESHOLD and interval or nil
   self._interval=not highFreq and interval or nil
-  self._timercb=timercb or run--self._runcb
+  self._timercb=timercb or run
   self._isPredicate=timercb and true or nil
 end
 
@@ -224,26 +219,39 @@ function tmr:cancel() hmcheck'hm.timer#timer' stop(self) end
 --  CFRunLoopTimerSetNextFireDate(self._timer,DISTANT_FUTURE)
 --end
 
-function tmr:destroy() hmcheck'hm.timer#timer' stop(self) timers[self]=nil self._isDestroyed=true end
+--function tmr:destroy() hmcheck'hm.timer#timer' stop(self) timers[self]=nil self._isDestroyed=true end
 
----
---
--- @field [parent=#timer] #boolean running
-hm._core.property(tmr,'running',function(self)return self._isRunning end,false)
+---`true` if the timer is scheduled for execution.
+-- Setting this to `false` or `nil` unschedules the timer.
+-- @field [parent=#timer] #boolean scheduled
+-- @property
+hm._core.property(tmr,'scheduled',
+  function(self)return self._isRunning or false end,
+  function(self,v)hmcheck('?','?false') stop(self)
+  end)
 
 nextTrigger=function(self) hmcheck'hm.timer#timer'
-  local now=CFAbsoluteTimeGetCurrent()
-  if not self._timer then return self._lastTrigger-now end
-  local delta=CFRunLoopTimerGetNextFireDate(self._timer)-now
-  return delta>NOT_SCHEDULED_INTERVAL_THRESHOLD and self._lastTrigger-now or delta
+  if not self._timer or not self._isRunning then return nil end
+  local delta=CFRunLoopTimerGetNextFireDate(self._timer)-CFAbsoluteTimeGetCurrent()
+  return delta<NOT_SCHEDULED_INTERVAL_THRESHOLD and delta or nil
 end
-local function setNextTrigger(self,delay) hmcheck('hm.timer#timer','hm.timer#intervalString')
-  return self._timer and start(self,CFAbsoluteTimeGetCurrent()+parseInterval(delay))
+local function setNextTrigger(self,delay) hmcheck('hm.timer#timer','?false|hm.timer#intervalString')
+  if not delay then return stop(self) end
+  if not self._timer then makeTimer(self,0) end
+  return start(self,CFAbsoluteTimeGetCurrent()+parseInterval(delay))
 end
----
---
--- @field [parent=#timer] #boolean running
-hm._core.property(tmr,'nextTrigger',nextTrigger,setNextTrigger)
+---The timer's scheduled next execution time, in seconds from now.
+-- If this value is `nil`, the timer is currently unscheduled.
+-- You cannot set this value to a negative number; setting it to `0` triggers timer execution right away;
+-- setting it to `nil` unschedules the timer.
+-- @field [parent=#timer] #number nextRun
+-- @property
+hm._core.property(tmr,'nextRun',nextTrigger,setNextTrigger)
+---The timer's last execution time, in seconds since.
+-- If the timer has never been executed, this value is the time since creation.
+-- @field [parent=#timer] #number lastRun
+-- @readonlyproperty
+hm._core.property(tmr,'lastRun',function(self)return CFAbsoluteTimeGetCurrent()-self._lastTrigger end,false)
 
 --[[
 ---Schedules execution of the timer at a given time of day.

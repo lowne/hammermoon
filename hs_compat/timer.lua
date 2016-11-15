@@ -73,14 +73,14 @@ deprecate(hstimer,'start','hm.timer.new():runEvery()')
 function hstimer:stop() self._hmtimer:destroy() return self end
 deprecate(hstimer,'stop','hm.timer.new():cancel()')
 
-function hstimer:running()  return self._hmtimer.running end
-deprecate(hstimer,'running','<#hm.timer>.running')
+function hstimer:running()  return self._hmtimer.scheduled end
+deprecate(hstimer,'running','<#hm.timer>.scheduled')
 
-function hstimer:nextTrigger() return self._hmtimer.nextTrigger end
-deprecate(hstimer,'nextTrigger','<#hm.timer>.nextTrigger')
+function hstimer:nextTrigger() return self._hmtimer.nextRun end
+deprecate(hstimer,'nextTrigger','<#hm.timer>.nextRun')
 
-function hstimer:setNextTrigger(v) self._hmtimer.nextTrigger=v end
-deprecate(hstimer,'setNextTrigger','<#hm.timer>.nextTrigger=value')
+function hstimer:setNextTrigger(v) self._hmtimer.nextRun=v end
+deprecate(hstimer,'setNextTrigger','<#hm.timer>.nextRun=value')
 
 -------------------- delayed ------------------------
 local hsdelayed=hm._core.hs_compat_module('timer.delayed')
@@ -99,6 +99,6 @@ function hsdelayed:setDelay(delay) self._delay=delay return self:start() end
 deprecate(hsdelayed,'setDelay')
 
 function hsdelayed:running() return self._hmtimer.running end
-function hsdelayed:nextTrigger() local n=self._hmtimer.nextTrigger return n>0 and n or nil end
+function hsdelayed:nextTrigger() return self._hmtimer.nextRun end
 
 return hstimer
