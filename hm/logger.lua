@@ -22,7 +22,7 @@ local timeempty='        '
 ---Simple logger for debugging purposes.
 -- @module hm.logger
 -- @static
-local logger = hm._core.protoModule()
+local logger=hm._core.protoModule('logger')
 
 local instances=setmetatable({},{__mode='kv'})
 

@@ -7,35 +7,35 @@ Simple logger for debugging purposes.
 ## Overview
 
 
-| Module [hm.logger](#module-hmlogger) |  |
+| Module [hm.logger](hm.logger.md#module-hmlogger) |  |
 | :--- | :---
-Function [`hm.logger.history()`](#function-hmloggerhistory---) -> `?` | Returns the global log history.
-Function [`hm.logger.new(id,loglevel)`](#function-hmloggernewidloglevel---logger) -> [`<#logger>`](#type-logger) | Creates a new logger instance.
-Function [`hm.logger.printHistory(filter,level,caseSensitive,entries)`](#function-hmloggerprinthistoryfilterlevelcasesensitiveentries) | Prints the global log history to the console.
-Function [`hm.logger.setGlobalLogLevel(lvl)`](#function-hmloggersetgloballoglevellvl) | Sets the log level for all logger instances (including objects' loggers)
-Function [`hm.logger.setModulesLogLevel(lvl)`](#function-hmloggersetmodulesloglevellvl) | Sets the log level for all currently loaded modules.
-Field [`hm.logger.defaultLogLevel`](#field-hmloggerdefaultloglevel-loglevel) : [`<#loglevel>`](#type-loglevel) | Default log level for new logger instances.
-Field [`hm.logger.historySize`](#field-hmloggerhistorysize-number) : `<#number>` | The number of log entries to keep in the history.
+Function [`hm.logger.history()`](hm.logger.md#function-hmloggerhistory---) -> _`<?>`_ | Returns the global log history.
+Function [`hm.logger.new(id,loglevel)`](hm.logger.md#function-hmloggernewidloglevel---logger) -> [_`<#logger>`_](hm.logger.md#type-logger) | Creates a new logger instance.
+Function [`hm.logger.printHistory(filter,level,caseSensitive,entries)`](hm.logger.md#function-hmloggerprinthistoryfilterlevelcasesensitiveentries) | Prints the global log history to the console.
+Function [`hm.logger.setGlobalLogLevel(lvl)`](hm.logger.md#function-hmloggersetgloballoglevellvl) | Sets the log level for all logger instances (including objects' loggers)
+Function [`hm.logger.setModulesLogLevel(lvl)`](hm.logger.md#function-hmloggersetmodulesloglevellvl) | Sets the log level for all currently loaded modules.
+Field [`hm.logger.defaultLogLevel`](hm.logger.md#field-hmloggerdefaultloglevel-loglevel) : [_`<#loglevel>`_](hm.logger.md#type-loglevel) | Default log level for new logger instances.
+Field [`hm.logger.historySize`](hm.logger.md#field-hmloggerhistorysize-number) : _`<#number>`_ | The number of log entries to keep in the history.
 
 
-| Type [<#logger>](#type-logger) | A logger instance. |
+| Type [<#logger>](hm.logger.md#type-logger) | A logger instance. |
 | :--- | :---
-Function [`<#logger>.d(...)`](#function-loggerd) | Logs debug info to the console
-Function [`<#logger>.e(...)`](#function-loggere) | Logs an error to the console
-Function [`<#logger>.fd(fmt,...)`](#function-loggerfdfmt) | Logs formatted debug info to the console
-Function [`<#logger>.fe(fmt,...)`](#function-loggerfefmt) | Logs a formatted error to the console
-Function [`<#logger>.fi(fmt,...)`](#function-loggerfifmt) | Logs formatted info to the console
-Function [`<#logger>.fv(fmt,...)`](#function-loggerfvfmt) | Logs formatted verbose info to the console
-Function [`<#logger>.fw(fmt,...)`](#function-loggerfwfmt) | Logs a formatted warning to the console
-Function [`<#logger>.getLogLevel()`](#function-loggergetloglevel---number) -> `<#number>` | Gets the log level of the logger instance
-Function [`<#logger>.i(...)`](#function-loggeri) | Logs info to the console
-Function [`<#logger>.setLogLevel(loglevel)`](#function-loggersetloglevelloglevel) | Sets the log level of the logger instance
-Function [`<#logger>.v(...)`](#function-loggerv) | Logs verbose info to the console
-Function [`<#logger>.w(...)`](#function-loggerw) | Logs a warning to the console
-Field [`<#logger>.level`](#field-loggerlevel-number) : `<#number>` | The log level of the logger instance, as a number between 0 and 5
+Function [`<#logger>.d(...)`](hm.logger.md#function-loggerd) | Logs debug info to the console
+Function [`<#logger>.e(...)`](hm.logger.md#function-loggere---nilstring) -> _`nil`_,_`<#string>`_ | Logs an error to the console
+Function [`<#logger>.fd(fmt,...)`](hm.logger.md#function-loggerfdfmt) | Logs formatted debug info to the console
+Function [`<#logger>.fe(fmt,...)`](hm.logger.md#function-loggerfefmt---nilstring) -> _`nil`_,_`<#string>`_ | Logs a formatted error to the console
+Function [`<#logger>.fi(fmt,...)`](hm.logger.md#function-loggerfifmt) | Logs formatted info to the console
+Function [`<#logger>.fv(fmt,...)`](hm.logger.md#function-loggerfvfmt) | Logs formatted verbose info to the console
+Function [`<#logger>.fw(fmt,...)`](hm.logger.md#function-loggerfwfmt) | Logs a formatted warning to the console
+Function [`<#logger>.getLogLevel()`](hm.logger.md#function-loggergetloglevel---number) -> _`<#number>`_ | Gets the log level of the logger instance
+Function [`<#logger>.i(...)`](hm.logger.md#function-loggeri) | Logs info to the console
+Function [`<#logger>.setLogLevel(loglevel)`](hm.logger.md#function-loggersetloglevelloglevel) | Sets the log level of the logger instance
+Function [`<#logger>.v(...)`](hm.logger.md#function-loggerv) | Logs verbose info to the console
+Function [`<#logger>.w(...)`](hm.logger.md#function-loggerw) | Logs a warning to the console
+Field [`<#logger>.level`](hm.logger.md#field-loggerlevel-number) : _`<#number>`_ | The log level of the logger instance, as a number between 0 and 5
 
 
-| Type [<#loglevel>](#type-loglevel) | A string or number describing a log level. |
+| Type [<#loglevel>](hm.logger.md#type-loglevel) | A string or number describing a log level. |
 | :--- | :---
 
 
@@ -43,7 +43,7 @@ Field [`<#logger>.level`](#field-loggerlevel-number) : `<#number>` | The log lev
 
 
 
------------
+------------------
 
 ## Module `hm.logger`
 
@@ -52,15 +52,13 @@ Field [`<#logger>.level`](#field-loggerlevel-number) : `<#number>` | The log lev
 
 
 
-
-
-### Function `hm.logger.history()` -> `?`
+### Function `hm.logger.history()` -> _`<?>`_
 
 Returns the global log history.
 
 **Returns:**
 
-* `?` a list of (at most `hs.logger.historySize`) log entries produced by all the logger instances, in chronological order
+* _`<?>`_ a list of (at most `hs.logger.historySize`) log entries produced by all the logger instances, in chronological order
 
 Each log entry in the returned list is a table with the following fields:
   * time - timestamp in seconds since the epoch
@@ -69,19 +67,19 @@ Each log entry in the returned list is a table with the following fields:
   * message - a string containing the logged message
 
 
-### Function `hm.logger.new(id,loglevel)` -> [`<#logger>`](#type-logger)
+### Function `hm.logger.new(id,loglevel)` -> [_`<#logger>`_](hm.logger.md#type-logger)
 
 Creates a new logger instance.
 
 **Parameters:**
 
-* `id`: `<#string>` a string identifier for the instance (usually the module name)
-* `loglevel`: [`<#loglevel>`](#type-loglevel) (optional) can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose',
+* _`<#string>`_ `id`: a string identifier for the instance (usually the module name)
+* [_`<#loglevel>`_](hm.logger.md#type-loglevel) `loglevel`: (optional) can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose',
 or a corresponding number between 0 and 5; uses `hs.logger.defaultLogLevel` if omitted
 
 **Returns:**
 
-* [`<#logger>`](#type-logger) the new logger instance
+* [_`<#logger>`_](hm.logger.md#type-logger) the new logger instance
 
 The logger instance created by this method is not a regular object, but a plain table with "static" functions;
 therefore, do *not* use the colon syntax for so-called "methods" in this module (as in `mylogger:setLogLevel(3)`);
@@ -93,16 +91,17 @@ you must instead use the regular dot syntax: `mylogger.setLogLevel(3)`
 local log = hs.logger.new('mymodule','debug')
 log.i('Initializing') -- will print "[mymodule] Initializing" to the console
 ```
+
 ### Function `hm.logger.printHistory(filter,level,caseSensitive,entries)`
 
 Prints the global log history to the console.
 
 **Parameters:**
 
-* `filter`: `<#string>` (optional) a string to filter the entries (by logger id or message) via `string.find` plain matching
-* `level`: [`<#loglevel>`](#type-loglevel) (optional) the desired log level; if omitted, defaults to `verbose`
-* `caseSensitive`: `<#boolean>` (optional) if true, filtering is case sensitive
-* `entries`: `<#number>` (optional) the maximum number of entries to print; if omitted, all entries in the history will be printed
+* _`<#string>`_ `filter`: (optional) a string to filter the entries (by logger id or message) via `string.find` plain matching
+* [_`<#loglevel>`_](hm.logger.md#type-loglevel) `level`: (optional) the desired log level; if omitted, defaults to `verbose`
+* _`<#boolean>`_ `caseSensitive`: (optional) if true, filtering is case sensitive
+* _`<#number>`_ `entries`: (optional) the maximum number of entries to print; if omitted, all entries in the history will be printed
 
 
 
@@ -113,7 +112,7 @@ Sets the log level for all logger instances (including objects' loggers)
 
 **Parameters:**
 
-* `lvl`: [`<#loglevel>`](#type-loglevel) 
+* [_`<#loglevel>`_](hm.logger.md#type-loglevel) `lvl`: 
 
 
 
@@ -124,20 +123,20 @@ Sets the log level for all currently loaded modules.
 
 **Parameters:**
 
-* `lvl`: [`<#loglevel>`](#type-loglevel) 
+* [_`<#loglevel>`_](hm.logger.md#type-loglevel) `lvl`: 
 
 This function only affects *module*-level loggers, object instances with their own loggers (e.g. windowfilters) won't be affected;
 you can use `hs.logger.setGlobalLogLevel()` for those
 
 
-### Field `hm.logger.defaultLogLevel`: [`<#loglevel>`](#type-loglevel)
+### Field `hm.logger.defaultLogLevel`: [_`<#loglevel>`_](hm.logger.md#type-loglevel)
 Default log level for new logger instances.
 
 The starting value is `'warning'`; set this (to e.g. `'info'`) at the top of your userscript to affect
 all logger instances created without specifying a `loglevel` parameter
 
 
-### Field `hm.logger.historySize`: `<#number>`
+### Field `hm.logger.historySize`: _`<#number>`_
 > **API CHANGE**: function hm.logger.historySize([v]) -> field hm.logger.historySize
 
 The number of log entries to keep in the history.
@@ -147,11 +146,9 @@ If you change history size (other than from 0) after creating any logger instanc
 
 
 
------------
+------------------
 
-## Type `<#logger>`
-
-
+### Type `<#logger>`
 
 A logger instance.
 
@@ -164,18 +161,24 @@ Logs debug info to the console
 
 **Parameters:**
 
-* `...`: `?` one or more message strings
+* _`<?>`_ `...`: one or more message strings
 
 
 
 
-### Function `<#logger>.e(...)`
+### Function `<#logger>.e(...)` -> _`nil`_,_`<#string>`_
+
+> **API CHANGE**: returns nil,error as per Lua informal standard; module functions can use the idiom `return log.e(...)` to fail
 
 Logs an error to the console
 
 **Parameters:**
 
-* `...`: `?` one or more message strings
+* _`<?>`_ `...`: one or more message strings
+
+**Returns:**
+
+* _`nil`_,_`<#string>`_ nil and the error message
 
 
 
@@ -188,22 +191,27 @@ Logs formatted debug info to the console
 
 **Parameters:**
 
-* `fmt`: `<#string>` formatting string as per `string.format`
-* `...`: `?` one or more message strings
+* _`<#string>`_ `fmt`: formatting string as per `string.format`
+* _`<?>`_ `...`: one or more message strings
 
 
 
 
-### Function `<#logger>.fe(fmt,...)`
+### Function `<#logger>.fe(fmt,...)` -> _`nil`_,_`<#string>`_
 
 > **API CHANGE**: logger.ef -> logger.fe
+returns nil,error as per Lua informal standard; module functions can use the idiom `return log.fe(fmt,...)` to fail
 
 Logs a formatted error to the console
 
 **Parameters:**
 
-* `fmt`: `<#string>` formatting string as per `string.format`
-* `...`: `?` one or more message strings
+* _`<#string>`_ `fmt`: formatting string as per `string.format`
+* _`<?>`_ `...`: one or more message strings
+
+**Returns:**
+
+* _`nil`_,_`<#string>`_ nil and the error message
 
 
 
@@ -216,8 +224,8 @@ Logs formatted info to the console
 
 **Parameters:**
 
-* `fmt`: `<#string>` formatting string as per `string.format`
-* `...`: `?` one or more message strings
+* _`<#string>`_ `fmt`: formatting string as per `string.format`
+* _`<?>`_ `...`: one or more message strings
 
 
 
@@ -230,8 +238,8 @@ Logs formatted verbose info to the console
 
 **Parameters:**
 
-* `fmt`: `<#string>` formatting string as per `string.format`
-* `...`: `?` one or more message strings
+* _`<#string>`_ `fmt`: formatting string as per `string.format`
+* _`<?>`_ `...`: one or more message strings
 
 
 
@@ -244,19 +252,19 @@ Logs a formatted warning to the console
 
 **Parameters:**
 
-* `fmt`: `<#string>` formatting string as per `string.format`
-* `...`: `?` one or more message strings
+* _`<#string>`_ `fmt`: formatting string as per `string.format`
+* _`<?>`_ `...`: one or more message strings
 
 
 
 
-### Function `<#logger>.getLogLevel()` -> `<#number>`
+### Function `<#logger>.getLogLevel()` -> _`<#number>`_
 
 Gets the log level of the logger instance
 
 **Returns:**
 
-* `<#number>` The log level of this logger as a number between 0 ('nothing') and 5 ('verbose')
+* _`<#number>`_ The log level of this logger as a number between 0 ('nothing') and 5 ('verbose')
 
 
 
@@ -267,7 +275,7 @@ Logs info to the console
 
 **Parameters:**
 
-* `...`: `?` one or more message strings
+* _`<?>`_ `...`: one or more message strings
 
 
 
@@ -278,7 +286,7 @@ Sets the log level of the logger instance
 
 **Parameters:**
 
-* `loglevel`: [`<#loglevel>`](#type-loglevel) can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose'; or a corresponding number between 0 and 5
+* [_`<#loglevel>`_](hm.logger.md#type-loglevel) `loglevel`: can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose'; or a corresponding number between 0 and 5
 
 
 
@@ -289,7 +297,7 @@ Logs verbose info to the console
 
 **Parameters:**
 
-* `...`: `?` one or more message strings
+* _`<?>`_ `...`: one or more message strings
 
 
 
@@ -300,31 +308,24 @@ Logs a warning to the console
 
 **Parameters:**
 
-* `...`: `?` one or more message strings
+* _`<?>`_ `...`: one or more message strings
 
 
 
 
-### Field `<#logger>.level`: `<#number>`
+### Field `<#logger>.level`: _`<#number>`_
 The log level of the logger instance, as a number between 0 and 5
 
 
 
 
 
------------
+------------------
 
-## Type `<#loglevel>`
-
-
+### Type `<#loglevel>`
 
 A string or number describing a log level.
 
 Can be `'nothing'`, `'error'`, `'warning'`, `'info'`, `'debug'`, or `'verbose'`, or a corresponding number between 0 and 5.
 
-
-
------------
-
------------
 

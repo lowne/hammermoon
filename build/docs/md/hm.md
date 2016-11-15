@@ -8,68 +8,73 @@ Hammermoon main module
 
 | Global functions| |
 | :--- | :--- |
-Global function [`assertf(v,fmt,...)`](#global-function-assertfvfmt) | 
-Global function [`errorf(fmt,...)`](#global-function-errorffmt) | 
-Global function [`printf(fmt,...)`](#global-function-printffmt) | 
+Global function [`assertf(v,fmt,...)`](hm.md#global-function-assertfvfmt) | 
+Global function [`errorf(fmt,...)`](hm.md#global-function-errorffmt) | 
+Global function [`inspect(t,inline,depth)`](hm.md#global-function-inspecttinlinedepth) | 
+Global function [`printf(fmt,...)`](hm.md#global-function-printffmt) | 
 
 | Global fields | |
 | :--- | :--- |
-Global field [`hm`](#global-field-hm-hm) : [`<#hm>`](#module-hm) | Hammermoon's namespace, globally accessible from userscripts
-Global field [`hs`](#global-field-hs-hm) : [`<#hm>`](#module-hm) | For compatibility with Hammerspoon userscripts
+Global field [`hm`](hm.md#global-field-hm-hm) : [_`<#hm>`_](hm.md#module-hm) | Hammermoon's namespace, globally accessible from userscripts
+Global field [`hs`](hm.md#global-field-hs-) : _`<?>`_ | For compatibility with Hammerspoon userscripts
 
 
-| Module [hm](#module-hm) |  |
+| Module [hm](hm.md#module-hm) |  |
 | :--- | :---
-Field [`hm._core`](#field-hm_core-hm_core) : [`hm._core`](#table-hm_core) | 
-Field [`hm.debug`](#field-hmdebug-hmdebug) : [`hm.debug`](#table-hmdebug) | 
+Function [`hm.quit()`](hm.md#function-hmquit) | Quits Hammermoon.
+Function [`hm.type(obj)`](hm.md#function-hmtypeobj---string) -> _`<#string>`_ | Returns the Hammermoon type of an object.
+Field [`hm._core`](hm.md#field-hmcore-hmcore) : [_`hm._core`_](hm.md#table-hmcore) | 
+Field [`hm.debug`](hm.md#field-hmdebug-hmdebug) : [_`hm.debug`_](hm.md#table-hmdebug) | 
 
 
-| Table [hm._core](#table-hm_core) | Hammermoon core facilities for use by extensions. |
+| Class [<#module>](hm.md#class-module) | Type for Hammermoon extensions. |
 | :--- | :---
-Function [`hm._core.cacheKeys()`](#function-hm_corecachekeys) | 
-Function [`hm._core.cacheValues()`](#function-hm_corecachevalues) | 
-Function [`hm._core.deprecate(module,fieldname,replacement)`](#function-hm_coredeprecatemodulefieldnamereplacement) | Deprecate a field or function of a module
-Function [`hm._core.disallow(module,fieldname,replacement)`](#function-hm_coredisallowmodulefieldnamereplacement) | Disallow a field or function of a module (after deprecation)
-Function [`hm._core.module(name,classmt)`](#function-hm_coremodulenameclassmt---module) -> [`<#module>`](#type-module) | Declare a new Hammermoon extension.
-Function [`hm._core.property(module,fieldname,getter,setter)`](#function-hm_corepropertymodulefieldnamegettersetter) | Add a user-facing field to a module with a custom getter and setter
-Function [`hm._core.protoModule()`](#function-hm_coreprotomodule) | 
-Function [`hm._core.retainKeys()`](#function-hm_coreretainkeys) | 
-Function [`hm._core.retainValues()`](#function-hm_coreretainvalues) | 
-Field [`hm._core.defaultNotificationCenter`](#field-hm_coredefaultnotificationcenter-notificationcenter) : [`<#notificationCenter>`](#type-notificationcenter) | The default Notification Center.
-Field [`hm._core.log`](#field-hm_corelog-hmloggerlogger) : [`<hm.logger#logger>`](hm.logger.md#type-logger) | Logger instance for Hammermoon's core
-Field [`hm._core.rawrequire`](#field-hm_corerawrequire-) : `?` | 
-Field [`hm._core.sharedWorkspace`](#field-hm_coresharedworkspace-cdata) : `<#cdata>` | The shared `NSWorkspace` instance
-Field [`hm._core.systemWideAccessibility`](#field-hm_coresystemwideaccessibility-cdata) : `<#cdata>` | `AXUIElementCreateSystemWide()` instance
-Field [`hm._core.wsNotificationCenter`](#field-hm_corewsnotificationcenter-notificationcenter) : [`<#notificationCenter>`](#type-notificationcenter) | The shared workspace's Notification Center.
+Function [`<#module>.__gc()`](hm.md#function-modulegc) | Implement this function to perform any required cleanup when a module is unloaded
+Field [`<#module>._class`](hm.md#field-moduleclass-moduleclass) : [_`<#module.class>`_](hm.md#class-moduleclass) | The class for the extension's objects
+Field [`<#module>.log`](hm.md#field-modulelog-hmloggerlogger) : [_`<hm.logger#logger>`_](hm.logger.md#type-logger) | The extension's module-level logger instance
 
 
-| Table [hm.debug](#table-hmdebug) | Debug options |
+| Class [<#module.class>](hm.md#class-moduleclass) | Type for Hammermoon objects |
 | :--- | :---
-Field [`hm.debug.cache_uielements`](#field-hmdebugcache_uielements-boolean) : `<#boolean>` | Cache uielement objects (default `true`).
-Field [`hm.debug.retain_user_objects`](#field-hmdebugretain_user_objects-boolean) : `<#boolean>` | Retain user objects internally (default `true`).
+Function [`<#module.class>._new(t)`](hm.md#function-moduleclassnewt---) -> _`<?>`_ | Create a new instance.
 
 
-| Type [<#module>](#type-module) | Type for Hammermoon extensions. |
+| Class [<#notificationCenter>](hm.md#class-notificationcenter) |  |
 | :--- | :---
-Field [`<#module>._class`](#field-module_class-moduleclass) : [`<#module.class>`](#type-moduleclass) | The class for the extension's objects
-Field [`<#module>.log`](#field-modulelog-hmloggerlogger) : [`<hm.logger#logger>`](hm.logger.md#type-logger) | The extension's module-level logger instance
+Method [`<#notificationCenter>:register(event,cb,priority)`](hm.md#method-notificationcenterregistereventcbpriority) | 
 
 
-| Type [<#module.class>](#type-moduleclass) | Type for Hammermoon objects |
+| Table [hm._core](hm.md#table-hmcore) | Hammermoon core facilities for use by extensions. |
 | :--- | :---
-Function [`<#module.class>._new(t)`](#function-moduleclass_newt---) -> `?` | Create a new instance.
+Function [`hm._core.cacheKeys()`](hm.md#function-hmcorecachekeys) | 
+Function [`hm._core.cacheValues()`](hm.md#function-hmcorecachevalues) | 
+Function [`hm._core.deprecate(module,fieldname,replacement)`](hm.md#function-hmcoredeprecatemodulefieldnamereplacement) | Deprecate a field or function of a module or class
+Function [`hm._core.disallow(module,fieldname,replacement)`](hm.md#function-hmcoredisallowmodulefieldnamereplacement) | Disallow a field or function of a module or class (after deprecation)
+Function [`hm._core.module(name,classmt)`](hm.md#function-hmcoremodulenameclassmt---module) -> [_`<#module>`_](hm.md#class-module) | Declare a new Hammermoon extension.
+Function [`hm._core.property(module,fieldname,getter,setter)`](hm.md#function-hmcorepropertymodulefieldnamegettersetter) | Add a property to a module or class.
+Function [`hm._core.retainKeys()`](hm.md#function-hmcoreretainkeys) | 
+Function [`hm._core.retainValues()`](hm.md#function-hmcoreretainvalues) | 
+Field [`hm._core.defaultNotificationCenter`](hm.md#field-hmcoredefaultnotificationcenter-notificationcenter) : [_`<#notificationCenter>`_](hm.md#class-notificationcenter) | The default Notification Center.
+Field [`hm._core.log`](hm.md#field-hmcorelog-hmloggerlogger) : [_`<hm.logger#logger>`_](hm.logger.md#type-logger) | Logger instance for Hammermoon's core
+Field [`hm._core.rawrequire`](hm.md#field-hmcorerawrequire-) : _`<?>`_ | 
+Field [`hm._core.sharedWorkspace`](hm.md#field-hmcoresharedworkspace-cdata) : _`<#cdata>`_ | The shared `NSWorkspace` instance
+Field [`hm._core.systemWideAccessibility`](hm.md#field-hmcoresystemwideaccessibility-cdata) : _`<#cdata>`_ | `AXUIElementCreateSystemWide()` instance
+Field [`hm._core.wsNotificationCenter`](hm.md#field-hmcorewsnotificationcenter-notificationcenter) : [_`<#notificationCenter>`_](hm.md#class-notificationcenter) | The shared workspace's Notification Center.
 
 
-| Type [<#notificationCenter>](#type-notificationcenter) |  |
+| Table [hm.debug](hm.md#table-hmdebug) | Debug options |
 | :--- | :---
-Method [`<#notificationCenter>:register(event,cb,priority)`](#method-notificationcenterregistereventcbpriority) | 
+Field [`hm.debug.cacheUIElements`](hm.md#field-hmdebugcacheuielements-boolean) : _`<#boolean>`_ | Cache uielement objects (default `true`).
+Field [`hm.debug.disableAssertions`](hm.md#field-hmdebugdisableassertions-boolean) : _`<#boolean>`_ | Disable assertions (default `false`).
+Field [`hm.debug.disableTypeChecks`](hm.md#field-hmdebugdisabletypechecks-boolean) : _`<#boolean>`_ | Disable type checks (default `false`).
+Field [`hm.debug.retainUserObjects`](hm.md#field-hmdebugretainuserobjects-boolean) : _`<#boolean>`_ | Retain user objects internally (default `true`).
 
 
 
 
 
 
------------
+------------------
 
 ## Global functions
 
@@ -79,9 +84,9 @@ Method [`<#notificationCenter>:register(event,cb,priority)`](#method-notificatio
 
 **Parameters:**
 
-* `v`: `?` 
-* `fmt`: `<#string>` 
-* `...`: `?` 
+* _`<?>`_ `v`: 
+* _`<#string>`_ `fmt`: 
+* _`<?>`_ `...`: 
 
 
 
@@ -91,8 +96,22 @@ Method [`<#notificationCenter>:register(event,cb,priority)`](#method-notificatio
 
 **Parameters:**
 
-* `fmt`: `<#string>` 
-* `...`: `?` 
+* _`<#string>`_ `fmt`: 
+* _`<?>`_ `...`: 
+
+
+
+### Global function `inspect(t,inline,depth)`
+
+> **Internal/advanced use only** (e.g. for extension developers)
+
+
+
+**Parameters:**
+
+* _`<?>`_ `t`: 
+* _`<?>`_ `inline`: 
+* _`<?>`_ `depth`: 
 
 
 
@@ -102,8 +121,8 @@ Method [`<#notificationCenter>:register(event,cb,priority)`](#method-notificatio
 
 **Parameters:**
 
-* `fmt`: `<#string>` 
-* `...`: `?` 
+* _`<#string>`_ `fmt`: 
+* _`<?>`_ `...`: 
 
 
 
@@ -111,16 +130,16 @@ Method [`<#notificationCenter>:register(event,cb,priority)`](#method-notificatio
 
 
 
------------
+------------------
 
 ## Global fields
 
-### Global field `hm`: [`<#hm>`](#module-hm)
+### Global field `hm`: [_`<#hm>`_](hm.md#module-hm)
 Hammermoon's namespace, globally accessible from userscripts
 
 
 
-### Global field `hs`: [`<#hm>`](#module-hm)
+### Global field `hs`: _`<?>`_
 For compatibility with Hammerspoon userscripts
 
 
@@ -129,7 +148,7 @@ For compatibility with Hammerspoon userscripts
 
 
 
------------
+------------------
 
 ## Module `hm`
 
@@ -138,25 +157,134 @@ For compatibility with Hammerspoon userscripts
 
 
 
+### Function `hm.quit()`
 
-### Field `hm._core`: [`hm._core`](#table-hm_core)
+Quits Hammermoon.
 
-
-
-
-
-### Field `hm.debug`: [`hm.debug`](#table-hmdebug)
+This function will make sure to properly close the Lua state, so that all the __gc metamethods will run.
 
 
+### Function `hm.type(obj)` -> _`<#string>`_
+
+Returns the Hammermoon type of an object.
+
+**Parameters:**
+
+* _`<?>`_ `obj`: object to get the type of
+
+**Returns:**
+
+* _`<#string>`_ the object type
+
+If `obj` is an Hammermoon [_`<#module>`_](hm.md#class-module), [_`<#module.class>`_](hm.md#class-moduleclass), or module object, this function will return its type name
+instead of the generic `"table"`. In all other cases this function behaves like Lua's `type()`.
+
+
+### Field `hm._core`: [_`hm._core`_](hm.md#table-hmcore)
 
 
 
 
------------
+
+### Field `hm.debug`: [_`hm.debug`_](hm.md#table-hmdebug)
+
+
+
+
+
+
+------------------
+
+## Class `<#module>`
+
+Type for Hammermoon extensions.
+
+Hammermoon extensions (usually created via `hm._core.module()`) can be `require`d normally
+(`local someext=require'hm.someext'`) or loaded directly via the the global `hm` namespace
+(`hm.someext.somefn(...)`).
+
+
+### Function `<#module>.__gc()`
+
+> **Internal/advanced use only** (e.g. for extension developers)
+
+Implement this function to perform any required cleanup when a module is unloaded
+
+
+
+
+### Field `<#module>._class`: [_`<#module.class>`_](hm.md#class-moduleclass)
+The class for the extension's objects
+
+
+
+
+### Field `<#module>.log`: [_`<hm.logger#logger>`_](hm.logger.md#type-logger)
+The extension's module-level logger instance
+
+
+
+
+
+------------------
+
+## Class `<#module.class>`
+
+> **Internal/advanced use only** (e.g. for extension developers)
+
+Type for Hammermoon objects
+
+
+
+
+### Function `<#module.class>._new(t)` -> _`<?>`_
+
+> **Internal/advanced use only** (e.g. for extension developers)
+
+Create a new instance.
+
+**Parameters:**
+
+* _`<#table>`_ `t`: initial values for the new object
+
+**Returns:**
+
+* _`<?>`_ a new object instance
+
+Objects created by this function have their lifecycle tracked by Hammermoon's core.
+
+
+
+
+------------------
+
+## Class `<#notificationCenter>`
+
+
+
+
+
+
+### Method `<#notificationCenter>:register(event,cb,priority)`
+
+> **Internal/advanced use only** (e.g. for extension developers)
+
+
+
+**Parameters:**
+
+* _`<#string>`_ `event`: 
+* _`<#function>`_ `cb`: 
+* _`<#boolean>`_ `priority`: 
+
+
+
+
+
+
+------------------
 
 ## Table `hm._core`
-
-
 
 > **Internal/advanced use only** (e.g. for extension developers)
 
@@ -183,13 +311,13 @@ Hammermoon core facilities for use by extensions.
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
-Deprecate a field or function of a module
+Deprecate a field or function of a module or class
 
 **Parameters:**
 
-* `module`: [`<#module>`](#type-module) 
-* `fieldname`: `<#string>` 
-* `replacement`: `<#string>` The replacement field or function to direct users to
+* [_`<#module>`_](hm.md#class-module) `module`: [_`<#module>`_](hm.md#class-module) table or [_`<#module.class>`_](hm.md#class-moduleclass) table
+* _`<#string>`_ `fieldname`: field or function name
+* _`<#string>`_ `replacement`: the replacement field or function to direct users to
 
 
 
@@ -198,18 +326,18 @@ Deprecate a field or function of a module
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
-Disallow a field or function of a module (after deprecation)
+Disallow a field or function of a module or class (after deprecation)
 
 **Parameters:**
 
-* `module`: [`<#module>`](#type-module) 
-* `fieldname`: `<#string>` 
-* `replacement`: `<#string>` The replacement field or function to direct users to
+* [_`<#module>`_](hm.md#class-module) `module`: [_`<#module>`_](hm.md#class-module) table or [_`<#module.class>`_](hm.md#class-moduleclass) table
+* _`<#string>`_ `fieldname`: field or function name
+* _`<#string>`_ `replacement`: the replacement field or function to direct users to
 
 
 
 
-### Function `hm._core.module(name,classmt)` -> [`<#module>`](#type-module)
+### Function `hm._core.module(name,classmt)` -> [_`<#module>`_](hm.md#class-module)
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
@@ -217,12 +345,12 @@ Declare a new Hammermoon extension.
 
 **Parameters:**
 
-* `name`: `<#string>` module name (without the '`hm.` prefix)
-* `classmt`: `<#table>` initial metatable for the module's class (if any); can contain `__tostring`, `__eq`, `__gc`, etc
+* _`<#string>`_ `name`: module name (without the `"hm."` prefix)
+* _`<#table>`_ `classmt`: initial metatable for the module's class (if any); can contain `__tostring`, `__eq`, `__gc`, etc
 
 **Returns:**
 
-* [`<#module>`](#type-module) the "naked" table for the new module, ready to be filled with functions
+* [_`<#module>`_](hm.md#class-module) the "naked" table for the new module, ready to be filled with functions
 
 Use this function to create the table for your module.
 If your module instantiates objects, you should pass `classmt` (even just an empty table),
@@ -241,27 +369,21 @@ function myclass:mymethod() ... end
 ...
 return mymodule -- at the end of the file
 ```
+
 ### Function `hm._core.property(module,fieldname,getter,setter)`
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
-Add a user-facing field to a module with a custom getter and setter
+Add a property to a module or class.
 
 **Parameters:**
 
-* `module`: [`<#module>`](#type-module) 
-* `fieldname`: `<#string>` 
-* `getter`: `<#function>` 
-* `setter`: `<#function>` 
+* [_`<#module>`_](hm.md#class-module) `module`: [_`<#module>`_](hm.md#class-module) table or [_`<#module.class>`_](hm.md#class-moduleclass) table
+* _`<#string>`_ `fieldname`: desired field name
+* _`<#function>`_ `getter`: getter function
+* _`<#function>`_ `setter`: setter function or `false` (to make the property read-only)
 
-
-
-
-### Function `hm._core.protoModule()`
-
-
-
-
+This function will add to the module or class a user-facing field that uses custom getter and setter.
 
 
 ### Function `hm._core.retainKeys()`
@@ -278,48 +400,46 @@ Add a user-facing field to a module with a custom getter and setter
 
 
 
-### Field `hm._core.defaultNotificationCenter`: [`<#notificationCenter>`](#type-notificationcenter)
+### Field `hm._core.defaultNotificationCenter`: [_`<#notificationCenter>`_](hm.md#class-notificationcenter)
 The default Notification Center.
 
 
 
 
-### Field `hm._core.log`: [`<hm.logger#logger>`](hm.logger.md#type-logger)
+### Field `hm._core.log`: [_`<hm.logger#logger>`_](hm.logger.md#type-logger)
 Logger instance for Hammermoon's core
 
 
 
 
-### Field `hm._core.rawrequire`: `?`
+### Field `hm._core.rawrequire`: _`<?>`_
 
 
 
 
 
-### Field `hm._core.sharedWorkspace`: `<#cdata>`
+### Field `hm._core.sharedWorkspace`: _`<#cdata>`_
 The shared `NSWorkspace` instance
 
 
 
 
-### Field `hm._core.systemWideAccessibility`: `<#cdata>`
+### Field `hm._core.systemWideAccessibility`: _`<#cdata>`_
 `AXUIElementCreateSystemWide()` instance
 
 
 
 
-### Field `hm._core.wsNotificationCenter`: [`<#notificationCenter>`](#type-notificationcenter)
+### Field `hm._core.wsNotificationCenter`: [_`<#notificationCenter>`_](hm.md#class-notificationcenter)
 The shared workspace's Notification Center.
 
 
 
 
 
------------
+------------------
 
 ## Table `hm.debug`
-
-
 
 > **Internal/advanced use only** (e.g. for extension developers)
 
@@ -329,107 +449,29 @@ Debug options
 
 
 
-### Field `hm.debug.cache_uielements`: `<#boolean>`
+### Field `hm.debug.cacheUIElements`: _`<#boolean>`_
 Cache uielement objects (default `true`).
 
 Uielement objects (including applications and windows) are cached internally for performance; this can be disabled.
 
 
-### Field `hm.debug.retain_user_objects`: `<#boolean>`
+### Field `hm.debug.disableAssertions`: _`<#boolean>`_
+Disable assertions (default `false`).
+
+If set to `true`, assertions are disabled for slightly better performance.
+
+
+### Field `hm.debug.disableTypeChecks`: _`<#boolean>`_
+Disable type checks (default `false`).
+
+If set to `true`, type checks are disabled for slightly better performance.
+
+
+### Field `hm.debug.retainUserObjects`: _`<#boolean>`_
 Retain user objects internally (default `true`).
 
 User objects (timers, watchers, etc.) are retained internally by default, so
 userscripts needn't worry about their lifecycle.
 If falsy, they will get gc'ed unless the userscript keeps a global reference.
 
-
-
------------
-
-## Type `<#module>`
-
-
-
-Type for Hammermoon extensions.
-
-Hammermoon extensions (usually created via `hm._core.module()`) can be `require`d normally
-(`local someext=require'hm.someext'`) or loaded directly via the the global `hm` namespace
-(`hm.someext.somefn(...)`).
-
-### Field `<#module>._class`: [`<#module.class>`](#type-moduleclass)
-The class for the extension's objects
-
-
-
-
-### Field `<#module>.log`: [`<hm.logger#logger>`](hm.logger.md#type-logger)
-The extension's module-level logger instance
-
-
-
-
-
------------
-
-## Type `<#module.class>`
-
-
-
-> **Internal/advanced use only** (e.g. for extension developers)
-
-Type for Hammermoon objects
-
-
-
-
-### Function `<#module.class>._new(t)` -> `?`
-
-> **Internal/advanced use only** (e.g. for extension developers)
-
-Create a new instance.
-
-**Parameters:**
-
-* `t`: `<#table>` initial values for the new object
-
-**Returns:**
-
-* `?` a new object instance
-
-Objects created by this function have their lifecycle tracked by Hammermoon's core.
-
-
-
-
------------
-
-## Type `<#notificationCenter>`
-
-
-
-
-
-
-
-
-### Method `<#notificationCenter>:register(event,cb,priority)`
-
-> **Internal/advanced use only** (e.g. for extension developers)
-
-
-
-**Parameters:**
-
-* `event`: `<#string>` 
-* `cb`: `<#function>` 
-* `priority`: `<#boolean>` 
-
-
-
-
-
-
------------
-
------------
 
