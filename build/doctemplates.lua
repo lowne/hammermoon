@@ -4,20 +4,23 @@ local pairs,sformat=pairs,string.format
 local function extend(base,base2,t)
   local r=setmetatable({},
     {__index=function(t,k)return function(o)
-      error((o.type and o.type.ttag or '?')..' '..o.name..': tag not implemented: '..k)
+      error((o.type and o.type.ttag or '?')..' '..(o and o.name or '?')..': tag not implemented: '..k)
     end end})
   for k,v in pairs(base) do r[k]=v end
-  for k,v in pairs(base2) do r[k]=v end
+  for k,v in pairs(base2 or {}) do r[k]=v end
   for k,v in pairs(t or {}) do r[k]=v end
+  for k,v in pairs(r) do
+    if type(v)=='string' and v:sub(1,5)=='COPY:' then r[k]=r[v:sub(6)] end
+  end
   return r
 end
 
-local TEMPLATE_BASE={
-  ['module']='$(title)>(globalfunctions)>(globalfields)>(types)>>(globalfunctions)>>(globalfields)>>(types)',
+local TEMPLATE_BASE=extend{
+  ['module']='$(title)>(globalfunctions)>(globalfields)>(types)>(prototypes)>>(globalfunctions)>>(globalfields)>>(types)>>(prototypes)',
 
-  ['function.link']='@{#($(plainparent)).$(name)}',
-  ['field.link']='@{#($(plainparent)).$(name)}',
-  ['type.link']='@{#($(name))}',
+  ['function.link']='@[#($(plainparent)).$(name)]',
+  ['field.link']='@[#($(plainparent)).$(name)]',
+  ['type.link']='@[#($(name))]',
 
   ['type']='$(title)>>(functions)>>(fields)',
 
@@ -42,19 +45,14 @@ local TEMPLATE_BASE={
 
   ['field']='$(title)?(long)$(usage)',
 
-  ['type.static']=function(o)
-    assert(o.type.ttag=='internaltype')
-    return o.extra.static and '> Static table' or sformat('> Metatable for `<#%s>` objects',o.name)
-  end,
-  ['type.static']='',
   ['extra']='?(dev)?(apichange)',
 
-  ['typelink']='@{$(module)#($(name))}',
-
+  ['typelink']='@[$(module)#($(name))]',
 }
 
 local LINE='\n'
 local BR='\n\n'
+local HR='\n\n------------------\n\n'
 local TEMPLATE_MD=extend(TEMPLATE_BASE,{
   ['module.title']='$(header)@(extra)$(short)\n\n@(long)$(subheader)',
   ['module.header']='# Module $(fullname)\n\n',
@@ -66,6 +64,10 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,{
   ['globalfields.index.pre']='| Global fields | |\n| :--- | :--- |\n',--function()return mdtableheader('Global fields')..'\n' end,
   ['globalfields.index.sep']=LINE,
   ['globalfields.index.post']=BR,
+
+  ['prototypes.index.pre']='| Function prototypes | |\n| :--- | :--- |\n',
+  ['prototypes.index.sep']=LINE,
+  ['prototypes.index.post']=BR,
 
   ['function.index']='$(htag) [`$(fullname)(>(parameters))`]($(link))>(returns) | $(short)',
 
@@ -84,22 +86,27 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,{
   ['fields.index.sep']=LINE,
   ['fields.index.post']=LINE,
 
-  ['globalfunctions.pre']='\n\n-----------\n\n## Global functions\n\n',
+  ['globalfunctions.pre']=HR..'## Global functions\n\n',
   ['globalfunctions.sep']='',
   ['globalfunctions.post']=BR,
 
-  ['globalfields.pre']='\n\n-----------\n\n## Global fields\n\n',
+  ['globalfields.pre']=HR..'## Global fields\n\n',
   ['globalfields.sep']='',
   ['globalfields.post']=BR,
 
+  ['prototypes.pre']=HR,
+  ['prototypes.sep']=BR,
+  ['prototypes.post']=LINE,
 
-  ['types.pre']='\n\n-----------\n\n',
+  ['types.pre']=HR,
   ['type']='$(title)>>(functions)>>(fields)',
-  ['type.title']='## $(header)\n\n$(static)\n\n@(extra)$(short)\n\n?(long)',
+  ['type.title']='@(headersize) $(header)\n\n@(extra)$(short)\n\n?(long)$(usage)',
+  ['headersize']=function(o)return string.rep('#',o) end,
+  --  ['type.headersize']=function(o)return o.extra.class and '##' or '###' end,
   ['type.header']='$(htag) `$(fullname)`',
   ['type.fullname']=function(o)return sformat(o.extra.static and '%s' or '<#%s>',o.name) end,
-  ['types.sep']='\n\n-----------\n\n',
-  ['types.post']='\n\n-----------\n\n-----------\n\n',
+  ['types.sep']=HR,
+  ['types.post']=LINE,
 
   ['functions.pre']=LINE,
   ['function.title']='### $(header)\n\n@(extra)$(short)\n\n',
@@ -109,7 +116,7 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,{
   ['functions.post']=LINE,
 
   ['parameters.pre']='**Parameters:**\n\n',
-  ['parameter']='* `$(name)`: @@(type) $(short)',
+  ['parameter']='* @@(type) `$(name)`: $(short)',
   ['parameters.sep']=LINE,
   ['parameters.post']=BR,
 
@@ -135,35 +142,38 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,{
   ['apichange']='> **API CHANGE**: $(short)\n\n',
   ['internalchange']='> INTERNAL CHANGE: $(short)\n\n',
 
-  ['usage']=function(o) return o.extra.usage and sformat('**Usage**:\n\n```lua\n%s\n```',o.extra.usage.short) or '' end,
+  ['usage']=function(o) return o.extra.usage and sformat('**Usage**:\n\n```lua\n%s\n```\n',o.extra.usage.short) or '' end,
 
-  ['notype']='`?`',
-  ['notype.index']='`?`',
-  ['varargtype']='`...`',
-  ['varargtype.index']='`...`',
-  ['niltype']='`nil`',
-  ['niltype.index']='`nil`',
-  ['primitivetype']='`<#$(name)>`',
-  ['primitivetype.index']='`<#$(name)>`',
+  ['notype']='_`<?>`_',
+  ['notype.index']='_`<?>`_',
+  ['varargtype']='_`...`_',
+  ['varargtype.index']='_`...`_',
+  ['niltype']='_`nil`_',
+  ['niltype.index']='_`nil`_',
+  ['primitivetype']='_`<#$(name)>`_',
+  ['primitivetype.index']='_`<#$(name)>`_',
 
-  ['internaltype']='[`<#$(name)>`]($(typelink))',
-  ['internaltype.index']='[`<#$(name)>`]($(typelink))',
-  ['staticinternaltype']='[`$(name)`]($(typelink))',
-  ['staticinternaltype.index']='[`$(name)]($(typelink))',
+  ['internaltype']='[_`<#$(name)>`_]($(typelink))',
+  ['internaltype.index']='[_`<#$(name)>`_]($(typelink))',
+  ['staticinternaltype']='[_`$(name)`_]($(typelink))',
+  ['staticinternaltype.index']='[_`$(name)`_]($(typelink))',
   --  ['listtype']='`{`[`<#$(valuetype.name)>`](@{$(valuetype.module)#($(valuetype.name))})`, ...}`',
   ['listtype']='`{`@@(valuetype)`, ...}`',
   ['listtype.index']='`{`@@(valuetype)`, ...}`',
   ['maptype']='`{ [`@@(keytype)`] =`@@(valuetype)`, ...}`',
   ['maptype.index']='`{ [`@@(keytype)`] =`@@(valuetype)`, ...}`',
-  ['externaltype']='[`<$(module)#$(name)>`]($(typelink))',
-  ['externaltype.index']='[`<$(module)#$(name)>`]($(typelink))',
-  --  ['externaltypelink']='$(module).md$(typelink)',
-  ['typelink']='@{$(module)#($(name))}',
-  --  ['typelink']=function(o)return '#'..slugify('<#'..o.name..'>') end, --FIXME
-  --  _['slugify']=function(o)local str=_[o.ttag..'.header'](o) return str:lower():gsub('%s','-'):gsub('[^%w%-_]','') end
+  ['externaltype']='[_`<$(module)#$(name)>`_]($(typelink))',
+  ['externaltype.index']='[_`<$(module)#$(name)>`_]($(typelink))',
 
-  ---special fn to generate anchors for resolveLinks
-  ['anchor']=function(s) assert(type(s)=='string') return s:lower():gsub('%s','-'):gsub('[^%w%-_]','') end,
+  ---special fn to generate anchors for user links (i.e. @{...}) by resolveLinks
+  ['userlink']=function(text,anchor) return sformat('[`%s`](%s)',text,anchor) end,
+  ['userlinktype']=function(text,anchor) return sformat('[_`%s`_](%s)',text,anchor) end,
+  ---special fn to generate anchors from a header string for resolveLinks
+  ['anchor']=function(s)
+    assert(type(s)=='string')
+    s=s:gsub('(%b[])%b()','%1') -- get the text part of the header
+    return s:lower():gsub('%s','-'):gsub('[^%w%-]','') -- slugify according to github md headers
+  end,
   ----make filename
   ['filename']=function(dir,moduleName)
     if not moduleName then moduleName=dir dir=nil end
@@ -180,7 +190,7 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,{
 })
 
 local TEMPLATE_CHANGES_BASE=extend(TEMPLATE_BASE,{
-  ['module']='$(title)>>(globalfunctions)>>(globalfields)>>(types)', -- no index
+  ['module']='$(title)>>(globalfunctions)>>(globalfields)>>(types)>>(prototypes)', -- no index
   ['module.title']='$(header)@(extra)$(short)\n\n',
 })
 

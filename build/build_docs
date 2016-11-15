@@ -15,10 +15,14 @@ local OUTPUT_API_CHANGES_FILE      = 'API_CHANGES'
 local OUTPUT_INTERNAL_CHANGES_FILE = 'INTERNAL_CHANGES'
 --local OUTPUT_DEV_ONLY_FILE         = 'MODULE_DEVELOPERS'
 
+
+--- cwd
+local cwd=debug.getinfo(1).source:match("@?(.*)/") or '.'
+package.cpath=package.cpath..';'..cwd..'/lib/?.so'
+require'lfs'.chdir(cwd)
 --- setup
 package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
 package.cpath=package.cpath..';./lib/?.so'
-
 local fs=require'fs.lfs'
 local builder=require'docbuilder' builder.verbose=VERBOSE
 local inspect=require'inspect'
@@ -35,7 +39,7 @@ end
 assert(fs.checkdirectory(SOURCE_DIRS))
 local modules,anchors={},{}
 local filePaths=assert(fs.filelist(SOURCE_DIRS))
-for _,filePath in ipairs(filePaths) do
+for _,filePath in ipairs(filePaths) do if filePath:sub(-4)=='.lua' then
   print('Reading file '..filePath)
   local metamodel=builder.makeMetamodel(filePath,not INCLUDE_UNDOCUMENTED)
   if not metamodel.name then print'Skipped, no module name'
@@ -53,30 +57,30 @@ for _,filePath in ipairs(filePaths) do
       tinsert(modules,model)
     end
   end
-end
-
+end end
+table.sort(modules,function(a,b)return a.name<b.name end)
 local filters={all=OUTPUT_DOCS or nil,dev=OUTPUT_DEV_ONLY_FILE or nil,
   apichange=OUTPUT_API_CHANGES_FILE or nil,internalchange=OUTPUT_INTERNAL_CHANGES_FILE or nil}
 for flt,filename in pairs(filters) do
-	print('Loading filter '..flt)
+  print('Loading filter '..flt)
   local filter=builder.makeMetadataTagFilter(flt)
   local formats={md=OUTPUT_MD_DIR or nil,html=OUTPUT_HTML_DIR or nil}
   local indexFiles={md=OUTPUT_MD_INDEX_FILE or nil,html=OUTPUT_HTML_INDEX_FILE or nil}
   for format,destPath in pairs(formats) do
-  	print('Loading template '..flt..'.'..format)
+    print('Loading template '..flt..'.'..format)
     local indexFile=indexFiles[format]
     local template=require'doctemplates'[flt][format]
     local docs={ttag='docfiles'}
     for _,module in ipairs(modules) do
-    	print('Applying filter '..flt..' to '..module.name)
-    	module=builder.filter(module,filter)
-    	if not module then print('Nothing left') 
-    	else
-	      print('Applying template '..flt..'.'..format..' for '..module.name)
-	      local body=builder.template(module,template)
-	      print('Resolving links for '..module.name)
-	      body=builder.resolveLinks(filename==true and module.name or 'N/A',body,anchors,template)
-	      tinsert(docs,filename==true and {body=body,name=module.name,link=join(nil,module.name,format),short=module.short,ttag='docfile'} or body)
+      print('Applying filter '..flt..' to '..module.name)
+      module=builder.filter(module,filter)
+      if not module then print('Nothing left')
+      else
+        print('Applying template '..flt..'.'..format..' for '..module.name)
+        local body=builder.template(module,template)
+        print('Resolving links for '..module.name)
+        body=builder.resolveLinks(filename==true and module.name or 'N/A',body,anchors,template)
+        tinsert(docs,filename==true and {body=body,name=module.name,link=join(nil,module.name,format),short=module.short,ttag='docfile'} or body)
       end
     end
     if filename==true then

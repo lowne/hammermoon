@@ -8,6 +8,11 @@ assert(_VERSION == "Lua 5.1",'Lua 5.1 is required')
 local lddextractor = require 'lddextractor'
 local fs=require'fs.lfs'
 
+inspect=function(t,inline,depth)
+  if type(t)~='table' then return print(t)
+  else return print(require'lib.inspect'(t,{depth=depth or (inline and 3 or 6),newline=inline and ' ' or '\n'})) end
+end
+
 function _DEBUG(t,d)
   local p=t.parent t.parent=nil
   local s=require'inspect'(t,{depth=d or 3})
@@ -71,7 +76,7 @@ function M.makeMetadataTagFilter(metadataTag)
     if not defaultFilter(o) then return
     elseif o.extra[metadataTag] then return o
     elseif o.parent and o.parent.extra[metadataTag] then return o end
-    for _,children in ipairs{'globalfunctions','globalfields','types','functions','fields'} do
+    for _,children in ipairs{'globalfunctions','globalfields','types','functions','fields','prototypes'} do
       if o[children] and o[children][1] then return o end
     end
     --    return defaultFilter(o) and o.extra[metadataTag] and o
@@ -84,7 +89,7 @@ end
 --@param filter
 --@return #module the filtered model
 function M.filter(module,filter)
-  local function copy(t) return {name=t.name,ttag=t.ttag,htag=t.htag,type=t.type,extra=t.extra,short=t.short,long=t.long} end
+  local function copy(t) return {name=t.name,ttag=t.ttag,htag=t.htag,type=t.type,extra=t.extra,short=t.short,long=t.long,headersize=t.headersize} end
   local function flt(s,d,fieldname)
     d[fieldname]=copy(s[fieldname])
     for _,f in ipairs(s[fieldname]) do tinsert(d[fieldname],filter(f) or nil) end
@@ -92,6 +97,7 @@ function M.filter(module,filter)
   local r=copy(module) r.types=copy(module.types)
   flt(module,r,'globalfunctions')
   flt(module,r,'globalfields')
+  flt(module,r,'prototypes')
   for _,t in ipairs(module.types) do
     local dt=copy(t)
     flt(t,dt,'functions')
@@ -130,7 +136,7 @@ function M.makeModel(metamodel)
   --@field #string name
   --@field #string ttag
   --@field #string htag
-  --@field #table metamodel
+  --@field #extra extra
 
   ---@type typeditem
   --@extends #item
@@ -189,6 +195,16 @@ function M.makeModel(metamodel)
   --@field #string module (optional) module name for externaltype
   --@field #table typedef link to metamodel typedef (if available)
 
+  ---@type extra
+  --@field private
+  --@field dev
+  --@field apichange
+  --@field internalchange
+  --@field static (for types and modules)
+  --@field list (for types)
+  --@field map (for types)
+  --@field prototype (for functions)
+
   local module=copyAttrs(metamodel) --#module
   local typedefs,anchors={},{}
 
@@ -231,7 +247,8 @@ function M.makeModel(metamodel)
     if o.name=='cdata' then return end --ffi primitive type (not known to apimodelbuilder)
     print('  Adding type '..o.name)
     local t=copyAttrs(o) --#type
-    t.ttag='type' t.metamodel=o t.htag=t.extra.static and 'Table' or 'Type'
+    t.ttag='type' t.metamodel=o t.htag=t.extra.static and 'Table' or (t.extra.class and 'Class' or 'Type')
+    t.headersize=(t.extra.class or t.extra.static) and 2 or 3
     t.functions={ttag='functions'} t.fields={ttag='fields'}
     t.type={ttag='internaltype',name=t.name,module=module.name}--,typedef=o}
     typedefs[t.name]=t
@@ -250,7 +267,7 @@ function M.makeModel(metamodel)
       t.type.ttag='maptype' t.type.keytype=keytype t.type.valuetype=valuetype
       return
     elseif t.extra.static then t.type.ttag='staticinternaltype' end
-    tinsert(module.types,t) anchors[sformat('%s#(%s)',module.name,t.name)]=t
+    anchors[sformat('%s#(%s)',module.name,t.name)]=t
     return t
   end
 
@@ -292,7 +309,11 @@ function M.makeModel(metamodel)
     if parent then
       if t.parameters[1] and t.parameters[1].name=='self' then t.invokator=':' t.htag='Method' tremove(t.parameters,1) end
     else t.htag='Global function' end
-    anchors[sformat('%s#(%s).%s',module.name,parent and parent.name or '',t.name)]=t
+    if t.extra.prototype then t.htag='Function prototype' t.invokator='' t.parent=nil end -- t.ttag='prototype'
+    local anc=sformat('%s#(%s).%s',module.name,t.parent and t.parent.name or '',t.name)
+    print('    Added anchor ',anc)
+    anchors[anc]=t
+    --    if not t.parent then anchors[sformat('%s#%s',module.name,t.name)]=t end
     return t
   end
 
@@ -306,39 +327,59 @@ function M.makeModel(metamodel)
     return t
   end
 
+  --TODO:htag, invokator into template
+  --TODO:@prototype for @function - describes callbacks, has no parent (but is not global)
+
   ---traverse metamodel
   module.ttag='module' module.htag='Module'
-  module.types={ttag='types'} module.globalfields={ttag='globalfields'} module.globalfunctions={ttag='globalfunctions'}
-
+  module.globalfields={ttag='globalfields'} module.globalfunctions={ttag='globalfunctions'}
+  module.types={ttag='types'} module.prototypes={ttag='prototypes'}
   local moduleTypeRef=assert(metamodel:moduletyperef(),'no module typeref!') assert(moduleTypeRef.tag=='internaltyperef')
   local moduleTypeDef=assert(metamodel.types[moduleTypeRef.typename],'no module type!') assert(moduleTypeDef.tag=='recordtypedef')
   --- add module's type
-  local moduleType=newType(moduleTypeDef) moduleType.extra.static=module.extra.static moduleType.htag='Module'
+  local moduleType=newType(moduleTypeDef) moduleType.htag='Module' moduleType.headersize=2
+  moduleType.extra.static=module.extra.static moduleType.extra.usage=module.extra.usage
+  tinsert(module.types,moduleType)
   --- gather types
+  local classes,othertypes={},{}
   for k,v in sortedpairs(metamodel.types) do if v~=moduleTypeDef then
     assert(v.tag=='functiontypedef' or v.tag=='recordtypedef',v.name..' found inside types: '..v.tag)
-    if v.tag=='recordtypedef' then newType(v) end
+    if v.tag=='recordtypedef' then
+      v=newType(v) if v then if v.extra.class then classes[v.name]=v else othertypes[v.name]=v end end
+    end
   end end
+  local prototypes={}
+  local function addFunction(fn,t)
+    if fn.extra.prototype then prototypes[fn.name]=fn else tinsert(t,fn) end
+  end
   --- add globals
   for k,item in sortedpairs(metamodel.globalvars) do
     print('  Adding global '..item.name)
     local itemtype=getItemType(item) --#itemtype
-    if itemtype.ttag=='functiontype' then tinsert(module.globalfunctions,newFunction(item))
+    if itemtype.ttag=='functiontype' then addFunction(newFunction(item),module.globalfunctions)
     else tinsert(module.globalfields,newField(item)) end
   end
   --- add types
+  for k,v in sortedpairs(classes) do tinsert(module.types,v) end --classes first
+  for k,v in sortedpairs(othertypes) do tinsert(module.types,v) end --classes first
   for _,v in ipairs(module.types) do
     local type=v --#type
     print('  Traversing type '..type.name)
     for k,item in sortedpairs(type.metamodel.fields) do
       print('    Adding field '..item.name)
       local itemtype=getItemType(item) --#itemtype
-      if itemtype.ttag=='functiontype' then tinsert(type.functions,newFunction(item,type))
+      if itemtype.ttag=='functiontype' then addFunction(newFunction(item,type),type.functions)
       else tinsert(type.fields,newField(item,type)) end
     end
     type.metamodel=nil --cleanup
   end
-
+  --- remove "shadow" types that might be used by prototypes
+  for i=#module.types,1,-1 do
+    local v=module.types[i]
+    if prototypes[v.name] then tremove(module.types,i) end
+  end
+  --- add prototypes as types
+  for k,t in sortedpairs(prototypes) do tinsert(module.prototypes,t) anchors[sformat('%s#(%s)',module.name,t.name)]=t end
   return module,anchors--filter(module) or nil,anchors
 end
 
@@ -396,7 +437,7 @@ function M.template(item,templ)
         return assert(f,'missing selector:'..(o[tag].ttag or 'missing ttag'))(o[tag])
       end)
       :gsub('@%b()',function(tag)
-        tag=tag:sub(3,-2) assert(o[tag],o.name..' has no field '..tag)
+        tag=tag:sub(3,-2) assert(o[tag],o.ttag..' '..o.name..' has no field '..tag)
         local f=rawget(_,o.ttag..'.'..tag) or rawget(_,tag)
         return assert(f,'missing selector:'..o.ttag..'.'..tag)(o[tag])
       end)
@@ -410,9 +451,6 @@ function M.template(item,templ)
           print(o[fld][sub]) return o[fld][sub]
         end
         print(tag) return ''
-          --        local f=rawget(_,o.ttag..'.'..tag) or rawget(_,tag)
-          --        local r=assert(f,'missing selector:'..o.ttag..'.'..tag)(o)
-          --        print(r) return r
       end)
       :gsub('%?%b()',function(tag)
         tag=tag:sub(3,-2)
@@ -434,19 +472,55 @@ local resolved={}
 --@param #anchors anchors
 --@param #table templ the template that was passed to `template()`
 function M.resolveLinks(moduleName,doc,anchors,templ)
+  local function makeLink(o,destModule,l)
+    assert(o,'cannot resolve link: '..l)
+    local header=assert(templ[o.ttag..'.header'],'missing .header for '..o.ttag)(o)
+    --    local anchor='#'..templ.anchor(header)
+    --    if destModule~=moduleName then anchor=templ.filename(destModule)..anchor end
+    local anchor=templ.filename(destModule)..'#'..templ.anchor(header)
+    print('Link '..l..' resolved to '..anchor) return anchor
+  end
+  local function findAnchor(l)
+    if resolved[l] then return resolved[l] end
+    local destModule=assert(l:match('^(.-)#'),'missing module in link: '..l)
+    local anchor=makeLink(anchors[l],destModule,l) resolved[l]=anchor
+    return anchor
+  end
+  local function findUserAnchor(l)
+    if resolved[l] then return resolved[l] end
+    local origl,o=l
+    local isType=l:match('^<(.-)>$') l=isType or l
+    local destModule,destField=l:match('^([%w._]*)#(.+)')
+    assert(destField,'cannot resolve user link: '..origl)
+    destModule=#destModule>0 and destModule or moduleName
+    if isType then o=anchors[destModule..'#('..destField..')']
+    else
+      local pieces={}
+      for piece in destField:gmatch('([%w_]+)%.?') do tinsert(pieces,piece) end
+      for i=0,#pieces do
+        o=anchors[destModule..'#('..tconcat(pieces,'.',1,i)..').'..tconcat(pieces,'.',i+1,#pieces)]
+        if o then break end
+      end
+    end
+    local anchor=makeLink(o,destModule,origl)
+    local res=templ[isType and 'userlinktype' or 'userlink'](origl,anchor)  resolved[origl]=res
+    return res
+  end
   -- fill in missing module name for internal links
-  return doc:gsub('@{%s*(#[%w_()%.]-)%s*}', function(l)return '@{'..moduleName..l..'}' end)
+  return doc:gsub('@%[%s*(#[%w_()%.]-)%s*%]', function(l)return '@['..moduleName..l..']' end)
     -- find the actual links
-    :gsub('@{%s*(.-)%s*}', function(l)
-      local o=assert(anchors[l],'cannot resolve link: '..l)
-      local destModule=assert(l:match('^(.-)#'),'missing module in link: '..l)
-      local header=assert(templ[o.ttag..'.header'],'missing .header for '..o.ttag)(o)
-      header=header:gsub('(%b[])%b()','%1')
-      local anchor='#'..templ.anchor(header)
-      if destModule~=moduleName then anchor=templ.filename(destModule)..anchor end
-      if not resolved[l] then print('Link '..l..' resolved to '..anchor) resolved[l]=true end
-      return anchor
-    end)
+    :gsub('@%[%s*(.-)%s*%]', findAnchor)
+    :gsub('@{%s*(.-)%s*}', findUserAnchor)
+
+  --      local o=assert(anchors[l],'cannot resolve link: '..l)
+  --      local destModule=assert(l:match('^(.-)#'),'missing module in link: '..l)
+  --      local header=assert(templ[o.ttag..'.header'],'missing .header for '..o.ttag)(o)
+  --      header=header:gsub('(%b[])%b()','%1')
+  --      local anchor='#'..templ.anchor(header)
+  --      if destModule~=moduleName then anchor=templ.filename(destModule)..anchor end
+  --      if not resolved[l] then print('Link '..l..' resolved to '..anchor) resolved[l]=true end
+  --      return anchor
+  --    end)
 end
 
 return M
