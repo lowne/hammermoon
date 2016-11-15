@@ -118,8 +118,16 @@ function timer.absoluteTime() return CFAbsoluteTimeGetCurrent() end
 function timer.toSeconds(timeString) hmcheck'hm.timer#intervalString|hm.timer#timeOfDayString'
   return parseInterval(timeString) or parseLocalTime(timeString)
 end
----Sleep
-function timer.sleep(s) --TODO
+
+local currentThread=c.NSThread:currentThread()
+---Halts all processing for a given interval.
+-- **WARNING**: this function will stop *all* processing by Hammermoon.
+-- For anything other than very short intervals, use @{hm.timer.new()} with a callback instead.
+-- @function [parent=#hm.timer] sleep
+-- @param #number s interval in seconds
+function timer.sleep(s) hmcheck'positive'
+  if s>=0.1 then log.w('hm.timer.sleep() stops *all* processing by Hammermoon! For longer intervals, use hm.timer.new() with a callback instead.') end
+  return currentThread:sleepForTimeInterval(s)
 end
 
 ---Type for timer objects.

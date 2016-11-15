@@ -16,6 +16,8 @@ function hstimer.weeks(n)   return 60 * 60 * 24 * 7 * n end
 deprecate(hstimer,'weeks')
 function hstimer.secondsSinceEpoch() return timer.absoluteTime()+978307200 end
 deprecate(hstimer,'secondsSinceEpoch','hm.timer.absoluteTime()')
+function hstimer.usleep(s) return timer.sleep(s/1000000) end
+deprecate(hstimer,'usleep','hm.timer.sleep()')
 
 local mt={__index=hstimer}
 function hstimer.new(interval,fn,continueOnError)

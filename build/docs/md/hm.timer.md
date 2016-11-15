@@ -14,7 +14,7 @@ Schedule asynchronous execution of functions in the future.
 Function [`hm.timer.absoluteTime()`](hm.timer.md#function-hmtimerabsolutetime---number) -> _`<#number>`_ | Returns the number of seconds since an arbitrary point in the distant past.
 Function [`hm.timer.localTime()`](hm.timer.md#function-hmtimerlocaltime---number) -> _`<#number>`_ | Returns the number of seconds since midnight local time.
 Function [`hm.timer.new(fn,data)`](hm.timer.md#function-hmtimernewfndata---timer) -> [_`<#timer>`_](hm.timer.md#class-timer) | Creates a new timer.
-Function [`hm.timer.sleep(s)`](hm.timer.md#function-hmtimersleeps) | 
+Function [`hm.timer.sleep(s)`](hm.timer.md#function-hmtimersleeps) | Halts all processing for a given interval.
 Function [`hm.timer.toSeconds(timeString)`](hm.timer.md#function-hmtimertosecondstimestring---number) -> _`<#number>`_ | Converts to number of seconds
 
 
@@ -100,13 +100,14 @@ Creates a new timer.
 
 ### Function `hm.timer.sleep(s)`
 
-
+Halts all processing for a given interval.
 
 **Parameters:**
 
-* _`<?>`_ `s`: 
+* _`<#number>`_ `s`: interval in seconds
 
-
+**WARNING**: this function will stop *all* processing by Hammermoon.
+For anything other than very short intervals, use [`hm.timer.new()`](hm.timer.md#function-hmtimernewfndata---timer) with a callback instead.
 
 
 ### Function `hm.timer.toSeconds(timeString)` -> _`<#number>`_
