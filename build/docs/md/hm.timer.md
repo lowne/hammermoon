@@ -27,7 +27,7 @@ Method [`<#timer>:runEvery(repeatInterval,delayOrStartTime,continueOnError)`](hm
 Method [`<#timer>:runIn(delay)`](hm.timer.md#method-timerrunindelay) | Schedules execution of the timer after a given delay.
 Method [`<#timer>:runWhen(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunwhenpredicatefncheckintervalcontinueonerror) | Schedules execution of the timer every time a given predicate is true.
 Method [`<#timer>:runWhile(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunwhilepredicatefncheckintervalcontinueonerror) | Schedules repeated execution of the timer while a given predicate remains true.
-Property (read-only) [`<#timer>.lastRun`](hm.timer.md#property-read-only-timerlastrun-number) : _`<#number>`_ | The timer's last execution time, in seconds since.
+Property (read-only) [`<#timer>.elapsed`](hm.timer.md#property-read-only-timerelapsed-number) : _`<#number>`_ | The timer's last execution time, in seconds since.
 Property [`<#timer>.nextRun`](hm.timer.md#property-timernextrun-number) : _`<#number>`_ | The timer's scheduled next execution time, in seconds from now.
 Property [`<#timer>.scheduled`](hm.timer.md#property-timerscheduled-boolean) : _`<#boolean>`_ | `true` if the timer is scheduled for execution.
 
@@ -155,6 +155,8 @@ Executes the timer now.
 
 ### Method `<#timer>:runAfter(predicateFn,checkInterval,continueOnError)`
 
+> **API CHANGE**: Replaces `hs.timer.waitWhile()` and `hs.timer.waitUntil()`
+
 Schedules execution of the timer after a given predicate becomes false.
 
 **Parameters:**
@@ -230,6 +232,8 @@ end
 
 ### Method `<#timer>:runWhen(predicateFn,checkInterval,continueOnError)`
 
+> **API CHANGE**: Not (directly) available in HS, but of dubious utility anyway.
+
 Schedules execution of the timer every time a given predicate is true.
 
 **Parameters:**
@@ -245,6 +249,8 @@ execute.
 
 ### Method `<#timer>:runWhile(predicateFn,checkInterval,continueOnError)`
 
+> **API CHANGE**: Replaces `hs.timer.doWhile()` and `hs.timer.doUntil()`
+
 Schedules repeated execution of the timer while a given predicate remains true.
 
 **Parameters:**
@@ -258,13 +264,17 @@ The given `predicateFn` will start being checked right away. While it returns `t
 execute; as soon as it returns `false` the timer will be canceled.
 
 
-### Property (read-only) `<#timer>.lastRun`: _`<#number>`_
+### Property (read-only) `<#timer>.elapsed`: _`<#number>`_
+> **API CHANGE**: Was `<#hs.timer>:nextTrigger()` when negative, but only if the timer was not running.
+
 The timer's last execution time, in seconds since.
 
 If the timer has never been executed, this value is the time since creation.
 
 
 ### Property `<#timer>.nextRun`: _`<#number>`_
+> **API CHANGE**: `<#hs.timer>:nextTrigger()`, with some differences.
+
 The timer's scheduled next execution time, in seconds from now.
 
 If this value is `nil`, the timer is currently unscheduled.
@@ -273,6 +283,8 @@ setting it to `nil` unschedules the timer.
 
 
 ### Property `<#timer>.scheduled`: _`<#boolean>`_
+> **API CHANGE**: `<#hs.timer>:running()`, with some differences.
+
 `true` if the timer is scheduled for execution.
 
 Setting this to `false` or `nil` unschedules the timer.

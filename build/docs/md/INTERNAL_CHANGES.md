@@ -332,4 +332,32 @@ myTimer:runEvery(1,5)
 myTimer:cancel()
 ```
 
+### Method `<#timer>:runIn(delay)`
+
+> **API CHANGE**: This replaces non-repeating timers (`hs.timer.new()` and `hs.timer.doAfter()`) as well as `hs.timer.delayed`s
+
+> INTERNAL CHANGE: These timers technically "repeat" into the distant future, so they can be reused at will, but are
+                transparently added to and removed from the run loop as needed
+
+Schedules execution of the timer after a given delay.
+
+**Parameters:**
+
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `delay`: 
+
+Every time you call this method the "execution countdown" is restarted - i.e. any previous schedule (created
+with any of the `:run...()` methods) is overwritten. This can be useful
+to coalesce processing of unpredictable asynchronous events into a single
+callback; for example, if you have an event stream that happens in "bursts" of dozens of events at once,
+use an appropriate `delay` to wait for things to settle down, and then your callback will run just once.
+
+**Usage**:
+
+```lua
+local coalesceTimer=hm.timer.new(doSomethingExpensiveOnlyOnce)
+local function burstyEventCallback(...)
+  coalesceTimer:runIn(2.5) -- wait 2.5 seconds after the last event in the burst
+end
+```
+
 

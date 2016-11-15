@@ -381,6 +381,22 @@ Unschedule a timer.
 The timer's [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) will not be executed again until you call one of its `:run...()` methods.
 
 
+### Method `<#timer>:runAfter(predicateFn,checkInterval,continueOnError)`
+
+> **API CHANGE**: Replaces `hs.timer.waitWhile()` and `hs.timer.waitUntil()`
+
+Schedules execution of the timer after a given predicate becomes false.
+
+**Parameters:**
+
+* [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) `predicateFn`: A predicate function that determines whether to contine waiting before executing the timer
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `checkInterval`: interval between predicate checks
+* _`<#boolean>`_ `continueOnError`: (optional) if `true`, `predicateFn` will keep being checked even if it causes an error
+
+The given `predicateFn` will start being checked right away. As soon as it returns `false`, the timer will
+execute (once).
+
+
 ### Method `<#timer>:runEvery(repeatInterval,delayOrStartTime,continueOnError)`
 
 > **API CHANGE**: This replaces all repeating timers, whether created via `hs.timer.new()`, `hs.timer.doEvery()`, or `hs.timer.doAt()`
@@ -441,6 +457,65 @@ local function burstyEventCallback(...)
   coalesceTimer:runIn(2.5) -- wait 2.5 seconds after the last event in the burst
 end
 ```
+
+### Method `<#timer>:runWhen(predicateFn,checkInterval,continueOnError)`
+
+> **API CHANGE**: Not (directly) available in HS, but of dubious utility anyway.
+
+Schedules execution of the timer every time a given predicate is true.
+
+**Parameters:**
+
+* [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) `predicateFn`: A predicate function that determines whether to execute the timer
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `checkInterval`: interval between predicate checks (and potential timer executions)
+* _`<#boolean>`_ `continueOnError`: (optional) if `true`, `predicateFn` will keep being checked even if it - or the
+       timer's [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) - causes an error
+
+The given `predicateFn` will start being checked right away. Every time it returns `true`, the timer will
+execute.
+
+
+### Method `<#timer>:runWhile(predicateFn,checkInterval,continueOnError)`
+
+> **API CHANGE**: Replaces `hs.timer.doWhile()` and `hs.timer.doUntil()`
+
+Schedules repeated execution of the timer while a given predicate remains true.
+
+**Parameters:**
+
+* [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) `predicateFn`: A predicate function that determines whether to contine executing the timer
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `checkInterval`: interval between predicate checks (and timer executions)
+* _`<#boolean>`_ `continueOnError`: (optional) if `true`, the timer will keep repeating (and executing) even if
+       its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) or `predicateFn` cause an error
+
+The given `predicateFn` will start being checked right away. While it returns `true`, the timer will
+execute; as soon as it returns `false` the timer will be canceled.
+
+
+### Property (read-only) `<#timer>.elapsed`: _`<#number>`_
+> **API CHANGE**: Was `<#hs.timer>:nextTrigger()` when negative, but only if the timer was not running.
+
+The timer's last execution time, in seconds since.
+
+If the timer has never been executed, this value is the time since creation.
+
+
+### Property `<#timer>.nextRun`: _`<#number>`_
+> **API CHANGE**: `<#hs.timer>:nextTrigger()`, with some differences.
+
+The timer's scheduled next execution time, in seconds from now.
+
+If this value is `nil`, the timer is currently unscheduled.
+You cannot set this value to a negative number; setting it to `0` triggers timer execution right away;
+setting it to `nil` unschedules the timer.
+
+
+### Property `<#timer>.scheduled`: _`<#boolean>`_
+> **API CHANGE**: `<#hs.timer>:running()`, with some differences.
+
+`true` if the timer is scheduled for execution.
+
+Setting this to `false` or `nil` unschedules the timer.
 
 
 

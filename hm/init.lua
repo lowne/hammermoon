@@ -32,9 +32,11 @@ package.cpath=package.cpath..';./lib/?.so'
 require'checks'
 require'compat53'
 local type,floor,getmetatable=type,math.floor,getmetatable
-checkers.uint=function(v)return type(v)=='number' and v>0 and floor(v)==v end
+checkers['uint']=function(v)return type(v)=='number' and v>0 and floor(v)==v end
 checkers['false']=function(v)return v==false end
 checkers['true']=function(v)return v==true end
+checkers['positive']=function(v) return type(v)=='number' and v>0 end
+checkers['positiveOrZero']=function(v) return type(v)=='number' and v>=0 end
 
 --- Hammermoon main module
 --@module hm

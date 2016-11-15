@@ -233,6 +233,7 @@ function tmr:cancel() hmcheck'hm.timer#timer' stop(self) end
 -- Setting this to `false` or `nil` unschedules the timer.
 -- @field [parent=#timer] #boolean scheduled
 -- @property
+-- @apichange `<#hs.timer>:running()`, with some differences.
 hm._core.property(tmr,'scheduled',
   function(self)return self._isRunning or false end,
   function(self,v)hmcheck('?','?false') stop(self)
@@ -254,12 +255,14 @@ end
 -- setting it to `nil` unschedules the timer.
 -- @field [parent=#timer] #number nextRun
 -- @property
+-- @apichange `<#hs.timer>:nextTrigger()`, with some differences.
 hm._core.property(tmr,'nextRun',nextTrigger,setNextTrigger)
 ---The timer's last execution time, in seconds since.
 -- If the timer has never been executed, this value is the time since creation.
--- @field [parent=#timer] #number lastRun
+-- @field [parent=#timer] #number elapsed
 -- @readonlyproperty
-hm._core.property(tmr,'lastRun',function(self)return CFAbsoluteTimeGetCurrent()-self._lastTrigger end,false)
+-- @apichange Was `<#hs.timer>:nextTrigger()` when negative, but only if the timer was not running.
+hm._core.property(tmr,'elapsed',function(self)return CFAbsoluteTimeGetCurrent()-self._lastTrigger end,false)
 
 --[[
 ---Schedules execution of the timer at a given time of day.
@@ -291,6 +294,8 @@ end
 --   coalesceTimer:runIn(2.5) -- wait 2.5 seconds after the last event in the burst
 -- end
 -- @apichange This replaces non-repeating timers (`hs.timer.new()` and `hs.timer.doAfter()`) as well as `hs.timer.delayed`s
+-- @internalchange These timers technically "repeat" into the distant future, so they can be reused at will, but are
+--                 transparently added to and removed from the run loop as needed
 function tmr:runIn(delay) hmcheck('hm.timer#timer','hm.timer#intervalString')
   delay=parseInterval(delay)
   if delay>=60 then
@@ -379,6 +384,7 @@ end
 -- @param #intervalString checkInterval interval between predicate checks (and timer executions)
 -- @param #boolean continueOnError (optional) if `true`, the timer will keep repeating (and executing) even if
 --        its @{<#timerFunction>} or `predicateFn` cause an error
+-- @apichange Replaces `hs.timer.doWhile()` and `hs.timer.doUntil()`
 function tmr:runWhile(predicateFn,...) hmcheck('function','hm.timer#intervalString','?boolean')
   return startPredicate(self,makePredicateCallback(predicateFn,true,false),...)
 end
@@ -390,6 +396,7 @@ end
 -- @param #predicateFunction predicateFn A predicate function that determines whether to contine waiting before executing the timer
 -- @param #intervalString checkInterval interval between predicate checks
 -- @param #boolean continueOnError (optional) if `true`, `predicateFn` will keep being checked even if it causes an error
+-- @apichange Replaces `hs.timer.waitWhile()` and `hs.timer.waitUntil()`
 function tmr:runAfter(predicateFn,...) hmcheck('function','hm.timer#intervalString','?boolean')
   return startPredicate(self,makePredicateCallback(predicateFn,false,false),...)
 end
@@ -402,6 +409,7 @@ end
 -- @param #intervalString checkInterval interval between predicate checks (and potential timer executions)
 -- @param #boolean continueOnError (optional) if `true`, `predicateFn` will keep being checked even if it - or the
 --        timer's @{<#timerFunction>} - causes an error
+-- @apichange Not (directly) available in HS, but of dubious utility anyway.
 function tmr:runWhen(predicateFn,...) hmcheck('function','hm.timer#intervalString','?boolean')
   return startPredicate(self,makePredicateCallback(predicateFn,true,nil),...)
 end
