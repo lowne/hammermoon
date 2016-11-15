@@ -33,6 +33,8 @@ require'checks'
 require'compat53'
 local type,floor,getmetatable=type,math.floor,getmetatable
 checkers.uint=function(v)return type(v)=='number' and v>0 and floor(v)==v end
+checkers['false']=function(v)return v==false end
+checkers['true']=function(v)return v==true end
 
 --- Hammermoon main module
 --@module hm
@@ -164,13 +166,15 @@ function hm._lua_setup()
     end
   end
   local module__newindex=function(t,k,v)
-    local f=properties[t] and properties[t][k] if f then if f.set then return f.set(v) else error(f.original..' is read only',2) end end
+    local f=properties[t] and properties[t][k]
+    if f then if f.set then f.set(v) else error(f.original..' is read only',2) end return end -- no tail call (for checks.lua)
     f=deprecated[t] and deprecated[t][k] if f then warnDeprecation(f) f.values[t]=v return end
     return rawset(t,k,v)
   end
   local function makeclass__newindex(cls)
     return function(self,k,v)
-      local f=properties[cls] and properties[cls][k] if f then if f.set then return f.set(self,v) else error(f.original..' is read only',2) end end
+      local f=properties[cls] and properties[cls][k]
+      if f then if f.set then f.set(self,v) else error(f.original..' is read only',2) end return end -- no tail call (for checks.lua)
       f=deprecated[cls] and deprecated[cls][k] if f then warnDeprecation(f) f.values[self]=v return end
       return rawset(self,k,v)
     end

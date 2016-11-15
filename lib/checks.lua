@@ -14,7 +14,7 @@
 --
 -- Contributors:
 --     Fabien Fleutot - API and implementation
---     Mark Lowne - nits
+--     Mark Lowne - meaningful error message for __newindex (cannot use tail call, though)
 --------------------------------------------------------------------------------
 
 -- Alternative implementation of checks() in Lua. Slower than
@@ -50,12 +50,16 @@ function checks(...)
     local name, val = getlocal(2, i)
     local success = check_many(name, arg, val)
     if not success then
+      local fmt = "bad argument #%d to '%s' (%s expected, got %s)"
       local fname = getinfo(2, 'n').name
+      if getinfo(3, 'n').name=='__newindex' then
+        local k,v=getlocal(3,2) fname=v
+        fmt = "[%d] bad value for '%s' (%s expected, got %s)"
+      end
       local types={}
       if arg:sub(1,1)=='?' then types[1]='nil' end
       for type in arg:gmatch'[^|?]+' do types[#types+1]=type end
       types=table.concat(types,' or ')
-      local fmt = "bad argument #%d to '%s' (%s expected, got %s)"
       local msg = string.format(fmt, i, fname or "?", types, type(val))
       error(msg, 3)
     end
