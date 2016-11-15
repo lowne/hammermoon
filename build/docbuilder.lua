@@ -322,7 +322,10 @@ function M.makeModel(metamodel)
     local t=copyAttrs(o) --#type
     t.type=getItemType(o) t.parent=parent t.ttag='field'
     t.invokator=parent and '.' or ''
-    t.htag=parent and 'Field' or 'Global field' if t.extra.const then t.htag='Constant' end
+    t.htag=parent and 'Field' or 'Global field'
+    if t.extra.const then t.htag='Constant'
+    elseif t.extra.property then t.htag='Property'
+    elseif t.extra.readonlyproperty then t.htag='Property (read-only)' end
     anchors[sformat('%s#(%s).%s',module.name,parent and parent.name or '',t.name)]=t
     return t
   end
