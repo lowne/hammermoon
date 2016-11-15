@@ -493,6 +493,7 @@ function M.resolveLinks(moduleName,doc,anchors,templ)
     if resolved[l] then return resolved[l] end
     local origl,o=l
     local isType=l:match('^<(.-)>$') l=isType or l
+    if not l:find('#',1,true) then l='#'..l end
     local destModule,destField=l:match('^([%w._]*)#(.+)')
     assert(destField,'cannot resolve user link: '..origl)
     destModule=#destModule>0 and destModule or moduleName
