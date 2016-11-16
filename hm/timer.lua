@@ -186,7 +186,7 @@ local function run(self)
   local ok,res=pcall(self._runcb,self,self._elapsed and now-self._lastTrigger or self._data)
   self._lastTrigger=now
   if not ok then
-    if not self._continueOnError then stop(self) end
+    if not self._continueOnError then stop(self) error(res) end
     return log.e(self,'Error on run:',res)
   else return res end
 end
