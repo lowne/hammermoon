@@ -1,8 +1,5 @@
-
-local c=require'objc'
-c.load'AppKit'
-local tolua=c.tolua
-
+local newproxy,type,getmetatable,setmetatable,rawget,rawset=newproxy,type,getmetatable,setmetatable,rawget,rawset
+local pairs,ipairs=pairs,ipairs
 local tinsert,sformat=table.insert,string.format
 
 ---@function [parent=#global] errorf
@@ -31,12 +28,23 @@ package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
 package.cpath=package.cpath..';./lib/?.so'
 require'checks'
 require'compat53'
-local type,floor,getmetatable=type,math.floor,getmetatable
+
+local floor=math.floor
 checkers['uint']=function(v)return type(v)=='number' and v>0 and floor(v)==v end
 checkers['false']=function(v)return v==false end
 checkers['true']=function(v)return v==true end
 checkers['positive']=function(v) return type(v)=='number' and v>0 end
 checkers['positiveOrZero']=function(v) return type(v)=='number' and v>=0 end
+local function isCallable(v) return type(v)=='function' or (type(v)=='table' and getmetatable(v) and getmetatable(v).__call) end
+checkers['callable']=isCallable
+checkers['stringList']=function(v) if type(v)~='table' then return false end for _,s in ipairs(v) do if type(s)~='string' then return false end end return true end
+
+---@private
+hmcheck=checks
+---@private
+hmassert=assert
+---@private
+hmassertf=assertf
 
 --- Hammermoon main module
 --@module hm
@@ -44,12 +52,9 @@ checkers['positiveOrZero']=function(v) return type(v)=='number' and v>=0 end
 --@internalchange Using the 'checks' library for userscript argument checking.
 --@internalchange Using the 'compat53' library, but syntax-level things (such as # not using __len) are still Lua 5.1
 
-local log --hm.logger#logger
---local destroyers={}
-
 --- Hammermoon's namespace, globally accessible from userscripts
 hm={} --#hm
-
+local log --hm.logger#logger
 
 ---Quits Hammermoon.
 -- This function will make sure to properly close the Lua state, so that all the __gc metamethods will run.
@@ -70,51 +75,40 @@ function hm.type(obj)
   else return t end
 end
 
----@private
-function hm._lua_setup()
-  print'----- Hammermoon starting up -----'
-  local newproxy,setmetatable,rawget,rawset=newproxy,setmetatable,rawget,rawset
+---Debug options
+--@type hm.debug
+--@static
+--@dev
+--@apichange Doesn't exist in Hammerspoon
 
-  ---Debug options
-  --@type hm.debug
-  --@static
-  --@dev
-  --@apichange Doesn't exist in Hammerspoon
+---Retain user objects internally (default `true`).
+-- User objects (timers, watchers, etc.) are retained internally by default, so
+-- userscripts needn't worry about their lifecycle.
+-- If falsy, they will get gc'ed unless the userscript keeps a global reference.
+-- @field [parent=#hm.debug] #boolean retainUserObjects
+-- @internalchange User objects are retained
 
-  ---Retain user objects internally (default `true`).
-  -- User objects (timers, watchers, etc.) are retained internally by default, so
-  -- userscripts needn't worry about their lifecycle.
-  -- If falsy, they will get gc'ed unless the userscript keeps a global reference.
-  -- @field [parent=#hm.debug] #boolean retainUserObjects
-  -- @internalchange User objects are retained
+---Cache uielement objects (default `true`).
+-- Uielement objects (including applications and windows) are cached internally for performance; this can be disabled.
+-- @field [parent=#hm.debug] #boolean cacheUIElements
+-- @internalchange Uielements are cached
 
-  ---Cache uielement objects (default `true`).
-  -- Uielement objects (including applications and windows) are cached internally for performance; this can be disabled.
-  -- @field [parent=#hm.debug] #boolean cacheUIElements
-  -- @internalchange Uielements are cached
+---Disable type checks (default `false`).
+-- If set to `true`, type checks are disabled for slightly better performance.
+-- @field [parent=#hm.debug] #boolean disableTypeChecks
+-- @internalchange Centralized switch for type checking - Hammermoon modules should all use `hmcheck()`
 
-  ---Disable type checks (default `false`).
-  -- If set to `true`, type checks are disabled for slightly better performance.
-  -- @field [parent=#hm.debug] #boolean disableTypeChecks
-  -- @internalchange Centralized switch for type checking - Hammermoon modules should all use `hmcheck()`
+---Disable assertions (default `false`).
+-- If set to `true`, assertions are disabled for slightly better performance.
+-- @field [parent=#hm.debug] #boolean disableAssertions
+-- @internalchange Centralized switch for assertion checking - Hammermoon modules should all use `hmassert()`
 
-  ---Disable assertions (default `false`).
-  -- If set to `true`, assertions are disabled for slightly better performance.
-  -- @field [parent=#hm.debug] #boolean disableAssertions
-  -- @internalchange Centralized switch for assertion checking - Hammermoon modules should all use `hmassert()`
+local hmdebug={retainUserObjects=true,cacheUIElements=true,disableTypeChecks=false,disableAssertions=false}
 
-  local hmdebug={retainUserObjects=true,cacheUIElements=true,disableTypeChecks=false,disableAssertions=false}
+local function make_hmdebug()
   local rawchecks,rawassert,rawassertf=checks,assert,assertf
-
-  ---@private
-  hmcheck=checks
-  ---@private
-  hmassert=assert
-  ---@private
-  hmassertf=assertf
-  ---@field [parent=#hm] #hm.debug debug
-  hm.debug=setmetatable({},{__index=hmdebug,__newindex=function(t,k,v)
-    v=not(not v)
+  return setmetatable({},{__index=hmdebug,__newindex=function(t,k,v)
+    v=not(not v) --toboolean
     if rawget(hmdebug,k)==v then return end
     if k=='disableTypeChecks' then hmcheck=v and rawchecks or function()end
     elseif k=='disableAssertions' then hmassert=v and rawassert or function()end hmassertf=v and rawassertf or function()end
@@ -124,22 +118,21 @@ function hm._lua_setup()
     log.w('hm.debug:',k,'set to',v)
     hmdebug[k]=v
   end})
+end
+
+
+
+---@private
+function hm._lua_setup()
+  print'[Hammermoon starting up]'
+
+  ---@field [parent=#hm] #hm.debug debug
+  hm.debug=make_hmdebug()
 
   local rawrequire=require
   require=function(modname)
     if modname:sub(1,3)=='hs.' then modname='hs_compat.'..modname:sub(4) end
-    local mod=rawrequire(modname)
-    if type(mod)=='table' then
-      --      tinsert(destroyers,rawget(mod,'_hmdestroy'))
-      local gc=rawget(mod,'__gc')
-      if gc then
-        assert(not rawget(mod,'__proxy'))
-        local proxy=newproxy(true)
-        getmetatable(proxy).__gc=function()mod.log.i('Unloading') return gc(mod) end
-        rawset(mod,'__proxy',proxy)
-      end
-    end
-    return mod
+    return rawrequire(modname)
   end
 
   local function cacheValues(t) return setmetatable(t or {},{__mode='v'}) end
@@ -154,10 +147,40 @@ function hm._lua_setup()
     deprecationWarnings[f.key]={} -- don't bother us for a bit
   end
 
+
+  -- registerWatcher(hm.window.call.focusedWindow(args))
+  -- registerWatcher(hm.window.call.focusedWindow(args).call.setFrame(frame))
+  -- registerWatcher(hm.window.call.focusedWindow()() )
+
+  -- registerWatcher(hm.window.call('focusedWindow',args)().call.setFrame(frame))
+
+  -- hm.window.call[somefn](args)() -> function()return hm.window.somefn(args)end
+  -- hm.window.call[somefn](args).call[method](margs) -> function()return hm.window.somefn(args):method(margs) end
+
+  local function makeLazyCaller(cls,obj)
+    return setmetatable({},{
+      __index=function(lazyCaller,methodName)
+        local m=cls[methodName]
+        assert(isCallable(m),'No such method: '..methodName)
+        local caller=function(a,b,c,d,e,f,g) return function() return m(obj,a,b,c,d,e,f,g) end end
+        local f=setmetatable({},{
+          __index=function(_,k)
+            if k=='call' then
+            end
+          end,
+          __call=caller,
+        })
+        rawset(lazyCaller,methodName,f) return f
+      end,
+    })
+  end
+
   local properties,deprecated=cacheKeys(),cacheKeys()
+  local submodules={}
   local module__index=function(t,k)
     local f=properties[t] and properties[t][k] if f then return f.get() end
     f=deprecated[t] and deprecated[t][k] if f then warnDeprecation(f) return f.values[t] end
+    f=submodules[t] and submodules[t][k] if f then f=rawrequire(f) rawset(t,k,f) return f end
     return nil
   end
   local function makeclass__index(cls)
@@ -189,7 +212,7 @@ function hm._lua_setup()
   -- @param #string fieldname desired field name
   -- @param #function getter getter function
   -- @param #function setter setter function or `false` (to make the property read-only)
-  -- @apichange Doesn't exist in Hammerspoon
+  -- @apichange Doesn't exist in Hammerspoon; this also allows fields in modules and objects to be trivially type-checked.
   -- @internalchange Modules don't need to handle properties internally.
 
   local function getTableName(t) return getmetatable(t).__name end
@@ -231,14 +254,12 @@ function hm._lua_setup()
     rawset(t,fieldname,nil)
   end
 
-  --  local function fancyTable(t) return setmetatable(t or {},fancymt) end
-
   ---Hammermoon core facilities for use by extensions.
   --@type hm._core
   --@field hm.logger#logger log Logger instance for Hammermoon's core
   --@static
   --@dev
-  local core={rawrequire=require,
+  local core={rawrequire=rawrequire,
     property=property,deprecate=function(...)return deprecate(true,...)end,
     disallow=function(...)return deprecate(false,...) end,
     cacheValues=cacheValues,cacheKeys=cacheKeys,retainValues=retainValues,retainKeys=retainKeys}
@@ -251,32 +272,39 @@ function hm._lua_setup()
 
   setmetatable(hm,{
     __index=function(t,k)
-      print('-----       Loading extension: hm.'..k)
-      local ok,res=xpcall(require,debug.traceback,'hm.'..k)
-      if ok and res then rawset(t,k,res) return res
-      else print(res) return nil end
+      print('[Loading extension: hm.'..k..']')
+      local ok,mod=xpcall(rawrequire,debug.traceback,'hm.'..k)
+      if ok and mod then
+        if type(mod)=='table' then
+          local gc=rawget(mod,'__gc')
+          if gc then
+            assert(not rawget(mod,'__proxy'))
+            local proxy=newproxy(true)
+            getmetatable(proxy).__gc=function()print('[Unloading extension: hm.'..k..']') return gc(mod) end
+            rawset(mod,'__proxy',proxy)
+          end
+        end
+        rawset(t,k,mod) return mod
+      else print(mod) return nil end
     end,
     __newindex=function(t,k)error'Only Hammermoon extensions can go into table hm' end,
   })
-
-  ---For compatibility with Hammerspoon userscripts
-  hs=setmetatable({},{
-    __index=function(t,k)
-      print('-----       Loading compatibility wrapper for Hammerspoon extension: hs.'..k)
-      local ok,res=xpcall(require,debug.traceback,'hs_compat.'..k)
-      if ok and res then rawset(t,k,res) return res
-      else print(res) return nil end
-    end,
-    __newindex=function(t,k)error'Not allowed' end,
-  })
-
 
   hm.logger.defaultLogLevel=5
   log=hm.logger.new'core'
   log.d'Autoload extensions ready'
   core.log=log
 
-  --  local function deprecate()
+  ---For compatibility with Hammerspoon userscripts
+  hs=setmetatable({},{
+    __index=function(t,k)
+      print('[Loading compatibility wrapper for Hammerspoon extension: hs.'..k..']')
+      local ok,res=xpcall(rawrequire,debug.traceback,'hs_compat.'..k)
+      if ok and res then rawset(t,k,res) return res
+      else print(res) return nil end
+    end,
+    __newindex=function(t,k)error'Not allowed' end,
+  })
 
   ---Declare a new Hammermoon extension.
   --Use this function to create the table for your module.
@@ -307,8 +335,13 @@ function hm._lua_setup()
   --@field hm.logger#logger log The extension's module-level logger instance
   --@class
 
-  ---Type for Hammermoon objects
+  ---Type for Hammermoon object classes
   --@type module.class
+  --@dev
+  --@class
+
+  ---Type for Hammermoon objects
+  --@type module.object
   --@dev
   --@class
 
@@ -316,7 +349,7 @@ function hm._lua_setup()
   --@function [parent=#module] __gc
   --@dev
 
-  local function hmmodule(name,classmt,withLogger) --TODO object logger
+  local function hmmodule(name,classmt,submoduleNames) checks('string','?table','?stringList')
     local mlog=hm.logger.new(name)
     local clsname='#'..name
     local cls=setmetatable({},{__tostring=function()return clsname end,__type='hm#module.class',__name='hm.'..name..'#'..name})
@@ -326,6 +359,7 @@ function hm._lua_setup()
       classmt.__index=makeclass__index(cls)
       classmt.__newindex=makeclass__newindex(cls)
       local make=function(o) setmetatable(o,classmt) log.v('allocated:',o) return o end
+      --TODO object logger
       local gc=classmt.__gc
       local new=not gc and make or function(o)
         -- attach gc handler to our objects; if/when luajit gets the new gc that directly allows __gc in the metatable, this will be unnecessary
@@ -339,111 +373,33 @@ function hm._lua_setup()
       --Objects created by this function have their lifecycle tracked by Hammermoon's core.
       --@function [parent=#module.class] _new
       --@param #table t initial values for the new object
-      --@return a new object instance
+      --@return #module.object a new object instance
       --@dev
       cls._new=new
       cls._metatable=classmt
     end
     local m=setmetatable({log=mlog,_class=classmt and cls},
       {__type='hm#module',__name='hm.'..name,__index=module__index,__newindex=module__newindex})
-    --    moduleNames[m]='hm.'..name
-    --    properties[m]={} deprecated[m]={}
+    submodules[m]=submoduleNames
     return m
   end
 
   core.module=hmmodule
+
   ---@private
   core.hs_compat_module=function(name)
     return setmetatable({},{__type='hs_compat#module',__name='hs.'..name,__index=module__index,__newindex=module__newindex})
   end
-  ---The shared `NSWorkspace` instance
-  core.sharedWorkspace=c.NSWorkspace:sharedWorkspace() -- #cdata
 
-  ---@type notificationCenter
-  --@class
-
-  log.d'Setting up workspace notification receiver'
-  local ipairs=ipairs
-  local function makeHMNC(nc)
-    local callbacks={} --store in a closure for the block
-    return {
-      _nc=nc,_events={},_callbacks=callbacks,_observers={},
-      _block=c.block(function(notif)
-        local event,info=tolua(notif.name),notif.userInfo
-        for _,cb in ipairs(callbacks[event]) do cb(event,info) end
-      end,'v@'),
-      ---@function [parent=#notificationCenter] register
-      --@param #notificationCenter self
-      --@param #string event
-      --@param #function cb
-      --@param #boolean priority
-      --@dev
-      --@internalchange Centralized callback registry for notification centers, to be used by extensions.
-
-      register=function(self,event,cb,priority)
-        assert(type(event)=='string')
-        if not self._events[event] then
-          log.d('Adding observer for notification',event)
-          tinsert(self._observers,self._nc:addObserverForName_object_queue_usingBlock(event,nil,nil,self._block))
-          self._events[event]=true
-          self._callbacks[event]={}
-        end
-        log.v('Registering callback for notification',event)
-        if priority then tinsert(self._callbacks[event],1,cb)
-        else tinsert(self._callbacks[event],cb) end
-      end
-    }
-  end
-  ---The shared workspace's Notification Center.
-  --@field [parent=#hm._core] #notificationCenter wsNotificationCenter
-  core.wsNotificationCenter=makeHMNC(core.sharedWorkspace.notificationCenter)
-  ---The default Notification Center.
-  --@field [parent=#hm._core] #notificationCenter defaultNotificationCenter
-  core.defaultNotificationCenter=makeHMNC(c.NSNotificationCenter:defaultCenter())
-
-  ---`AXUIElementCreateSystemWide()` instance
-  --@field [parent=#hm._core] #cdata systemWideAccessibility
-  --@internalchange Instance to be used by extensions.
-
-  setmetatable(core,{__index=function(t,k)
-    if k=='systemWideAccessibility' then
-      local axsw=c.AXUIElementCreateSystemWide()
-      assert(axsw,'no systemwide accessibility object')
-      rawset(t,k,axsw)
-      return axsw
-    else return nil end
-  end})
-
-  --[[
-  -- preload ax modules
-  local preload={'uielement','window','application'}
-  for _,mod in ipairs(preload) do
-    local r={}
-    hm[mod]=r
-    package.loaded['extensions.'..mod]=r
-  end
---]]  
-
-  local ok,user=pcall(require,'user')
-  --  print(ok,user)
-  if ok then return user() end
+  require'user'
+  --  local ok,err=xpcall(require,debug.traceback,'user')
+  --  if not ok then print('\n\n[USERSCRIPT ERROR] ----------- \n'..err..'\n-------------------------------\n\n') hm.quit() end
 end
 
----@private
-function hm._lua_destroy()
-  log.i'Shutting down'
-  --  for _,destroyer in ipairs(destroyers) do log.i'Shutting down'destroyer() end
-  local core=hm._core
-  for _,nc in ipairs{core.defaultNotificationCenter,core.wsNotificationCenter} do
-    log.d'Removing observers for notifications'
-    for _,obs in ipairs(nc._observers) do nc._nc:removeObserver(obs,nil) end
-    nc._observers=nil
-  end
-  core.defaultNotificationCenter=nil core.wsNotificationCenter=nil
-end
 
 ---@private
 hm.__proxy=newproxy(true)
-getmetatable(hm.__proxy).__gc=hm._lua_destroy
+getmetatable(hm.__proxy).__gc=function()
+  print'[Shutting down]'
+end
 
-return hm

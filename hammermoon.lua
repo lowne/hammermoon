@@ -1,5 +1,5 @@
 local c=require'objc'
-c.debug.logtopics.addmethod=true
+--c.debug.logtopics.addmethod=true
 --c.debug.logtopics.refcount=true
 c.load'Foundation'
 c.load'ApplicationServices.HIServices'
@@ -12,5 +12,5 @@ c.load'AppKit'
 
 require'hm'
 
-require'hammermoon_app'(hm._lua_setup,hm._lua_destroy)
+require'hammermoon_app'
 
