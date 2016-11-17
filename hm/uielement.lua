@@ -13,9 +13,6 @@ c.addfunction('AXUIElementSetAttributeValue',{retval='i','^{__AXUIElement=}','@"
 c.addfunction('AXObserverAddNotification',{retval='i','^{__AXObserver=}','^{__AXUIElement=}','@"NSString"','i'},false)
 -- this one wants (1st arg) an AXValueRef (outval from AXUIElementCopyAttributeValue) but we don't want to fficast every time
 c.addfunction('AXValueGetValue',{retval='B','^{__CFType=}','i','^v'},false)
--- these wants (3rd arg) a CFString, but kCFRunLoopDefaultMode is defined as const CFString - hence the 'r' in the patch
-c.addfunction('CFRunLoopAddSource',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopSource=}','r^{__CFString=}'})
-c.addfunction('CFRunLoopRemoveSource',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopSource=}','r^{__CFString=}'})
 -- CFString to NSString, cb refdata ^v to ^i
 c.addfunction('AXObserverCreate',{retval='i','i','^?',fp={[2]={'^{__AXObserver=}','^{__AXUIElement=}','@"NSString"','i'}},'^^{__AXObserver}'})
 
@@ -41,9 +38,11 @@ local AXGetAttribute,AXGetValue,AXSetAttribute=c.AXUIElementCopyAttributeValue,c
 local AXGetPid=c.AXUIElementGetPid
 local AXCreateObserver,AXAddNotification=c.AXObserverCreate,c.AXObserverAddNotification
 local AXGetObserverRL=c.AXObserverGetRunLoopSource
-local RLAddSource,RLRemoveSource=c.CFRunLoopAddSource,c.CFRunLoopRemoveSource
-local RLDefaultMode=c.kCFRunLoopDefaultMode
-local currentRL=c.CFRunLoopGetCurrent()
+--local RLAddSource,RLRemoveSource=c.CFRunLoopAddSource,c.CFRunLoopRemoveSource
+--local RLDefaultMode=c.kCFRunLoopDefaultMode
+--local currentRL=c.CFRunLoopGetCurrent()
+local runLoopAddSource=hm._os.runLoopAddSource
+local runLoopRemoveSource=hm._os.runLoopRemoveSource
 
 local ffi=require'ffi'
 local cast=ffi.cast
@@ -61,7 +60,7 @@ local tinsert,tremove=table.insert,table.remove
 
 ----- module -----
 local uielement=hm._core.module('uielement',{
-  __tostring=function(self)return sformat('hm.uielement: <%s>',self._ax) end,
+  __tostring=function(self)return sformat('uielement: <%s>',self._ax) end,
   __gc=function(self) end, --TODO
   __eq=function(e1,e2) return e2._ax and c.CFEqual(e1._ax,e2._ax) end,
 })
@@ -70,7 +69,7 @@ local log=uielement.log
 --
 --local elem=setmetatable({},{__tostring=function()return'<uielement>'end}) -- object
 --local uielement={log=log,_object=elem} -- module
-package.loaded['extensions.uielement']=uielement
+package.loaded['hm.uielement']=uielement
 
 local value_out=ffi.new'int[1]'
 local function getPid(axelem)
@@ -262,7 +261,7 @@ local obs_t=ffi.typeof'AXObserverRef[1]'
 local observers={}--setmetatable({},{__mode='kv'})
 function watcher:start(events)
   if not globalWatcher then
-    hm._core.wsNotificationCenter:register('NSWorkspaceDidTerminateApplicationNotification',stopChildrenWatchers,true)
+    hm._os.wsNotificationCenter:register('NSWorkspaceDidTerminateApplicationNotification',stopChildrenWatchers,true)
     globalWatcher=true
   elseif self._isRunning then logw.w(self,'is already running') return self end
   self._isRunning=true
@@ -275,7 +274,7 @@ function watcher:start(events)
     local res=AXCreateObserver(pid,observerCallback,obs_p)
     if res~=0 then error'axobservercreate' end
     observer=obs_p[0]
-    RLAddSource(currentRL, AXGetObserverRL(observer), RLDefaultMode);
+    runLoopAddSource(AXGetObserverRL(observer))
     observers[pid]=observer
   else
     observer=observers[pid]
@@ -326,7 +325,7 @@ function watcher:stop()
   if not next(runningWatchers[pid]) then
     log.d('Last watcher stopped, removing observer for pid',pid)
     runningWatchers[pid]=nil
-    RLRemoveSource(currentRL,AXGetObserverRL(observers[pid]),RLDefaultMode)
+    runLoopRemoveSource(AXGetObserverRL(observers[pid]))
     observers[pid]=nil
   end
   return self

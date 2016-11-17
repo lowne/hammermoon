@@ -1,9 +1,14 @@
 local c=require'objc'
 c.load'AppKit'
+c.load'CoreFoundation'
+-- these wants (3rd arg) a CFString, but kCFRunLoopDefaultMode is defined as const CFString - hence the 'r' in the patch
+c.addfunction('CFRunLoopAddSource',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopSource=}','r^{__CFString=}'})
+c.addfunction('CFRunLoopRemoveSource',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopSource=}','r^{__CFString=}'})
+
 local tolua=c.tolua
 local rawset,rawget,pairs,tinsert=rawset,rawget,pairs,table.insert
 
----Low level access to MacOS
+---Low level access to macOS
 -- @module hm._os
 -- @static
 
@@ -62,6 +67,9 @@ local props={
   ---The default Notification Center.
   --@field [parent=#hm._os] #notificationCenter defaultNotificationCenter
   defaultNotificationCenter=function()return makeNCwrapper(c.NSNotificationCenter:defaultCenter())end,
+  ---The `CFRunLoop` object for HM's (only) thread.
+  --@field [parent=#hm._os] #cdata runLoop
+  runLoop=c.CFRunLoopGetCurrent,
 }
 for k,f in pairs(props) do
   hm._core.property(os,k,function()
@@ -71,6 +79,15 @@ for k,f in pairs(props) do
   end,false)
 end
 
+local rlDefaultMode=c.kCFRunLoopDefaultMode
+local rlAddSource=c.CFRunLoopAddSource
+function os.runLoopAddSource(src,mode)
+  rlAddSource(os.runLoop,src,mode or rlDefaultMode)
+end
+local rlRemoveSource=c.CFRunLoopRemoveSource
+function os.runLoopRemoveSource(src,mode)
+  rlRemoveSource(os.runLoop,src,mode or rlDefaultMode)
+end
 
 ---@private
 function os.__gc()
