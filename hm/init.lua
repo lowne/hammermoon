@@ -24,9 +24,16 @@ inspect=function(t,inline,depth)
   else return print(require'lib.inspect'(t,{depth=depth or (inline and 3 or 6),newline=inline and ' ' or '\n'})) end
 end
 
+---@private
+hmassert=assert
+---@private
+hmassertf=assertf
+
 package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
 package.cpath=package.cpath..';./lib/?.so'
 require'checks'
+---@private
+hmcheck=checks
 require'compat53'
 
 local floor=math.floor
@@ -39,13 +46,6 @@ local function isCallable(v) return type(v)=='function' or (type(v)=='table' and
 checkers['callable']=isCallable
 checkers['stringList']=function(v) if type(v)~='table' then return false end for _,s in ipairs(v) do if type(s)~='string' then return false end end return true end
 
----@private
-hmcheck=checks
----@private
-hmassert=assert
----@private
-hmassertf=assertf
-
 --- Hammermoon main module
 --@module hm
 --@static
@@ -55,6 +55,12 @@ hmassertf=assertf
 --- Hammermoon's namespace, globally accessible from userscripts
 hm={} --#hm
 local log --hm.logger#logger
+
+---@field [parent=#hm] hm._os#hm._os _os
+-- @private
+
+---@field [parent=#hm] hm.types#hm.types types
+-- @private
 
 ---Quits Hammermoon.
 -- This function will make sure to properly close the Lua state, so that all the __gc metamethods will run.
@@ -121,7 +127,8 @@ local function make_hmdebug()
 end
 
 
-
+local loadedModules={}
+local userGlobals={}
 ---@private
 function hm._lua_setup()
   print'[Hammermoon starting up]'
@@ -130,9 +137,28 @@ function hm._lua_setup()
   hm.debug=make_hmdebug()
 
   local rawrequire=require
+  local function hmrequire(modname)
+    if not loadedModules[modname] then print('[Loading module: '..modname..']') end
+    local ok,mod=xpcall(rawrequire,debug.traceback,modname)
+    if ok and mod then
+      loadedModules[modname]=true
+      if type(mod)=='table' then
+        local gc=rawget(mod,'__gc')
+        if gc and not rawget(mod,'__proxy') then
+          assert(not rawget(mod,'__proxy'))
+          local proxy=newproxy(true)
+          getmetatable(proxy).__gc=function()print('[Unloading module: '..modname..']') return gc(mod) end
+          rawset(mod,'__proxy',proxy)
+        end
+      end
+      return mod
+    else error(mod) end
+  end
+
   require=function(modname)
-    if modname:sub(1,3)=='hs.' then modname='hs_compat.'..modname:sub(4) end
-    return rawrequire(modname)
+    if modname:sub(1,3)=='hm.' then return hmrequire(modname)
+    elseif modname:sub(1,3)=='hs.' then return hmrequire('hs_compat.'..modname:sub(4))
+    else return rawrequire(modname) end
   end
 
   local function cacheValues(t) return setmetatable(t or {},{__mode='v'}) end
@@ -180,7 +206,7 @@ function hm._lua_setup()
   local module__index=function(t,k)
     local f=properties[t] and properties[t][k] if f then return f.get() end
     f=deprecated[t] and deprecated[t][k] if f then warnDeprecation(f) return f.values[t] end
-    f=submodules[t] and submodules[t][k] if f then f=rawrequire(f) rawset(t,k,f) return f end
+    f=submodules[t] and submodules[t][k] if f then f=hmrequire(f) rawset(t,k,f) return f end
     return nil
   end
   local function makeclass__index(cls)
@@ -272,20 +298,8 @@ function hm._lua_setup()
 
   setmetatable(hm,{
     __index=function(t,k)
-      print('[Loading extension: hm.'..k..']')
-      local ok,mod=xpcall(rawrequire,debug.traceback,'hm.'..k)
-      if ok and mod then
-        if type(mod)=='table' then
-          local gc=rawget(mod,'__gc')
-          if gc then
-            assert(not rawget(mod,'__proxy'))
-            local proxy=newproxy(true)
-            getmetatable(proxy).__gc=function()print('[Unloading extension: hm.'..k..']') return gc(mod) end
-            rawset(mod,'__proxy',proxy)
-          end
-        end
-        rawset(t,k,mod) return mod
-      else print(mod) return nil end
+      rawset(t,k,hmrequire('hm.'..k))
+      return rawget(t,k)
     end,
     __newindex=function(t,k)error'Only Hammermoon extensions can go into table hm' end,
   })
@@ -298,10 +312,8 @@ function hm._lua_setup()
   ---For compatibility with Hammerspoon userscripts
   hs=setmetatable({},{
     __index=function(t,k)
-      print('[Loading compatibility wrapper for Hammerspoon extension: hs.'..k..']')
-      local ok,res=xpcall(rawrequire,debug.traceback,'hs_compat.'..k)
-      if ok and res then rawset(t,k,res) return res
-      else print(res) return nil end
+      rawset(t,k,hmrequire('hs_compat.'..k))
+      return rawget(t,k)
     end,
     __newindex=function(t,k)error'Not allowed' end,
   })
@@ -365,7 +377,7 @@ function hm._lua_setup()
         -- attach gc handler to our objects; if/when luajit gets the new gc that directly allows __gc in the metatable, this will be unnecessary
         assert(not rawget(o,'__proxy'))
         local proxy=newproxy(true)
-        getmetatable(proxy).__gc=function()log.v('collected:',o) return gc(o) end
+        getmetatable(proxy).__gc=function()log.v('collecting:',o) return gc(o) end
         rawset(o,'__proxy',proxy)
         return make(o)
       end
@@ -380,7 +392,8 @@ function hm._lua_setup()
     end
     local m=setmetatable({log=mlog,_class=classmt and cls},
       {__type='hm#module',__name='hm.'..name,__index=module__index,__newindex=module__newindex})
-    submodules[m]=submoduleNames
+    submodules[m]={}
+    for _,sub in ipairs(submoduleNames or {}) do submodules[m][sub]='hm.'..name..'.'..sub end
     return m
   end
 
@@ -390,12 +403,22 @@ function hm._lua_setup()
   core.hs_compat_module=function(name)
     return setmetatable({},{__type='hs_compat#module',__name='hs.'..name,__index=module__index,__newindex=module__newindex})
   end
-
+  setmetatable(_G,{__newindex=function(t,k,v) userGlobals[k]=true rawset(t,k,v) end}) --capture globals for cleanup
   require'user'
   --  local ok,err=xpcall(require,debug.traceback,'user')
   --  if not ok then print('\n\n[USERSCRIPT ERROR] ----------- \n'..err..'\n-------------------------------\n\n') hm.quit() end
-end
 
+end
+---This is necessary for clean teardown when using certain OS features - apparently these must be invalidated/released/etc
+-- before the NSApp is killed. Alternatively, os.exit(1,1) will clean up the Lua state nicely, but it is unknown
+-- if this has any ill effect on the still-quitting NSApp.
+-- @private
+function hm._lua_destroy()
+  for k in pairs(userGlobals) do rawset(_G,k,nil) end
+  for k in pairs(loadedModules) do rawset(package.loaded,k,nil) end
+  rawset(_G,'hm',nil)
+  collectgarbage'collect'collectgarbage'collect'
+end
 
 ---@private
 hm.__proxy=newproxy(true)

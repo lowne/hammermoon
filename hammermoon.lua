@@ -8,7 +8,6 @@ if not c.AXIsProcessTrustedWithOptions(c.toobj{AXTrustedCheckOptionPrompt=1}) th
   print'Please enable accessibility!'
   os.exit()
 end
-c.load'AppKit'
 
 require'hm'
 

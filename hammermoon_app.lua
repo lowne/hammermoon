@@ -4,13 +4,8 @@ c.load'AppKit'
 local NSApp=c.class('NSApp','NSApplication <NSApplicationDelegate>')
 function NSApp:applicationWillFinishLaunching() end
 function NSApp:applicationDidFinishLaunching() hm._lua_setup() end
-function NSApp:applicationShouldTerminateAfterLastWindowClosed()
-  collectgarbage() return true
-end
-function NSApp:applicationShouldTerminate()
-  --    shouldTerminateCB()
-  return true
-end
+function NSApp:applicationShouldTerminateAfterLastWindowClosed() return true end
+function NSApp:applicationShouldTerminate()  os.exit(1,1) end
 
 local app=NSApp:sharedApplication()
 app:setDelegate(app)
