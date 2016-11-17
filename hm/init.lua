@@ -318,80 +318,97 @@ function hm._lua_setup()
     __newindex=function(t,k)error'Not allowed' end,
   })
 
-  ---Declare a new Hammermoon extension.
-  --Use this function to create the table for your module.
-  --If your module instantiates objects, you should pass `classmt` (even just an empty table),
-  --and retrieve the metatable for your objects (and the constructor) via the `_class` field
-  --of the returned module table. Note that the `__gc` metamethod, if present, *must* be already
-  --in `classmt` (i.e. you cannot add it afterwards) for Hammermoon's allocation debugging to work.
-  --@function [parent=#hm._core] module
-  --@param #string name module name (without the `"hm."` prefix)
-  --@param #table classmt initial metatable for the module's class (if any); can contain `__tostring`, `__eq`, `__gc`, etc
-  --@return #module the "naked" table for the new module, ready to be filled with functions
-  --@usage local mymodule=hm._core.module('mymodule',{})
-  --@usage local myclass=mymodule._class
-  --@usage function mymodule.myfunction(param) ... end
-  --@usage function mymodule.construct(args) ... return myclass._new(...) end
-  --@usage function myclass:mymethod() ... end
-  --@usage ...
-  --@usage return mymodule -- at the end of the file
-  --@apichange Doesn't exist in Hammerspoon
-  --@internalchange Allows allocation tracking, properties, deprecation; handled by core
+  ---Declare a new Hammermoon module.
+  -- Use this function to create the table for your module.
+  -- If your module instantiates objects, you should pass `classes` (the values can just be empty tables),
+  -- and retrieve the metatable for your objects (and the constructor) via the `_classes[<CLASSNAME>]` field
+  -- of the returned module table. Note that the `__gc` metamethod of a class, if used, must be *already*
+  -- in the class table passed to this function (i.e. you cannot add it afterwards) for Hammermoon's allocation debugging to work.
+  -- @function [parent=#hm._core] module
+  -- @param #string name module name (without the `"hm."` prefix)
+  -- @param #table classes a map with the initial metatables (as values) for the module's classes (whose names are the map's keys),
+  -- if any; the metatables can can contain `__tostring`, `__eq`, `__gc`, etc. This table, suitably instrumented, will be
+  -- available in the resuling module's `_classes` field
+  -- @param #table submodules a plain list of submodule names, if any, that will be automatically required as the respective
+  -- fields in this module are accessed
+  -- @return #module the "naked" table for the new module, ready to be filled with functions
+  -- @usage local mymodule=hm._core.module('mymodule',{myclass={}})
+  -- @usage local myclass=mymodule._class_myclass
+  -- @usage function mymodule.myfunction(param) ... end
+  -- @usage function mymodule.construct(args) ... return myclass._new(...) end
+  -- @usage function myclass:mymethod() ... end
+  -- @usage ...
+  -- @usage return mymodule -- at the end of the file
+  -- @apichange Doesn't exist in Hammerspoon
+  -- @internalchange Allows allocation tracking, properties, deprecation; handled by core
 
-  ---Type for Hammermoon extensions.
-  --Hammermoon extensions (usually created via `hm._core.module()`) can be `require`d normally
-  --(`local someext=require'hm.someext'`) or loaded directly via the the global `hm` namespace
-  --(`hm.someext.somefn(...)`).
-  --@type module
-  --@field #module.class _class The class for the extension's objects
-  --@field hm.logger#logger log The extension's module-level logger instance
-  --@class
-
-  ---Type for Hammermoon object classes
-  --@type module.class
-  --@dev
-  --@class
-
-  ---Type for Hammermoon objects
-  --@type module.object
-  --@dev
-  --@class
+  ---Type for Hammermoon modules.
+  -- Hammermoon modules (usually created via `hm._core.module()`) can be `require`d normally
+  -- (`local somemod=require'hm.somemod'`) or loaded directly via the the global `hm` namespace
+  -- (`hm.somemod.somefn(...)`).
+  -- @type module
+  -- @field #module.classes _classes The classes (i.e., object metatables) declared by this module
+  -- @field hm.logger#logger log The extension's module-level logger instance
+  -- @class
 
   ---Implement this function to perform any required cleanup when a module is unloaded
-  --@function [parent=#module] __gc
-  --@dev
+  -- @function [parent=#module] __gc
+  -- @dev
 
-  local function hmmodule(name,classmt,submoduleNames) checks('string','?table','?stringList')
-    local mlog=hm.logger.new(name)
-    local clsname='#'..name
-    local cls=setmetatable({},{__tostring=function()return clsname end,__type='hm#module.class',__name='hm.'..name..'#'..name})
-    if classmt then
-      --      classNames[cls]='hm.'..name..'#'..name
-      classmt.__type='hm.'..name..'#'..name
-      classmt.__index=makeclass__index(cls)
-      classmt.__newindex=makeclass__newindex(cls)
-      local make=function(o) setmetatable(o,classmt) log.v('allocated:',o) return o end
-      --TODO object logger
-      local gc=classmt.__gc
-      local new=not gc and make or function(o)
-        -- attach gc handler to our objects; if/when luajit gets the new gc that directly allows __gc in the metatable, this will be unnecessary
-        assert(not rawget(o,'__proxy'))
-        local proxy=newproxy(true)
-        getmetatable(proxy).__gc=function()log.v('collecting:',o) return gc(o) end
-        rawset(o,'__proxy',proxy)
-        return make(o)
-      end
-      ---Create a new instance.
-      --Objects created by this function have their lifecycle tracked by Hammermoon's core.
-      --@function [parent=#module.class] _new
-      --@param #table t initial values for the new object
-      --@return #module.object a new object instance
-      --@dev
-      cls._new=new
-      cls._metatable=classmt
-    end
-    local m=setmetatable({log=mlog,_class=classmt and cls},
+  ---Type for Hammermoon object classes
+  -- @type module.class
+  -- @dev
+  -- @class
+
+  ---@type module.classes
+  -- @map <#string,#module.class>
+
+  ---Type for Hammermoon objects
+  -- @type module.object
+  -- @field hm.logger#logger log the object logger (only if created with a name)
+  -- @dev
+  -- @class
+
+
+  local newLogger=hm.logger.new
+  local function hmmodule(name,classes,submoduleNames) checks('string','?table','?stringList')
+    --    local clsname='#'..name
+    local m=setmetatable({log=newLogger(name)},
       {__type='hm#module',__name='hm.'..name,__index=module__index,__newindex=module__newindex})
+    if classes then
+      for className,objmt in pairs(classes) do
+        local fullname='hm.'..name..'#'..className
+        local cls=setmetatable({},{__tostring=function()return fullname end,__type='hm#module.class',__name=fullname})
+        objmt.__type=fullname
+        objmt.__index=makeclass__index(cls)
+        objmt.__newindex=makeclass__newindex(cls)
+        local make=function(o,name) --hmcheck('table','?string')
+          setmetatable(o,objmt) o.log=name and newLogger(name) o._name=name
+          log.v('allocated:',o) return o
+        end
+        local gc=objmt.__gc
+        local new=not gc and make or function(o,name)
+          -- attach gc handler to our objects; if/when luajit gets the new gc that directly allows __gc in the metatable, this will be unnecessary
+          assert(not rawget(o,'__proxy'))
+          local proxy=newproxy(true)
+          getmetatable(proxy).__gc=function()log.v('collecting:',o) return gc(o) end
+          rawset(o,'__proxy',proxy)
+          return make(o,name)
+        end
+        ---Create a new instance.
+        --Objects created by this function have their lifecycle tracked by Hammermoon's core.
+        --@function [parent=#module.class] _new
+        --@param #table t initial values for the new object
+        --@param #string name (optional) if provided, the object will have its own logger instance with the given name
+        --@return #module.object a new object instance
+        --@dev
+        cls._new=new
+        --        cls._metatable=classmt
+        classes[className]=cls
+        --        m['_class_'..className]=cls
+      end
+      m._classes=classes
+    end
     submodules[m]={}
     for _,sub in ipairs(submoduleNames or {}) do submodules[m][sub]='hm.'..name..'.'..sub end
     return m

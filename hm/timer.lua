@@ -43,10 +43,10 @@ local function timeOfDayToString(time) time=time%86400
 end
 ---@type hm.timer
 -- @extends hm#module
-local timer=hm._core.module('timer',{
+local timer=hm._core.module('timer',{timer={
   __tostring=function(self) return sformat('timer: [#%d] (%s)',self._ref,nextTriggerToString(self)) end,
   __gc=function(self)return self:cancel()end,
-})
+}})
 local log=timer.log
 
 
@@ -136,7 +136,7 @@ end
 -- @type timer
 -- @extends hm#module.class
 -- @class
-local tmr=timer._class
+local tmr=timer._classes.timer
 local new=tmr._new
 
 local runningTimers=hm._core.retainValues()
