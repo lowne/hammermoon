@@ -12,10 +12,10 @@ local pairs,ipairs,next,setmetatable=pairs,ipairs,next,setmetatable
 local sformat=string.format
 local tinsert,tremove=table.insert,table.remove
 --local hmobject=hm._core.hmobject
-local workspace=hm._core.sharedWorkspace
+local workspace=hm._os.sharedWorkspace
 
 local application=hm._core.module('application',{
-  __tostring=function(self) return sformat('hm.application: [pid:%d] %s',self._pid,self._name or '<?>') end,
+  __tostring=function(self) return sformat('application: [pid:%d] %s',self._pid,self._name or '<?>') end,
   __gc=function(self) end, --TODO
 })
 local app,new=application._class,application._class._new
@@ -75,7 +75,7 @@ function app:pid() return self._pid end
 function app:bundleID() return self._bundleid end
 function app:name() return self._name end
 function app:path() return application.pathForBundleID(self._bundleid) end
-package.loaded['extensions.application']=application
+package.loaded['hm.application']=application
 local newWindow=hm.window._newWindow
 function app:mainWindow() return newWindow(self:_getObjProp(c.NSAccessibilityMainWindowAttribute),self._pid) end
 function app:focusedWindow() return newWindow(self:_getObjProp(c.NSAccessibilityFocusedWindowAttribute),self._pid) end
@@ -212,9 +212,9 @@ function watcher:start()
   self._isRunning=true
   if not next(runningWatchers) then
     for event in pairs(NStoHSnotifications) do
-      hm._core.wsNotificationCenter:register(event,workspaceObserverCallback)
+      hm._os.wsNotificationCenter:register(event,workspaceObserverCallback)
     end
-    hm._core.wsNotificationCenter:register('NSWorkspaceDidTerminateApplicationNotification',clearCache)
+    hm._os.wsNotificationCenter:register('NSWorkspaceDidTerminateApplicationNotification',clearCache)
   end
   runningWatchers[self]=true -- retain ref to avoid gc
   return self

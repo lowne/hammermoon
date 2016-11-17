@@ -64,7 +64,7 @@ window._newWindow=newWin
 ----function win:__tostring() return'haha'end-- sformat('hm.window: [wid:%s] %s',self._wid or '?',self:title() or '<?>') end
 --function win:__gc()end --TODO
 
-package.loaded['extensions.window']=window
+package.loaded['hm.window']=window
 local application=hm.application
 
 function win:id()
