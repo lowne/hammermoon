@@ -89,7 +89,9 @@ end
 --@param filter
 --@return #module the filtered model
 function M.filter(module,filter)
-  local function copy(t) return {name=t.name,ttag=t.ttag,htag=t.htag,type=t.type,extra=t.extra,short=t.short,long=t.long,headersize=t.headersize} end
+  local function copy(t)
+    local r={} for _,k in ipairs{'name','ttag','htag','type','extra','short','long','headersize','extends'} do r[k]=t[k] end return r
+  end
   local function flt(s,d,fieldname)
     d[fieldname]=copy(s[fieldname])
     for _,f in ipairs(s[fieldname]) do tinsert(d[fieldname],filter(f) or nil) end
@@ -269,6 +271,7 @@ function M.makeModel(metamodel)
       t.type.ttag='maptype' t.type.keytype=keytype t.type.valuetype=valuetype
       return
     elseif t.extra.static then t.type.ttag='staticinternaltype' end
+    if t.extra.extends then t.extends={type=getTypeFromString(t.extra.extends.short),ttag='extends',name='extends'} end
     anchors[sformat('%s#(%s)',module.name,t.name)]=t
     return t
   end
@@ -518,16 +521,6 @@ function M.resolveLinks(moduleName,doc,anchors,templ)
     -- find the actual links
     :gsub('@%[%s*(.-)%s*%]', findAnchor)
     :gsub('@{%s*(.-)%s*}', findUserAnchor)
-
-  --      local o=assert(anchors[l],'cannot resolve link: '..l)
-  --      local destModule=assert(l:match('^(.-)#'),'missing module in link: '..l)
-  --      local header=assert(templ[o.ttag..'.header'],'missing .header for '..o.ttag)(o)
-  --      header=header:gsub('(%b[])%b()','%1')
-  --      local anchor='#'..templ.anchor(header)
-  --      if destModule~=moduleName then anchor=templ.filename(destModule)..anchor end
-  --      if not resolved[l] then print('Link '..l..' resolved to '..anchor) resolved[l]=true end
-  --      return anchor
-  --    end)
 end
 
 return M
