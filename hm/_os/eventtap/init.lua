@@ -6,7 +6,7 @@ local CGEventTapEnable=c.CGEventTapEnable
 
 local runLoopAddSource,runLoopRemoveSource=hm._os.runLoopAddSource,hm._os.runLoopRemoveSource
 
-local coll=require'lib.coll'
+local coll=require'hm.types.coll'
 local type,ipairs,pairs=type,ipairs,pairs
 local tinsert,tremove,sformat=table.insert,table.remove,string.format
 local band=bit.band

@@ -40,8 +40,8 @@ local NSScreen=c.NSScreen
 local geom=hm.geometry
 local type,ipairs,pairs,next=type,ipairs,pairs,next
 local tonumber,sformat,tinsert=tonumber,string.format,table.insert
-local coll=require'lib.coll'
-local band=require'bit'.band
+local coll=require'hm.types.coll'
+local band=bit.band
 
 ---@type hm.screen
 --@extends hm#module

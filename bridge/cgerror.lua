@@ -1,4 +1,4 @@
-return setmetatable(require'lib.coll'.toIndex({
+return setmetatable(require'hm.types.coll'.toIndex({
   kCGErrorSuccess = 0,
   kCGErrorFailure = 1000,
   kCGErrorIllegalArgument = 1001,

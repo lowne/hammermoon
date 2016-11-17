@@ -1,5 +1,5 @@
 local c=require'objc'
-local coll=require'lib.coll'
+local coll=require'hm.types.coll'
 
 
 local event=hm._core.module('_os.eventtap.event',{})
