@@ -1,3 +1,7 @@
+---
+-- @module hm._os.eventtap
+-- @static
+
 local c=require'objc'
 c.load'CoreGraphics'
 --c.load'CoreFoundation'
@@ -11,9 +15,6 @@ local type,ipairs,pairs=type,ipairs,pairs
 local tinsert,tremove,sformat=table.insert,table.remove,string.format
 local band=bit.band
 
----
--- @module hm._os.eventtap
--- @static
 
 local tappers,rlSources,callbacks={},{},{}
 

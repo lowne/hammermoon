@@ -1,7 +1,10 @@
 local c=require'objc'
 local coll=require'hm.types.coll'
+---Low level `CGEvent`/`NSEvent` interface
+-- @module hm._os.eventtap.event
+-- @static
 
-
+---@type hm._os.eventtap.event
 local event=hm._core.module('_os.eventtap.event',{})
 local eventTypes={
   leftMouseDown=            c.kCGEventLeftMouseDown,

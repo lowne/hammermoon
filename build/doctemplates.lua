@@ -164,6 +164,8 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,{
   ['maptype.index']='`{ [`@@(keytype)`] =`@@(valuetype)`, ...}`',
   ['externaltype']='[_`<$(module)#$(name)>`_]($(typelink))',
   ['externaltype.index']='[_`<$(module)#$(name)>`_]($(typelink))',
+  ['moduletype']='[_`$(module)`_]($(typelink))',
+  ['moduletype.index']='[_`$(module)`_]($(typelink))',
 
   ---special fn to generate anchors for user links (i.e. @{...}) by resolveLinks
   ['userlink']=function(text,anchor) return sformat('[`%s`](%s)',text,anchor) end,

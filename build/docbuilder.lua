@@ -185,7 +185,7 @@ function M.makeModel(metamodel)
   ---@type returntype
   --@extends #typeditem
 
-  ---notype, niltype, primitivetype, internaltype, staticinternaltype, listtype, maptype, externaltype
+  ---notype, niltype, primitivetype, internaltype, staticinternaltype, listtype, maptype, externaltype, staticexternaltype, moduletype
   --@type typettag
   --@extends #string
 
@@ -239,7 +239,9 @@ function M.makeModel(metamodel)
         assert(typedef and typedef.tag=='functiontypedef')
         return {ttag='functiontype',name=typedef.name,module=module.name}--,typedef=typedef}
       end
-    else _DEBUG(o) error('cannot deal with type tag:'..typetag) end
+    elseif typetag=='moduletyperef' then
+      return {ttag='moduletype',name='',module=o.type.modulename}
+    else _PDEBUG(o) error('cannot deal with type tag:'..typetag) end
   end
 
   ---@return #type
@@ -343,6 +345,7 @@ function M.makeModel(metamodel)
   local moduleType=newType(moduleTypeDef) moduleType.htag='Module' moduleType.headersize=2
   moduleType.extra.static=module.extra.static moduleType.extra.usage=module.extra.usage
   tinsert(module.types,moduleType)
+  anchors[sformat('%s#()',module.name)]=moduleType
   --- gather types
   local classes,othertypes={},{}
   for k,v in sortedpairs(metamodel.types) do if v~=moduleTypeDef then

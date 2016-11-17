@@ -14,7 +14,8 @@
 --   - *sets*: unordered sets where the (unique) elements are stored as *keys* whose value is the boolean `true` (or another constant)
 --   - *maps*: associative tables (also known as dictionaries) where both keys and their values are arbitrary; they can have a list part as well
 --   - *trees*, tables with multiple levels of nesting
--- @module coll
+-- @module hm.types.coll
+-- @static
 
 local getmetatable,setmetatable,rawequal=getmetatable,setmetatable,rawequal
 local pairs,ipairs,next,type=pairs,ipairs,next,type
@@ -23,17 +24,17 @@ local tostring=tostring
 
 ---An ordered collection (also known as linear array) where the (non-unique) elements are stored as *values* for sequential integer keys starting from 1.
 -- @type coll.list
--- @extends coll
+-- @extends #hm.types.coll
 
 ---An unordered set where the (unique) elements are stored as *keys* whose value is the boolean `true` (or another constant)
 -- @type coll.set
--- @extends coll
+-- @extends #hm.types.coll
 
 ---An associative table (also known as dictionary) where both keys and their values are arbitrary; it can have a list part as well
 -- @type coll.map
--- @extends coll
+-- @extends #hm.types.coll
 
----@type coll
+---@type hm.types.coll
 local f={} -- module/class
 local mt_f={__index=f}
 ---Creates a collection object.
