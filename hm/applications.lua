@@ -1,53 +1,57 @@
+---Run, stop, query and manage applications.
+--@module hm.applications
+-- @static
+
 local c=require'objc'
 c.load'CoreFoundation'
-
 local tolua,toobj,nptr=c.tolua,c.toobj,c.nptr
---c.load'AppKit'
---c.load'ApplicationServices.framework/Versions/Current/Frameworks/HIServices'
-local AXCreateApp=c.AXUIElementCreateApplication
+local AXUIElementCreateApplication=c.AXUIElementCreateApplication
 local ffi=require'ffi'
 local cast=ffi.cast
---local log=hm.logger.new'application'
+
 local pairs,ipairs,next,setmetatable=pairs,ipairs,next,setmetatable
 local sformat=string.format
 local tinsert,tremove=table.insert,table.remove
---local hmobject=hm._core.hmobject
-local workspace=hm._os.sharedWorkspace
 
-local application=hm._core.module('application',{
+local workspace=require'hm._os'.sharedWorkspace
+
+---@type hm.applications
+-- @extends hm#module
+local applications=hm._core.module('applications',{application={
   __tostring=function(self) return sformat('application: [pid:%d] %s',self._pid,self._name or '<?>') end,
   __gc=function(self) end, --TODO
-})
-local app,new=application._class,application._class._new
-local log=application.log
+}})
+local log=applications.log
+
+local app,new=applications._class,applications._class._new
 --local app=setmetatable({},{__tostring=function()return'<application>'end}) -- object
 --local application={log=log,_object=app} -- module
 
 --- object
-local applications=setmetatable({},{__mode='v'})
+local appCache=setmetatable({},{__mode='v'})
 local function clearCache(_,info,pid)
   pid=pid or tolua(info:objectForKey'NSApplicationProcessIdentifier')
   if not pid then log.e('Process terminated, but no pid in notification!')
   else
-    if applications[pid] then log.d('Cleared cache for pid',pid) applications[pid]=nil
+    if appCache[pid] then log.d('Cleared cache for pid',pid) appCache[pid]=nil
     else log.v('Process terminated, but pid was not cached:',pid) end
   end
 end
 local function newApp(nsapp,pid,info)
   if not nsapp then
     if not pid then return nil
-    elseif applications[pid] then return applications[pid] end
+    elseif appCache[pid] then return appCache[pid] end
     nsapp=c.NSRunningApplication:runningApplicationWithProcessIdentifier(pid)
-    if not nsapp then applications[pid]=nil return nil end
+    if not nsapp then appCache[pid]=nil return nil end
   elseif not pid then pid=nsapp.processIdentifier end
   assert(pid or nsapp)-- and applications[nsapp.processIdentifier])
   --  pid=pid or nsapp.processIdentifier
-  local o=applications[pid]
+  local o=appCache[pid]
   --  o=nil
   if o then return o end
   if pid~=-1 then
-    o={_ax=AXCreateApp(pid),_pid=pid}
-    applications[pid]=o
+    o={_ax=AXUIElementCreateApplication(pid),_pid=pid}
+    appCache[pid]=o
     log.v('Cached pid',pid)
   else o={} end
   o._name=tolua(nsapp.localizedName or (info and info:objectForKey'NSApplicationName'))
@@ -59,11 +63,11 @@ local function newApp(nsapp,pid,info)
   o._role='AXApplication'
   return o
 end
-application._newApplication=newApp
+applications._newApplication=newApp
 
 local function getAppFromNotif(info)
   local pid=tolua(info:objectForKey'NSApplicationProcessIdentifier')
-  if pid and applications[pid] then return applications[pid] end
+  if pid and appCache[pid] then return appCache[pid] end
   local nsapp=info:objectForKey'NSWorkspaceApplicationKey'
   return newApp(nsapp,pid,info)
 end
@@ -74,8 +78,8 @@ end
 function app:pid() return self._pid end
 function app:bundleID() return self._bundleid end
 function app:name() return self._name end
-function app:path() return application.pathForBundleID(self._bundleid) end
-package.loaded['hm.application']=application
+function app:path() return applications.pathForBundleID(self._bundleid) end
+package.loaded['hm.application']=applications
 local newWindow=hm.window._newWindow
 function app:mainWindow() return newWindow(self:_getObjProp(c.NSAccessibilityMainWindowAttribute),self._pid) end
 function app:focusedWindow() return newWindow(self:_getObjProp(c.NSAccessibilityFocusedWindowAttribute),self._pid) end
@@ -142,36 +146,36 @@ end
 -- similarly for bringtofront
 --]]
 --- module functions
-function application.applicationForPID(pid) return newApp(nil,pid) end
-function application.frontmostApplication() return newApp(workspace.frontmostApplication) end
+function applications.applicationForPID(pid) return newApp(nil,pid) end
+function applications.frontmostApplication() return newApp(workspace.frontmostApplication) end
 
-function application.runningApplications()
+function applications.runningApplications()
   local apps=tolua(workspace:runningApplications())
   for i,app in ipairs(apps) do apps[i]=newApp(app) end
   return apps
 end
 
-function application.applicationsForBundleID(bid)
+function applications.applicationsForBundleID(bid)
   local apps=tolua(c.NSRunningApplication:runningApplicationsWithBundleIdentifier(bid))
   for i,nsapp in ipairs(apps) do apps[i]=newApp(nsapp) end
   return apps
 end
-function application.launchOrFocus(name) return workspace:launchApplication(name) end
-function application.launchOrFocusByBundleID(bid)
+function applications.launchOrFocus(name) return workspace:launchApplication(name) end
+function applications.launchOrFocusByBundleID(bid)
   return workspace:launchAppWithBundleIdentifier_options_additionalEventParamDescriptor_launchIdentifier(bid,c.NSWorkspaceLaunchDefault,nil,nil)
 end
-function application.pathForBundleID(bid) return workspace:absolutePathForAppBundleWithIdentifier(bid) end
-function application.nameForBundleID(bid)
-  local path=application.pathForBundleID(bid)
+function applications.pathForBundleID(bid) return workspace:absolutePathForAppBundleWithIdentifier(bid) end
+function applications.nameForBundleID(bid)
+  local path=applications.pathForBundleID(bid)
   local bundle=path and c.NSBundle:bundleWithPath(path)
   local info=bundle and bundle.infoDictionary
   return info and tolua(info:objectForKey'CFBundleName') or nil
 end
 
 --- watcher
-application.watcher={launching=0,launched=1,terminated=2,hidden=3,unhidden=4,activated=5,deactivated=6} --module
+applications.watcher={launching=0,launched=1,terminated=2,hidden=3,unhidden=4,activated=5,deactivated=6} --module
 local watcher={} --object
-application.watcher._object=watcher
+applications.watcher._object=watcher
 
 local NStoHSnotifications={
   NSWorkspaceWillLaunchApplicationNotification=0,
@@ -203,7 +207,7 @@ local function workspaceObserverCallback(event,info)
 end
 
 
-function application.watcher.new(cb)
+function applications.watcher.new(cb)
   return setmetatable({_isRunning=false,_cb=cb},{__index=watcher,__tostring=watcher.tostring})
 end
 function watcher:tostring() return sformat('hs.application.watcher: %s',self._cb) end
@@ -225,10 +229,10 @@ function watcher:stop()
 end
 
 
-function application._hmdestroy()
+function applications._hmdestroy()
   for w in pairs(runningWatchers) do w:stop() end
 end
 
 getmetatable(app).__index=hm.uielement._class
-return application
+return applications
 
