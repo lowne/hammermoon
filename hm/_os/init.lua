@@ -14,9 +14,9 @@ local rawset,rawget,pairs,tinsert=rawset,rawget,pairs,table.insert
 
 ---@type hm._os
 -- @extends hm#module
-local os=hm._core.module('_os',nil,{'eventtap'})
+local os=hm._core.module('_os',nil,{'events'})
 
---- @field [parent=#hm._os] hm._os.eventtap#hm._os.eventtap eventtap
+--- @field [parent=#hm._os] hm._os.events#hm._os.events events
 
 local log=os.log
 
