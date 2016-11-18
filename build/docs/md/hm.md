@@ -27,21 +27,21 @@ Field [`hm._core`](hm.md#field-hmcore-hmcore) : [_`hm._core`_](hm.md#table-hmcor
 Field [`hm.debug`](hm.md#field-hmdebug-hmdebug) : [_`hm.debug`_](hm.md#table-hmdebug) | 
 
 
-| Class [<#module>](hm.md#class-module) | Type for Hammermoon extensions. |
+| Class [<#module>](hm.md#class-module) | Type for Hammermoon modules. |
 | :--- | :---
 Function [`<#module>.__gc()`](hm.md#function-modulegc) | Implement this function to perform any required cleanup when a module is unloaded
-Field [`<#module>._class`](hm.md#field-moduleclass-moduleclass) : [_`<#module.class>`_](hm.md#class-moduleclass) | The class for the extension's objects
+Field [`<#module>._classes`](hm.md#field-moduleclasses--string-moduleclass-) : `{ [`_`<#string>`_`] =`[_`<#module.class>`_](hm.md#class-moduleclass)`, ...}` | The classes (i.e., object metatables) declared by this module
 Field [`<#module>.log`](hm.md#field-modulelog-hmloggerlogger) : [_`<hm.logger#logger>`_](hm.logger.md#type-logger) | The extension's module-level logger instance
 
 
-| Class [<#module.class>](hm.md#class-moduleclass) | Type for Hammermoon objects |
+| Class [<#module.class>](hm.md#class-moduleclass) | Type for Hammermoon object classes |
 | :--- | :---
-Function [`<#module.class>._new(t)`](hm.md#function-moduleclassnewt---) -> _`<?>`_ | Create a new instance.
+Function [`<#module.class>._new(t,name)`](hm.md#function-moduleclassnewtname---moduleobject) -> [_`<#module.object>`_](hm.md#class-moduleobject) | Create a new instance.
 
 
-| Class [<#notificationCenter>](hm.md#class-notificationcenter) |  |
+| Class [<#module.object>](hm.md#class-moduleobject) | Type for Hammermoon objects |
 | :--- | :---
-Method [`<#notificationCenter>:register(event,cb,priority)`](hm.md#method-notificationcenterregistereventcbpriority) | 
+Field [`<#module.object>.log`](hm.md#field-moduleobjectlog-hmloggerlogger) : [_`<hm.logger#logger>`_](hm.logger.md#type-logger) | the object logger (only if created with a name)
 
 
 | Table [hm._core](hm.md#table-hmcore) | Hammermoon core facilities for use by extensions. |
@@ -50,16 +50,12 @@ Function [`hm._core.cacheKeys()`](hm.md#function-hmcorecachekeys) |
 Function [`hm._core.cacheValues()`](hm.md#function-hmcorecachevalues) | 
 Function [`hm._core.deprecate(module,fieldname,replacement)`](hm.md#function-hmcoredeprecatemodulefieldnamereplacement) | Deprecate a field or function of a module or class
 Function [`hm._core.disallow(module,fieldname,replacement)`](hm.md#function-hmcoredisallowmodulefieldnamereplacement) | Disallow a field or function of a module or class (after deprecation)
-Function [`hm._core.module(name,classmt)`](hm.md#function-hmcoremodulenameclassmt---module) -> [_`<#module>`_](hm.md#class-module) | Declare a new Hammermoon extension.
+Function [`hm._core.module(name,classes,submodules)`](hm.md#function-hmcoremodulenameclassessubmodules---module) -> [_`<#module>`_](hm.md#class-module) | Declare a new Hammermoon module.
 Function [`hm._core.property(module,fieldname,getter,setter)`](hm.md#function-hmcorepropertymodulefieldnamegettersetter) | Add a property to a module or class.
 Function [`hm._core.retainKeys()`](hm.md#function-hmcoreretainkeys) | 
 Function [`hm._core.retainValues()`](hm.md#function-hmcoreretainvalues) | 
-Field [`hm._core.defaultNotificationCenter`](hm.md#field-hmcoredefaultnotificationcenter-notificationcenter) : [_`<#notificationCenter>`_](hm.md#class-notificationcenter) | The default Notification Center.
 Field [`hm._core.log`](hm.md#field-hmcorelog-hmloggerlogger) : [_`<hm.logger#logger>`_](hm.logger.md#type-logger) | Logger instance for Hammermoon's core
 Field [`hm._core.rawrequire`](hm.md#field-hmcorerawrequire-) : _`<?>`_ | 
-Field [`hm._core.sharedWorkspace`](hm.md#field-hmcoresharedworkspace-cdata) : _`<#cdata>`_ | The shared `NSWorkspace` instance
-Field [`hm._core.systemWideAccessibility`](hm.md#field-hmcoresystemwideaccessibility-cdata) : _`<#cdata>`_ | `AXUIElementCreateSystemWide()` instance
-Field [`hm._core.wsNotificationCenter`](hm.md#field-hmcorewsnotificationcenter-notificationcenter) : [_`<#notificationCenter>`_](hm.md#class-notificationcenter) | The shared workspace's Notification Center.
 
 
 | Table [hm.debug](hm.md#table-hmdebug) | Debug options |
@@ -197,11 +193,11 @@ instead of the generic `"table"`. In all other cases this function behaves like 
 
 ## Class `<#module>`
 
-Type for Hammermoon extensions.
+Type for Hammermoon modules.
 
-Hammermoon extensions (usually created via `hm._core.module()`) can be `require`d normally
-(`local someext=require'hm.someext'`) or loaded directly via the the global `hm` namespace
-(`hm.someext.somefn(...)`).
+Hammermoon modules (usually created via `hm._core.module()`) can be `require`d normally
+(`local somemod=require'hm.somemod'`) or loaded directly via the the global `hm` namespace
+(`hm.somemod.somefn(...)`).
 
 
 ### Function `<#module>.__gc()`
@@ -213,8 +209,8 @@ Implement this function to perform any required cleanup when a module is unloade
 
 
 
-### Field `<#module>._class`: [_`<#module.class>`_](hm.md#class-moduleclass)
-The class for the extension's objects
+### Field `<#module>._classes`: `{ [`_`<#string>`_`] =`[_`<#module.class>`_](hm.md#class-moduleclass)`, ...}`
+The classes (i.e., object metatables) declared by this module
 
 
 
@@ -232,12 +228,12 @@ The extension's module-level logger instance
 
 > **Internal/advanced use only** (e.g. for extension developers)
 
-Type for Hammermoon objects
+Type for Hammermoon object classes
 
 
 
 
-### Function `<#module.class>._new(t)` -> _`<?>`_
+### Function `<#module.class>._new(t,name)` -> [_`<#module.object>`_](hm.md#class-moduleobject)
 
 > **Internal/advanced use only** (e.g. for extension developers)
 
@@ -246,10 +242,11 @@ Create a new instance.
 **Parameters:**
 
 * _`<#table>`_ `t`: initial values for the new object
+* _`<#string>`_ `name`: (optional) if provided, the object will have its own logger instance with the given name
 
 **Returns:**
 
-* _`<?>`_ a new object instance
+* [_`<#module.object>`_](hm.md#class-moduleobject) a new object instance
 
 Objects created by this function have their lifecycle tracked by Hammermoon's core.
 
@@ -258,25 +255,16 @@ Objects created by this function have their lifecycle tracked by Hammermoon's co
 
 ------------------
 
-## Class `<#notificationCenter>`
-
-
-
-
-
-
-### Method `<#notificationCenter>:register(event,cb,priority)`
+## Class `<#module.object>`
 
 > **Internal/advanced use only** (e.g. for extension developers)
 
+Type for Hammermoon objects
 
 
-**Parameters:**
 
-* _`<#string>`_ `event`: 
-* _`<#function>`_ `cb`: 
-* _`<#boolean>`_ `priority`: 
-
+### Field `<#module.object>.log`: [_`<hm.logger#logger>`_](hm.logger.md#type-logger)
+the object logger (only if created with a name)
 
 
 
@@ -337,32 +325,36 @@ Disallow a field or function of a module or class (after deprecation)
 
 
 
-### Function `hm._core.module(name,classmt)` -> [_`<#module>`_](hm.md#class-module)
+### Function `hm._core.module(name,classes,submodules)` -> [_`<#module>`_](hm.md#class-module)
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
-Declare a new Hammermoon extension.
+Declare a new Hammermoon module.
 
 **Parameters:**
 
 * _`<#string>`_ `name`: module name (without the `"hm."` prefix)
-* _`<#table>`_ `classmt`: initial metatable for the module's class (if any); can contain `__tostring`, `__eq`, `__gc`, etc
+* _`<#table>`_ `classes`: a map with the initial metatables (as values) for the module's classes (whose names are the map's keys),
+if any; the metatables can can contain `__tostring`, `__eq`, `__gc`, etc. This table, suitably instrumented, will be
+available in the resuling module's `_classes` field
+* _`<#table>`_ `submodules`: a plain list of submodule names, if any, that will be automatically required as the respective
+fields in this module are accessed
 
 **Returns:**
 
 * [_`<#module>`_](hm.md#class-module) the "naked" table for the new module, ready to be filled with functions
 
 Use this function to create the table for your module.
-If your module instantiates objects, you should pass `classmt` (even just an empty table),
-and retrieve the metatable for your objects (and the constructor) via the `_class` field
-of the returned module table. Note that the `__gc` metamethod, if present, *must* be already
-in `classmt` (i.e. you cannot add it afterwards) for Hammermoon's allocation debugging to work.
+If your module instantiates objects, you should pass `classes` (the values can just be empty tables),
+and retrieve the metatable for your objects (and the constructor) via the `_classes[<CLASSNAME>]` field
+of the returned module table. Note that the `__gc` metamethod of a class, if used, must be *already*
+in the class table passed to this function (i.e. you cannot add it afterwards) for Hammermoon's allocation debugging to work.
 
 **Usage**:
 
 ```lua
-local mymodule=hm._core.module('mymodule',{})
-local myclass=mymodule._class
+local mymodule=hm._core.module('mymodule',{myclass={}})
+local myclass=mymodule._class_myclass
 function mymodule.myfunction(param) ... end
 function mymodule.construct(args) ... return myclass._new(...) end
 function myclass:mymethod() ... end
@@ -372,7 +364,7 @@ return mymodule -- at the end of the file
 
 ### Function `hm._core.property(module,fieldname,getter,setter)`
 
-> **API CHANGE**: Doesn't exist in Hammerspoon
+> **API CHANGE**: Doesn't exist in Hammerspoon; this also allows fields in modules and objects to be trivially type-checked.
 
 Add a property to a module or class.
 
@@ -400,12 +392,6 @@ This function will add to the module or class a user-facing field that uses cust
 
 
 
-### Field `hm._core.defaultNotificationCenter`: [_`<#notificationCenter>`_](hm.md#class-notificationcenter)
-The default Notification Center.
-
-
-
-
 ### Field `hm._core.log`: [_`<hm.logger#logger>`_](hm.logger.md#type-logger)
 Logger instance for Hammermoon's core
 
@@ -414,24 +400,6 @@ Logger instance for Hammermoon's core
 
 ### Field `hm._core.rawrequire`: _`<?>`_
 
-
-
-
-
-### Field `hm._core.sharedWorkspace`: _`<#cdata>`_
-The shared `NSWorkspace` instance
-
-
-
-
-### Field `hm._core.systemWideAccessibility`: _`<#cdata>`_
-`AXUIElementCreateSystemWide()` instance
-
-
-
-
-### Field `hm._core.wsNotificationCenter`: [_`<#notificationCenter>`_](hm.md#class-notificationcenter)
-The shared workspace's Notification Center.
 
 
 

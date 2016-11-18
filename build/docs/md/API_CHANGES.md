@@ -45,32 +45,36 @@ Disallow a field or function of a module or class (after deprecation)
 
 
 
-### Function `hm._core.module(name,classmt)` -> [_`<#module>`_](hm.md#class-module)
+### Function `hm._core.module(name,classes,submodules)` -> [_`<#module>`_](hm.md#class-module)
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
-Declare a new Hammermoon extension.
+Declare a new Hammermoon module.
 
 **Parameters:**
 
 * _`<#string>`_ `name`: module name (without the `"hm."` prefix)
-* _`<#table>`_ `classmt`: initial metatable for the module's class (if any); can contain `__tostring`, `__eq`, `__gc`, etc
+* _`<#table>`_ `classes`: a map with the initial metatables (as values) for the module's classes (whose names are the map's keys),
+if any; the metatables can can contain `__tostring`, `__eq`, `__gc`, etc. This table, suitably instrumented, will be
+available in the resuling module's `_classes` field
+* _`<#table>`_ `submodules`: a plain list of submodule names, if any, that will be automatically required as the respective
+fields in this module are accessed
 
 **Returns:**
 
 * [_`<#module>`_](hm.md#class-module) the "naked" table for the new module, ready to be filled with functions
 
 Use this function to create the table for your module.
-If your module instantiates objects, you should pass `classmt` (even just an empty table),
-and retrieve the metatable for your objects (and the constructor) via the `_class` field
-of the returned module table. Note that the `__gc` metamethod, if present, *must* be already
-in `classmt` (i.e. you cannot add it afterwards) for Hammermoon's allocation debugging to work.
+If your module instantiates objects, you should pass `classes` (the values can just be empty tables),
+and retrieve the metatable for your objects (and the constructor) via the `_classes[<CLASSNAME>]` field
+of the returned module table. Note that the `__gc` metamethod of a class, if used, must be *already*
+in the class table passed to this function (i.e. you cannot add it afterwards) for Hammermoon's allocation debugging to work.
 
 **Usage**:
 
 ```lua
-local mymodule=hm._core.module('mymodule',{})
-local myclass=mymodule._class
+local mymodule=hm._core.module('mymodule',{myclass={}})
+local myclass=mymodule._class_myclass
 function mymodule.myfunction(param) ... end
 function mymodule.construct(args) ... return myclass._new(...) end
 function myclass:mymethod() ... end
@@ -80,7 +84,7 @@ return mymodule -- at the end of the file
 
 ### Function `hm._core.property(module,fieldname,getter,setter)`
 
-> **API CHANGE**: Doesn't exist in Hammerspoon
+> **API CHANGE**: Doesn't exist in Hammerspoon; this also allows fields in modules and objects to be trivially type-checked.
 
 Add a property to a module or class.
 
@@ -272,14 +276,14 @@ Manipulate screens (monitors).
 
 ------------------
 
-### Type `<#screen>`
+### Type `<#screen>` (extends [_`<hm#module.class>`_](hm.md#class-moduleclass))
 
 
 
 
 
 
-### Method `<#screen>:availableModes(pattern)` -> `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode)`, ...}`
+### Method `<#screen>:availableModes(pattern)` -> `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string)`, ...}`
 
 > **API CHANGE**: Returns a plain list of strings. Allows filtering.
 
@@ -291,12 +295,12 @@ Returns a list of the modes supported by the screen.
 
 **Returns:**
 
-* `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode)`, ...}` 
+* `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string)`, ...}` 
 
 
 
 
-### Method `<#screen>:currentMode()` -> [_`<#screenMode>`_](hm.screen.md#type-screenmode)
+### Method `<#screen>:currentMode()` -> [_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string)
 
 > **API CHANGE**: Returns a string instead of a table
 
@@ -304,7 +308,7 @@ Returns the screen's current mode.
 
 **Returns:**
 
-* [_`<#screenMode>`_](hm.screen.md#type-screenmode) 
+* [_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string) 
 
 The screen's mode indicates its current resolution and scaling factor.
 
@@ -317,7 +321,7 @@ The screen's mode indicates its current resolution and scaling factor.
 
 **Parameters:**
 
-* [_`<#screenMode>`_](hm.screen.md#type-screenmode) `mode`: 
+* [_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string) `mode`: 
 
 
 
@@ -335,14 +339,14 @@ Schedule asynchronous execution of functions in the future.
 
 ------------------
 
-## Module `hm.timer`
+## Module `hm.timer` (extends [_`<hm#module>`_](hm.md#class-module))
 
 
 
 
 
 
-### Function `hm.timer.new(fn,data)` -> [_`<#timer>`_](hm.timer.md#class-timer)
+### Function `hm.timer.new(fn,data)` -> [_`<#timer>`_](hm.timer.md#class-timer-extends-hmmoduleclass)
 
 > **API CHANGE**: All `hs.timer` constructors are covered by the new `:run...()` methods
 
@@ -355,7 +359,7 @@ Creates a new timer.
 
 **Returns:**
 
-* [_`<#timer>`_](hm.timer.md#class-timer) a new timer object
+* [_`<#timer>`_](hm.timer.md#class-timer-extends-hmmoduleclass) a new timer object
 
 
 
@@ -364,7 +368,7 @@ Creates a new timer.
 
 ------------------
 
-## Class `<#timer>`
+## Class `<#timer>` (extends [_`<hm#module.class>`_](hm.md#class-moduleclass))
 
 Type for timer objects.
 
@@ -390,7 +394,7 @@ Schedules execution of the timer after a given predicate becomes false.
 **Parameters:**
 
 * [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) `predicateFn`: A predicate function that determines whether to contine waiting before executing the timer
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `checkInterval`: interval between predicate checks
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `checkInterval`: interval between predicate checks
 * _`<#boolean>`_ `continueOnError`: (optional) if `true`, `predicateFn` will keep being checked even if it causes an error
 
 The given `predicateFn` will start being checked right away. As soon as it returns `false`, the timer will
@@ -405,12 +409,12 @@ Schedules repeated execution of the timer.
 
 **Parameters:**
 
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `repeatInterval`: 
-* _`<?>`_ `delayOrStartTime`: (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring) or a number (in seconds),
-       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), at the earliest occurrence for given time
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `repeatInterval`: 
+* _`<?>`_ `delayOrStartTime`: (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) or a number (in seconds),
+       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring-extends-string), at the earliest occurrence for given time
 * _`<#boolean>`_ `continueOnError`: (optional) if `true`, the timer will keep repeating (and executing) even if its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) causes an error
 
-If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), the timer will be scheduled to execute for the first time at the earliest occurrence
+If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring-extends-string), the timer will be scheduled to execute for the first time at the earliest occurrence
 given the `repeatInterval`, e.g.:
 
   * If it's 17:00, `myTimer:runEvery("6h","0:00")` will set the timer 1 hour from now (at 18:00)
@@ -441,7 +445,7 @@ Schedules execution of the timer after a given delay.
 
 **Parameters:**
 
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `delay`: 
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `delay`: 
 
 Every time you call this method the "execution countdown" is restarted - i.e. any previous schedule (created
 with any of the `:run...()` methods) is overwritten. This can be useful
@@ -467,7 +471,7 @@ Schedules execution of the timer every time a given predicate is true.
 **Parameters:**
 
 * [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) `predicateFn`: A predicate function that determines whether to execute the timer
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `checkInterval`: interval between predicate checks (and potential timer executions)
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `checkInterval`: interval between predicate checks (and potential timer executions)
 * _`<#boolean>`_ `continueOnError`: (optional) if `true`, `predicateFn` will keep being checked even if it - or the
        timer's [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) - causes an error
 
@@ -484,7 +488,7 @@ Schedules repeated execution of the timer while a given predicate remains true.
 **Parameters:**
 
 * [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) `predicateFn`: A predicate function that determines whether to contine executing the timer
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `checkInterval`: interval between predicate checks (and timer executions)
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `checkInterval`: interval between predicate checks (and timer executions)
 * _`<#boolean>`_ `continueOnError`: (optional) if `true`, the timer will keep repeating (and executing) even if
        its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) or `predicateFn` cause an error
 
@@ -548,7 +552,7 @@ A function that will be executed by a timer.
 
 **Parameters:**
 
-* [_`<#timer>`_](hm.timer.md#class-timer) `timer`: the timer that scheduled execution of this function
+* [_`<#timer>`_](hm.timer.md#class-timer-extends-hmmoduleclass) `timer`: the timer that scheduled execution of this function
 * _`<?>`_ `data`: `data` passed to `timer.new()` or, if `data` was `"elapsed"`, elapsed time in seconds since last execution
 
 

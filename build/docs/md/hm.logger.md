@@ -14,7 +14,7 @@ Function [`hm.logger.new(id,loglevel)`](hm.logger.md#function-hmloggernewidlogle
 Function [`hm.logger.printHistory(filter,level,caseSensitive,entries)`](hm.logger.md#function-hmloggerprinthistoryfilterlevelcasesensitiveentries) | Prints the global log history to the console.
 Function [`hm.logger.setGlobalLogLevel(lvl)`](hm.logger.md#function-hmloggersetgloballoglevellvl) | Sets the log level for all logger instances (including objects' loggers)
 Function [`hm.logger.setModulesLogLevel(lvl)`](hm.logger.md#function-hmloggersetmodulesloglevellvl) | Sets the log level for all currently loaded modules.
-Field [`hm.logger.defaultLogLevel`](hm.logger.md#field-hmloggerdefaultloglevel-loglevel) : [_`<#loglevel>`_](hm.logger.md#type-loglevel) | Default log level for new logger instances.
+Field [`hm.logger.defaultLogLevel`](hm.logger.md#field-hmloggerdefaultloglevel-loglevel) : [_`<#loglevel>`_](hm.logger.md#type-loglevel-extends-string) | Default log level for new logger instances.
 Field [`hm.logger.historySize`](hm.logger.md#field-hmloggerhistorysize-number) : _`<#number>`_ | The number of log entries to keep in the history.
 
 
@@ -35,7 +35,7 @@ Function [`<#logger>.w(...)`](hm.logger.md#function-loggerw) | Logs a warning to
 Field [`<#logger>.level`](hm.logger.md#field-loggerlevel-number) : _`<#number>`_ | The log level of the logger instance, as a number between 0 and 5
 
 
-| Type [<#loglevel>](hm.logger.md#type-loglevel) | A string or number describing a log level. |
+| Type [<#loglevel>](hm.logger.md#type-loglevel-extends-string) | A string or number describing a log level. |
 | :--- | :---
 
 
@@ -74,7 +74,7 @@ Creates a new logger instance.
 **Parameters:**
 
 * _`<#string>`_ `id`: a string identifier for the instance (usually the module name)
-* [_`<#loglevel>`_](hm.logger.md#type-loglevel) `loglevel`: (optional) can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose',
+* [_`<#loglevel>`_](hm.logger.md#type-loglevel-extends-string) `loglevel`: (optional) can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose',
 or a corresponding number between 0 and 5; uses `hs.logger.defaultLogLevel` if omitted
 
 **Returns:**
@@ -99,7 +99,7 @@ Prints the global log history to the console.
 **Parameters:**
 
 * _`<#string>`_ `filter`: (optional) a string to filter the entries (by logger id or message) via `string.find` plain matching
-* [_`<#loglevel>`_](hm.logger.md#type-loglevel) `level`: (optional) the desired log level; if omitted, defaults to `verbose`
+* [_`<#loglevel>`_](hm.logger.md#type-loglevel-extends-string) `level`: (optional) the desired log level; if omitted, defaults to `verbose`
 * _`<#boolean>`_ `caseSensitive`: (optional) if true, filtering is case sensitive
 * _`<#number>`_ `entries`: (optional) the maximum number of entries to print; if omitted, all entries in the history will be printed
 
@@ -112,7 +112,7 @@ Sets the log level for all logger instances (including objects' loggers)
 
 **Parameters:**
 
-* [_`<#loglevel>`_](hm.logger.md#type-loglevel) `lvl`: 
+* [_`<#loglevel>`_](hm.logger.md#type-loglevel-extends-string) `lvl`: 
 
 
 
@@ -123,13 +123,13 @@ Sets the log level for all currently loaded modules.
 
 **Parameters:**
 
-* [_`<#loglevel>`_](hm.logger.md#type-loglevel) `lvl`: 
+* [_`<#loglevel>`_](hm.logger.md#type-loglevel-extends-string) `lvl`: 
 
 This function only affects *module*-level loggers, object instances with their own loggers (e.g. windowfilters) won't be affected;
 you can use `hs.logger.setGlobalLogLevel()` for those
 
 
-### Field `hm.logger.defaultLogLevel`: [_`<#loglevel>`_](hm.logger.md#type-loglevel)
+### Field `hm.logger.defaultLogLevel`: [_`<#loglevel>`_](hm.logger.md#type-loglevel-extends-string)
 Default log level for new logger instances.
 
 The starting value is `'warning'`; set this (to e.g. `'info'`) at the top of your userscript to affect
@@ -286,7 +286,7 @@ Sets the log level of the logger instance
 
 **Parameters:**
 
-* [_`<#loglevel>`_](hm.logger.md#type-loglevel) `loglevel`: can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose'; or a corresponding number between 0 and 5
+* [_`<#loglevel>`_](hm.logger.md#type-loglevel-extends-string) `loglevel`: can be 'nothing', 'error', 'warning', 'info', 'debug', or 'verbose'; or a corresponding number between 0 and 5
 
 
 
@@ -322,7 +322,7 @@ The log level of the logger instance, as a number between 0 and 5
 
 ------------------
 
-### Type `<#loglevel>`
+### Type `<#loglevel>` (extends _`<#string>`_)
 
 A string or number describing a log level.
 

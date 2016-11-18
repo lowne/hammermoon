@@ -9,34 +9,6 @@ Hammermoon main module
 
 ------------------
 
-## Class `<#notificationCenter>`
-
-
-
-
-
-
-### Method `<#notificationCenter>:register(event,cb,priority)`
-
-> **Internal/advanced use only** (e.g. for extension developers)
-
-> INTERNAL CHANGE: Centralized callback registry for notification centers, to be used by extensions.
-
-
-
-**Parameters:**
-
-* _`<#string>`_ `event`: 
-* _`<#function>`_ `cb`: 
-* _`<#boolean>`_ `priority`: 
-
-
-
-
-
-
-------------------
-
 ## Table `hm._core`
 
 > **Internal/advanced use only** (e.g. for extension developers)
@@ -80,34 +52,38 @@ Disallow a field or function of a module or class (after deprecation)
 
 
 
-### Function `hm._core.module(name,classmt)` -> [_`<#module>`_](hm.md#class-module)
+### Function `hm._core.module(name,classes,submodules)` -> [_`<#module>`_](hm.md#class-module)
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
 > INTERNAL CHANGE: Allows allocation tracking, properties, deprecation; handled by core
 
-Declare a new Hammermoon extension.
+Declare a new Hammermoon module.
 
 **Parameters:**
 
 * _`<#string>`_ `name`: module name (without the `"hm."` prefix)
-* _`<#table>`_ `classmt`: initial metatable for the module's class (if any); can contain `__tostring`, `__eq`, `__gc`, etc
+* _`<#table>`_ `classes`: a map with the initial metatables (as values) for the module's classes (whose names are the map's keys),
+if any; the metatables can can contain `__tostring`, `__eq`, `__gc`, etc. This table, suitably instrumented, will be
+available in the resuling module's `_classes` field
+* _`<#table>`_ `submodules`: a plain list of submodule names, if any, that will be automatically required as the respective
+fields in this module are accessed
 
 **Returns:**
 
 * [_`<#module>`_](hm.md#class-module) the "naked" table for the new module, ready to be filled with functions
 
 Use this function to create the table for your module.
-If your module instantiates objects, you should pass `classmt` (even just an empty table),
-and retrieve the metatable for your objects (and the constructor) via the `_class` field
-of the returned module table. Note that the `__gc` metamethod, if present, *must* be already
-in `classmt` (i.e. you cannot add it afterwards) for Hammermoon's allocation debugging to work.
+If your module instantiates objects, you should pass `classes` (the values can just be empty tables),
+and retrieve the metatable for your objects (and the constructor) via the `_classes[<CLASSNAME>]` field
+of the returned module table. Note that the `__gc` metamethod of a class, if used, must be *already*
+in the class table passed to this function (i.e. you cannot add it afterwards) for Hammermoon's allocation debugging to work.
 
 **Usage**:
 
 ```lua
-local mymodule=hm._core.module('mymodule',{})
-local myclass=mymodule._class
+local mymodule=hm._core.module('mymodule',{myclass={}})
+local myclass=mymodule._class_myclass
 function mymodule.myfunction(param) ... end
 function mymodule.construct(args) ... return myclass._new(...) end
 function myclass:mymethod() ... end
@@ -117,7 +93,7 @@ return mymodule -- at the end of the file
 
 ### Function `hm._core.property(module,fieldname,getter,setter)`
 
-> **API CHANGE**: Doesn't exist in Hammerspoon
+> **API CHANGE**: Doesn't exist in Hammerspoon; this also allows fields in modules and objects to be trivially type-checked.
 
 > INTERNAL CHANGE: Modules don't need to handle properties internally.
 
@@ -131,13 +107,6 @@ Add a property to a module or class.
 * _`<#function>`_ `setter`: setter function or `false` (to make the property read-only)
 
 This function will add to the module or class a user-facing field that uses custom getter and setter.
-
-
-### Field `hm._core.systemWideAccessibility`: _`<#cdata>`_
-> INTERNAL CHANGE: Instance to be used by extensions.
-
-`AXUIElementCreateSystemWide()` instance
-
 
 
 
@@ -190,6 +159,58 @@ If falsy, they will get gc'ed unless the userscript keeps a global reference.
 
 
 
+# Module `hm._os`
+
+Low level access to macOS
+
+
+
+------------------
+
+## Module `hm._os` (extends [_`<hm#module>`_](hm.md#class-module))
+
+
+
+
+
+### Field `hm._os.systemWideAccessibility`: _`<#cdata>`_
+> INTERNAL CHANGE: Instance to be used by extensions.
+
+`AXUIElementCreateSystemWide()` instance
+
+
+
+
+
+------------------
+
+## Class `<#notificationCenter>`
+
+
+
+
+
+
+### Method `<#notificationCenter>:register(event,cb,priority)`
+
+> **Internal/advanced use only** (e.g. for extension developers)
+
+> INTERNAL CHANGE: Centralized callback registry for notification centers, to be used by extensions.
+
+
+
+**Parameters:**
+
+* _`<#string>`_ `event`: 
+* _`<#function>`_ `cb`: 
+* _`<#boolean>`_ `priority`: 
+
+
+
+
+
+
+
 # Module `hm.screen`
 
 Manipulate screens (monitors).
@@ -198,14 +219,14 @@ Manipulate screens (monitors).
 
 ------------------
 
-## Module `hm.screen`
+## Module `hm.screen` (extends [_`<hm#module>`_](hm.md#class-module))
 
 
 
 
 
 
-### Function `hm.screen.allScreens()` -> `{`[_`<#screen>`_](hm.screen.md#type-screen)`, ...}`
+### Function `hm.screen.allScreens()` -> `{`[_`<#screen>`_](hm.screen.md#type-screen-extends-hmmoduleclass)`, ...}`
 
 > INTERNAL CHANGE: The screen list is cached (and kept up to date by an internal watcher)
 
@@ -213,7 +234,7 @@ Returns all the screens currently connected and enabled.
 
 **Returns:**
 
-* `{`[_`<#screen>`_](hm.screen.md#type-screen)`, ...}` 
+* `{`[_`<#screen>`_](hm.screen.md#type-screen-extends-hmmoduleclass)`, ...}` 
 
 
 
@@ -222,7 +243,7 @@ Returns all the screens currently connected and enabled.
 
 ------------------
 
-### Type `<#screen>`
+### Type `<#screen>` (extends [_`<hm#module.class>`_](hm.md#class-moduleclass))
 
 
 
@@ -240,7 +261,7 @@ depth==8 isn't supported in HS!
 
 **Parameters:**
 
-* [_`<#screenMode>`_](hm.screen.md#type-screenmode) `mode`: 
+* [_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string) `mode`: 
 
 
 
@@ -260,7 +281,7 @@ Schedule asynchronous execution of functions in the future.
 
 ------------------
 
-## Module `hm.timer`
+## Module `hm.timer` (extends [_`<hm#module>`_](hm.md#class-module))
 
 
 
@@ -284,7 +305,7 @@ Returns the number of seconds since midnight local time.
 
 ------------------
 
-## Class `<#timer>`
+## Class `<#timer>` (extends [_`<hm#module.class>`_](hm.md#class-moduleclass))
 
 Type for timer objects.
 
@@ -304,12 +325,12 @@ Schedules repeated execution of the timer.
 
 **Parameters:**
 
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `repeatInterval`: 
-* _`<?>`_ `delayOrStartTime`: (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring) or a number (in seconds),
-       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), at the earliest occurrence for given time
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `repeatInterval`: 
+* _`<?>`_ `delayOrStartTime`: (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) or a number (in seconds),
+       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring-extends-string), at the earliest occurrence for given time
 * _`<#boolean>`_ `continueOnError`: (optional) if `true`, the timer will keep repeating (and executing) even if its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) causes an error
 
-If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), the timer will be scheduled to execute for the first time at the earliest occurrence
+If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring-extends-string), the timer will be scheduled to execute for the first time at the earliest occurrence
 given the `repeatInterval`, e.g.:
 
   * If it's 17:00, `myTimer:runEvery("6h","0:00")` will set the timer 1 hour from now (at 18:00)
@@ -343,7 +364,7 @@ Schedules execution of the timer after a given delay.
 
 **Parameters:**
 
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring) `delay`: 
+* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `delay`: 
 
 Every time you call this method the "execution countdown" is restarted - i.e. any previous schedule (created
 with any of the `:run...()` methods) is overwritten. This can be useful
