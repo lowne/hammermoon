@@ -210,10 +210,10 @@ function M.makeModel(metamodel)
   local module=copyAttrs(metamodel) --#module
   local typedefs,anchors={},{}
 
-  local PRIMITIVE_TYPES={['nil']=true,boolean=true,number=true,string=true,table=true,['function']=true,cdata=true,userdata=true}
+  local PRIMITIVE_TYPES={['nil']=true,boolean=true,number=true,string=true,table=true,['function']=true,cdata=true,userdata=true,['?']=true}
   ---@return #itemtype
   local function getTypeFromString(s)
-    local mod,name=s:match('([%w._]*)#([%w._]+)')
+    local mod,name=s:match('([%w._]*)#([%w._?]+)')
     if #mod==0 then mod=nil end
     local ttag='internaltype'
     if PRIMITIVE_TYPES[name] then ttag='primitivetype'
@@ -236,6 +236,7 @@ function M.makeModel(metamodel)
       else error('inlinetyperef not a function '.._DEBUG(o)) end
     elseif typetag=='internaltyperef' then
       if typename=='cdata' then return {ttag='primitivetype',name='cdata'}
+      elseif typename=='?' then return {ttag='primitivetype',name='?'}
       elseif typedefs[typename] then return typedefs[typename].type
       else
         assert(typedef and typedef.tag=='functiontypedef')
@@ -248,7 +249,7 @@ function M.makeModel(metamodel)
 
   ---@return #type
   local function newType(o)
-    if o.name=='cdata' then return end --ffi primitive type (not known to apimodelbuilder)
+    if o.name=='cdata' or o.name=='?' then return end --ffi primitive type (not known to apimodelbuilder)
     print('  Adding type '..o.name)
     local t=copyAttrs(o) --#type
     t.ttag='type' t.metamodel=o t.htag=t.extra.static and 'Table' or (t.extra.class and 'Class' or 'Type')
@@ -263,9 +264,9 @@ function M.makeModel(metamodel)
       t.type.ttag='listtype' t.type.valuetype=valuetype
       return
     elseif t.extra.map then
-      local keyname,valuename=t.extra.map.short:match('^<#(.-),%s*#(.-)>')
+      local keyname,valuename=t.extra.map.short:match('^<([^,]-),%s*(.-)>')
       assert(keyname and valuename,'no keytype or valuetype for '..t.name)
-      local keytype,valuetype=getTypeFromString('#'..keyname),getTypeFromString('#'..valuename)
+      local keytype,valuetype=getTypeFromString(keyname),getTypeFromString(valuename)
       --      if keytype.ttag=='internaltype' then keytype.typedef=assert(typedefs[keyname],'no typedef for keytype '..keyname) end
       --      if valuetype.ttag=='internaltype' then valuetype.typedef=assert(typedefs[valuename].metamodel,'no typedef for valuetype '..valuename) end
       t.type.ttag='maptype' t.type.keytype=keytype t.type.valuetype=valuetype
@@ -291,11 +292,11 @@ function M.makeModel(metamodel)
       local returntuple={ttag='returntuple',returntypes={ttag='returntypes'},short=strip(ret.description)}
       -- handle declared vararg returns (--@return #sometype,... desc)
       local j,i,k=0
-      while j do i,j=ret.description:find('[%w%._]*#[%w%._]+,',j+1) k=j or k end
+      while j do i,j=ret.description:find('[%w._]*#[%w._?]+,',j+1) k=j or k end
       if k then k,j=ret.description:find('[^%s]',k+1) end
       if k and ret.description:sub(k,k+2)=='...' then
         returntuple.short=strip(ret.description:sub(k+3))
-        for n in ret.description:gmatch('([%w%._]*#[%w%._]+),') do
+        for n in ret.description:gmatch('([%w._]*#[%w._?]+),') do
           local typeref=getTypeFromString(n)
           tinsert(returntuple.returntypes,typeref)
         end
