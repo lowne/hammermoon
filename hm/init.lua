@@ -270,10 +270,16 @@ function hm._lua_setup()
   -- @internalchange Modules don't need to handle properties internally.
 
   local function getTableName(t) return getmetatable(t).__name end
-  local function property(t,fieldname,getter,setter) checks('hm#module|hm#module.class|hs_compat#module','string','function','function|boolean')
+  local function property(t,fieldname,getter,setter,type)
+    checks('hm#module|hm#module.class|hs_compat#module','string','function','function|false|nil','?string')
     assert(rawget(t,fieldname)==nil,'property is shadowed by existing field')
     properties[t]=properties[t] or {}
-    properties[t][fieldname]={get=getter,set=setter,original=getTableName(t)..'.'..fieldname}
+    local realsetter=setter
+    if setter and type then
+      if hm.type(t)=='hm#module.class' then realsetter=function(o,v) hmchecks(t,type) return setter(o,v) end
+      else realsetter=function(v,b) hmchecks(type)return setter(v) end end
+    end
+    properties[t][fieldname]={get=getter,set=realsetter,original=getTableName(t)..'.'..fieldname}
     local capitalized=fieldname:sub(1,1):upper()..fieldname:sub(2)
     rawset(t,'get'..capitalized,getter)
     if setter then rawset(t,'set'..capitalized,setter) end
