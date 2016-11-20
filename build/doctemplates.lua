@@ -53,11 +53,8 @@ local TEMPLATE_BASE=extend{
 local LINE='\n'
 local BR='\n\n'
 local HR='\n\n------------------\n\n'
-local TEMPLATE_MD=extend(TEMPLATE_BASE,{
-  ['module.title']='$(header)@(extra)$(short)\n\n@(long)$(subheader)',
-  ['module.header']='# Module $(fullname)\n\n',
-  ['module.subheader']='## Overview\n\n',
-  ['module.fullname']='`$(name)`',
+
+local TEMPLATE_MD_INDEX_TABLES=extend{
   ['globalfunctions.index.pre']='| Global functions| |\n| :--- | :--- |\n',--function()return mdtableheader('Global functions')..'\n' end,
   ['globalfunctions.index.sep']=LINE,
   ['globalfunctions.index.post']=BR,
@@ -85,6 +82,43 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,{
   ['fields.index.pre']='',
   ['fields.index.sep']=LINE,
   ['fields.index.post']=LINE,
+}
+local TEMPLATE_MD_INDEX_LISTS=extend{
+  ['globalfunctions.index.pre']='* Global functions:\n',
+  ['globalfunctions.index.sep']=LINE,
+  ['globalfunctions.index.post']=BR,
+  ['globalfields.index.pre']='* Global fields:\n',
+  ['globalfields.index.sep']=LINE,
+  ['globalfields.index.post']=BR,
+
+  ['prototypes.index.pre']='* Function prototypes:\n',
+  ['prototypes.index.sep']=LINE,
+  ['prototypes.index.post']=BR,
+
+  ['function.index']='  * [`$(name)(>(parameters))`]($(link))>(returns) - @(htag)',
+
+  ['field.index']='  * [`$(name)`]($(link)) : @@(type) - @(htag)',
+
+  ['types.index.pre']=LINE,
+  ['types.index.sep']='',
+  ['types.index.post']=BR,
+
+  ['type.index']='* $(htag) [`$(name)`]($(link))\n>(functions)>(fields)\n\n',
+
+  ['htag']=function(o)return o:lower()end,
+  ['functions.index.pre']='',
+  ['functions.index.sep']=LINE,
+  ['functions.index.post']=LINE,
+  ['fields.index.pre']='',
+  ['fields.index.sep']=LINE,
+  ['fields.index.post']=LINE,
+}
+local TEMPLATE_MD=extend(TEMPLATE_BASE,TEMPLATE_MD_INDEX_LISTS,{
+  ['module.title']='$(header)@(extra)$(short)\n\n@(long)$(subheader)',
+  ['module.header']='# Module $(fullname)\n\n',
+  ['module.subheader']='## Overview\n\n',
+  ['module.fullname']='`$(name)`',
+
 
   ['globalfunctions.pre']=HR..'## Global functions\n\n',
   ['globalfunctions.sep']='',
@@ -100,12 +134,13 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,{
 
   ['types.pre']=HR,
   ['type']='$(title)>>(functions)>>(fields)',
-  ['type.title']='@(headersize) $(header)\n\n@(extra)$(short)\n\n?(long)$(usage)',
+  ['type.title']='@(headersize) $(header)\n\n@?(extends)@(extra)$(short)\n\n?(long)$(usage)',
   ['headersize']=function(o)return string.rep('#',o) end,
   --  ['type.headersize']=function(o)return o.extra.class and '##' or '###' end,
-  ['type.header']='$(htag) `$(fullname)`@?(extends)',
-  ['extends']=' (extends @@(type))',
+  ['type.header']='$(htag) `$(name)`',
+  ['extends']='> extends @@(type)\n\n',
   ['type.fullname']=function(o)return sformat(o.extra.static and '%s' or '<#%s>',o.name) end,
+  ['type.headername']=function(o)return sformat(o.extra.static and '%s' or '#%s',o.name) end,
   ['types.sep']=HR,
   ['types.post']=LINE,
 
@@ -116,13 +151,17 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,{
   ['functions.sep']=LINE,
   ['functions.post']=LINE,
 
-  ['parameters.pre']='**Parameters:**\n\n',
-  ['parameter']='* @@(type) `$(name)`: $(short)',
+  --  ['parameters.pre']='**Parameters:**\n\n',
+  ['parameters.pre']='',
+  --  ['parameter']='* @@(type) `$(name)`: $(short)',
+  ['parameter']='* `$(name)`: @@(type) $(short)',
   ['parameters.sep']=LINE,
   ['parameters.post']=BR,
 
-  ['returns.pre']='**Returns:**\n\n',
-  ['returntuple']='* >(returntypes) $(short)',
+  --  ['returns.pre']='**Returns:**\n\n',
+  ['returns.pre']=BR,
+  --  ['returntuple']='* >(returntypes) $(short)',
+  ['returntuple']='* Returns: >(returntypes) $(short)',
   ['returntypes.pre']='',
   ['returntypes.sep']=LINE,
   ['returntypes.post']=LINE,
