@@ -31,20 +31,39 @@ hmassertf=assertf
 
 package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
 package.cpath=package.cpath..';./lib/?.so'
+
 require'checks'
 ---@private
-hmcheck=checks
+hmchecks=checks
+---@private
+hmsanitize=checks
+
+---@type checkers
+--@map <#string,#function>
+checkers=checkers
+
 require'compat53'
 
 local floor=math.floor
 checkers['uint']=function(v)return type(v)=='number' and v>0 and floor(v)==v end
+checkers['int']=function(v)return type(v)=='number' and floor(v)==v end
 checkers['false']=function(v)return v==false end
 checkers['true']=function(v)return v==true end
 checkers['positive']=function(v) return type(v)=='number' and v>0 end
 checkers['positiveOrZero']=function(v) return type(v)=='number' and v>=0 end
-local function isCallable(v) return type(v)=='function' or (type(v)=='table' and getmetatable(v) and getmetatable(v).__call) end
+local function isCallable(v) return type(v)=='function' or (type(v)=='table' and getmetatable(v) and getmetatable(v).__call and true) end
 checkers['callable']=isCallable
+checkers['list']=function(v)
+  if type(v)~='table' then return false end
+  for k,v in pairs(v) do if type(k)~='number' or floor(k)~=k then return false end end
+  return true
+end
 checkers['stringList']=function(v) if type(v)~='table' then return false end for _,s in ipairs(v) do if type(s)~='string' then return false end end return true end
+checkers['stringOrStringList']=function(v)
+  if type(v)=='string' then return {v}
+  elseif type(v)~='table' then return false end
+  for _,s in ipairs(v) do if type(s)~='string' then return false end end return true
+end
 
 --- Hammermoon main module
 --@module hm
@@ -60,6 +79,9 @@ local log --hm.logger#logger
 -- @private
 
 ---@field [parent=#hm] hm.types#hm.types types
+-- @private
+
+---@field [parent=#hm] hm.timer#hm.timer timer
 -- @private
 
 ---Quits Hammermoon.
@@ -116,7 +138,7 @@ local function make_hmdebug()
   return setmetatable({},{__index=hmdebug,__newindex=function(t,k,v)
     v=not(not v) --toboolean
     if rawget(hmdebug,k)==v then return end
-    if k=='disableTypeChecks' then hmcheck=v and rawchecks or function()end
+    if k=='disableTypeChecks' then hmchecks=v and rawchecks or function()end
     elseif k=='disableAssertions' then hmassert=v and rawassert or function()end hmassertf=v and rawassertf or function()end
     elseif k=='retainUserObjects' then
     elseif k=='cacheUIElements' then
@@ -211,7 +233,12 @@ function hm._lua_setup()
   end
   local function makeclass__index(cls)
     return function(self,k)
-      local f=properties[cls] and properties[cls][k] if f then return f.get(self) end
+      local f=properties[cls] and properties[cls][k]
+      if f then
+        if f.value~=nil then return f.value
+        elseif f.set==nil then f.value=f.get(self) return f.value --immutable, cache it
+        else return f.get(self) end
+      end
       f=deprecated[cls] and deprecated[cls][k] if f then warnDeprecation(f) return f.values[self] end
       return cls[k]
     end
@@ -237,7 +264,8 @@ function hm._lua_setup()
   -- @param #module module @{<#module>} table or @{<#module.class>} table
   -- @param #string fieldname desired field name
   -- @param #function getter getter function
-  -- @param #function setter setter function or `false` (to make the property read-only)
+  -- @param #function setter setter function; if `false` the property is read-only; if `nil` the property is
+  --        immutable and will be cached after the first query.
   -- @apichange Doesn't exist in Hammerspoon; this also allows fields in modules and objects to be trivially type-checked.
   -- @internalchange Modules don't need to handle properties internally.
 
