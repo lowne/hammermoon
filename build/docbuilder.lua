@@ -224,7 +224,8 @@ function M.makeModel(metamodel)
   ---@return #itemtype
   local function getItemType(o)
     if not o or not o.type then return {ttag='notype',name=''} end
-    local typetag,typename,typedef=o.type.tag,o.type.typename,o.resolvetype and o:resolvetype()
+    --    _PDEBUG(o)
+    local typetag,typename,typedef=o.type.tag,o.type.typename,o.resolvetype and o:resolvetype() or o.type.def
     if typetag=='primitivetyperef' then
       if typename=='nil' then return {ttag='niltype',name='nil'}
       else return {ttag='primitivetype',name=typename} end
@@ -233,7 +234,14 @@ function M.makeModel(metamodel)
     elseif typetag=='inlinetyperef' then
       assert(typedef,'inlinetyperef without typedef: '.._DEBUG(o))
       if typedef.tag=='functiontypedef' then return {ttag='functiontype',name=typedef.name,module=module.name}--,typedef=typedef}
-      else error('inlinetyperef not a function '.._DEBUG(o)) end
+      elseif typedef.tag=='recordtypedef' then
+        if typedef.name=='table' then return {ttag='primitivetype',name='table'}
+        else
+          rawprint('WARNING: '..o.name..': complex recordtypedef: '.._DEBUG(o.type.def,2))
+          return {ttag='primitivetype',name='table'}
+        end
+        --        else error('complex inlinetyperef->recordtypedef: '.._DEBUG(o)) end
+      else error('inlinetyperef not a function or table: '.._DEBUG(o)) end
     elseif typetag=='internaltyperef' then
       if typename=='cdata' then return {ttag='primitivetype',name='cdata'}
       elseif typename=='?' then return {ttag='primitivetype',name='?'}
@@ -257,23 +265,32 @@ function M.makeModel(metamodel)
     t.functions={ttag='functions'} t.fields={ttag='fields'}
     t.type={ttag='internaltype',name=t.name,module=module.name}--,typedef=o}
     typedefs[t.name]=t
-    if t.extra.list then
-      local valuename=assert(t.extra.list.short:match('^<#(.-)>'),'no basetype for '..t.name)
-      local valuetype=getTypeFromString('#'..valuename)
-      --      if valuetype.ttag=='internaltype' then valuetype.typedef=assert(typedefs[valuename].metamodel,'no typedef for '..valuename) end
+    --    if t.extra.list then
+    --      local valuename=assert(t.extra.list.short:match('^<#(.-)>'),'no basetype for '..t.name)
+    --      local valuetype=getTypeFromString('#'..valuename)
+    --      t.type.ttag='listtype' t.type.valuetype=valuetype
+    --      return
+    --    elseif t.extra.map then
+    --      local keyname,valuename=t.extra.map.short:match('^<([^,]-),%s*(.-)>')
+    --      assert(keyname and valuename,'no keytype or valuetype for '..t.name)
+    --      local keytype,valuetype=getTypeFromString(keyname),getTypeFromString(valuename)
+    --      t.type.ttag='maptype' t.type.keytype=keytype t.type.valuetype=valuetype
+    --      return
+    if o.structurekind=='list' then
+      local valuetype=getItemType({type=o.defaultvaluetyperef})-- getTypeFromString(s)
       t.type.ttag='listtype' t.type.valuetype=valuetype
       return
-    elseif t.extra.map then
-      local keyname,valuename=t.extra.map.short:match('^<([^,]-),%s*(.-)>')
-      assert(keyname and valuename,'no keytype or valuetype for '..t.name)
-      local keytype,valuetype=getTypeFromString(keyname),getTypeFromString(valuename)
-      --      if keytype.ttag=='internaltype' then keytype.typedef=assert(typedefs[keyname],'no typedef for keytype '..keyname) end
-      --      if valuetype.ttag=='internaltype' then valuetype.typedef=assert(typedefs[valuename].metamodel,'no typedef for valuetype '..valuename) end
+    elseif o.structurekind=='map' then
+      local keytype,valuetype=getItemType({type=o.defaultkeytyperef}),getItemType({type=o.defaultvaluetyperef})
       t.type.ttag='maptype' t.type.keytype=keytype t.type.valuetype=valuetype
       return
     elseif t.extra.static then t.type.ttag='staticinternaltype' end
-    if t.extra.extends then t.extends={type=getTypeFromString(t.extra.extends.short),ttag='extends',name='extends'} end
-    anchors[sformat('%s#(%s)',module.name,t.name)]=t
+    --    if t.extra.extends then t.extends={type=getTypeFromString(t.extra.extends.short),ttag='extends',name='extends'} end
+    if o.supertype then t.extends={type=getItemType({type=o.supertype}),ttag='extends',name='extends'} end
+    --    if t.extra.extends then t.extends={type=getTypeFromString(t.extra.extends.short),ttag='extends',name='extends'} end
+    local anc=sformat('%s#(%s)',module.name,t.name)
+    print('    Added anchor to type ',anc)
+    anchors[anc]=t
     return t
   end
 
@@ -317,7 +334,7 @@ function M.makeModel(metamodel)
     else t.htag='Global function' end
     if t.extra.prototype then t.htag='Function prototype' t.invokator='' t.parent=nil end -- t.ttag='prototype'
     local anc=sformat('%s#(%s).%s',module.name,t.parent and t.parent.name or '',t.name)
-    print('    Added anchor ',anc)
+    print('    Added anchor to function ',anc)
     anchors[anc]=t
     --    if not t.parent then anchors[sformat('%s#%s',module.name,t.name)]=t end
     return t
@@ -332,7 +349,9 @@ function M.makeModel(metamodel)
     if t.extra.const then t.htag='Constant'
     elseif t.extra.property then t.htag='Property'
     elseif t.extra.readonlyproperty then t.htag='Property (read-only)' end
-    anchors[sformat('%s#(%s).%s',module.name,parent and parent.name or '',t.name)]=t
+    local anc=sformat('%s#(%s).%s',module.name,parent and parent.name or '',t.name)
+    print('    Added anchor to field ',anc)
+    anchors[anc]=t
     return t
   end
 
@@ -483,7 +502,7 @@ local resolved={}
 --@param #table templ the template that was passed to `template()`
 function M.resolveLinks(moduleName,doc,anchors,templ)
   local function makeLink(o,destModule,l)
-    assert(o,'cannot resolve link: '..l)
+    assert(o,'cannot resolve link: '..l..' in module '..moduleName)
     local header=assert(templ[o.ttag..'.header'],'missing .header for '..o.ttag)(o)
     --    local anchor='#'..templ.anchor(header)
     --    if destModule~=moduleName then anchor=templ.filename(destModule)..anchor end
