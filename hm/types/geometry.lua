@@ -1,9 +1,11 @@
----@module hm.geometry
+---@module hm.types.geometry
 -- @static
 
 ---@type rect
 
+---@type size
 
+---@type point
 
 
 --- === hs.geometry ===
