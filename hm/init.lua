@@ -181,8 +181,10 @@ function hm._lua_setup()
     return function(self,k)
       local f=properties[cls] and properties[cls][k]
       if f then
-        if f.value~=nil then return f.value
-        elseif f.set==nil then f.value=f.get(self) return f.value --immutable, cache it
+        local values=f.values
+        if values then --immutable property
+          if values[self]~=nil then return values[self]
+          else local v=f.get(self) values[self]=v return v end
         else return f.get(self) end
       end
       f=deprecated[cls] and deprecated[cls][k] if f then warnDeprecation(f) return f.values[self] end
@@ -225,7 +227,7 @@ function hm._lua_setup()
       if hm.type(t)=='hm#module.class' then realsetter=function(o,v) checkargs(t,type) return setter(o,v) end
       else realsetter=function(v,b) checkargs(type)return setter(v) end end
     end
-    properties[t][fieldname]={get=getter,set=realsetter,original=getTableName(t)..'.'..fieldname}
+    properties[t][fieldname]={get=getter,set=realsetter,values=setter==nil and cacheKeys() or nil,original=getTableName(t)..'.'..fieldname}
     local capitalized=fieldname:sub(1,1):upper()..fieldname:sub(2)
     rawset(t,'get'..capitalized,getter)
     if setter then rawset(t,'set'..capitalized,setter) end
