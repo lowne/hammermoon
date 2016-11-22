@@ -68,6 +68,9 @@ windows._newWindow=newWin
 package.loaded['hm.windows']=windows
 local applications=require'hm.applications'
 
+---The window's unique identifier.
+-- @field [parent=#window] #number id
+-- @readonlyproperty
 property(win,'id',function(self)self._wid=self._wid or getwid(self._ax) return self._wid end,false)
 
 ---The application owning this window
