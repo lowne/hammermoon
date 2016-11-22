@@ -2,68 +2,20 @@ local newproxy,type,getmetatable,setmetatable,rawget,rawset=newproxy,type,getmet
 local pairs,ipairs=pairs,ipairs
 local tinsert,sformat=table.insert,string.format
 
----@function [parent=#global] errorf
---@param #string fmt
---@param ...
-errorf=function(fmt,...)error(sformat(fmt,...))end
 
----@function [parent=#global] assertf
---@param v
---@param #string fmt
---@param ...
-assertf=function(v,fmt,...)if not v then errorf(fmt,...) end end
 
----@function [parent=#global] printf
---@param #string fmt
---@param ...
-printf=function(fmt,...)return print(sformat(fmt,...)) end
+--package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
+--package.cpath=package.cpath..';./lib/?.so'
 
----@dev
-inspect=function(t,inline,depth)
-  if type(t)~='table' then return print(t)
-  else return print(require'lib.inspect'(t,{depth=depth or (inline and 3 or 6),newline=inline and ' ' or '\n'})) end
-end
+
+
+--checkers=checkers
+
+--require'compat53'
+require'hm._globals'
 
 ---@private
-hmassert=assert
----@private
-hmassertf=assertf
-
-package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
-package.cpath=package.cpath..';./lib/?.so'
-
-require'checks'
----@private
-hmchecks=checks
----@private
-hmsanitize=checks
-
----@type checkers
---@map <#string,#function>
-checkers=checkers
-
-require'compat53'
-
-local floor=math.floor
-checkers['uint']=function(v)return type(v)=='number' and v>0 and floor(v)==v end
-checkers['int']=function(v)return type(v)=='number' and floor(v)==v end
-checkers['false']=function(v)return v==false end
-checkers['true']=function(v)return v==true end
-checkers['positive']=function(v) return type(v)=='number' and v>0 end
-checkers['positiveOrZero']=function(v) return type(v)=='number' and v>=0 end
-local function isCallable(v) return type(v)=='function' or (type(v)=='table' and getmetatable(v) and getmetatable(v).__call and true) end
-checkers['callable']=isCallable
-checkers['list']=function(v)
-  if type(v)~='table' then return false end
-  for k,v in pairs(v) do if type(k)~='number' or floor(k)~=k then return false end end
-  return true
-end
-checkers['stringList']=function(v) if type(v)~='table' then return false end for _,s in ipairs(v) do if type(s)~='string' then return false end end return true end
-checkers['stringOrStringList']=function(v)
-  if type(v)=='string' then return {v}
-  elseif type(v)~='table' then return false end
-  for _,s in ipairs(v) do if type(s)~='string' then return false end end return true
-end
+sanitizeargs=checkargs
 
 --- Hammermoon main module
 --@module hm
@@ -73,6 +25,7 @@ end
 
 --- Hammermoon's namespace, globally accessible from userscripts
 hm={} --#hm
+
 local log --hm.logger#logger
 
 ---@field [parent=#hm] hm._os#hm._os _os
@@ -90,7 +43,7 @@ local log --hm.logger#logger
 function hm.quit()os.exit(1,1)end
 
 ---Returns the Hammermoon type of an object.
--- If `obj` is an Hammermoon @{<#module>}, @{<#module.class>}, or module object, this function will return its type name
+-- If `obj` is an Hammermoon @{<#module>}, @{<#module.class>}, or @{<#module.object>}, this function will return its type name
 -- instead of the generic `"table"`. In all other cases this function behaves like Lua's `type()`.
 -- @param obj object to get the type of
 -- @return #string the object type
@@ -102,6 +55,7 @@ function hm.type(obj)
     return mt.__type or 'table'
   else return t end
 end
+
 
 ---Debug options
 --@type hm.debug
@@ -134,11 +88,11 @@ end
 local hmdebug={retainUserObjects=true,cacheUIElements=true,disableTypeChecks=false,disableAssertions=false}
 
 local function make_hmdebug()
-  local rawchecks,rawassert,rawassertf=checks,assert,assertf
+  local rawcheckargs,rawassert,rawassertf=checkargs,assert,assertf
   return setmetatable({},{__index=hmdebug,__newindex=function(t,k,v)
     v=not(not v) --toboolean
     if rawget(hmdebug,k)==v then return end
-    if k=='disableTypeChecks' then hmchecks=v and rawchecks or function()end
+    if k=='disableTypeChecks' then checkargs=v and rawcheckargs or function()end
     elseif k=='disableAssertions' then hmassert=v and rawassert or function()end hmassertf=v and rawassertf or function()end
     elseif k=='retainUserObjects' then
     elseif k=='cacheUIElements' then
@@ -150,7 +104,7 @@ end
 
 
 local loadedModules={}
-local userGlobals={}
+local userGlobals=setmetatable({},{__mode='k'})
 ---@private
 function hm._lua_setup()
   print'[Hammermoon starting up]'
@@ -183,6 +137,7 @@ function hm._lua_setup()
     else return rawrequire(modname) end
   end
 
+
   local function cacheValues(t) return setmetatable(t or {},{__mode='v'}) end
   local function cacheKeys(t) return setmetatable(t or {},{__mode='k'}) end
   local function retainValues() return hmdebug.retainUserObjects and {} or cacheValues() end
@@ -195,16 +150,7 @@ function hm._lua_setup()
     deprecationWarnings[f.key]={} -- don't bother us for a bit
   end
 
-
-  -- registerWatcher(hm.window.call.focusedWindow(args))
-  -- registerWatcher(hm.window.call.focusedWindow(args).call.setFrame(frame))
-  -- registerWatcher(hm.window.call.focusedWindow()() )
-
-  -- registerWatcher(hm.window.call('focusedWindow',args)().call.setFrame(frame))
-
-  -- hm.window.call[somefn](args)() -> function()return hm.window.somefn(args)end
-  -- hm.window.call[somefn](args).call[method](margs) -> function()return hm.window.somefn(args):method(margs) end
-
+  --[[
   local function makeLazyCaller(cls,obj)
     return setmetatable({},{
       __index=function(lazyCaller,methodName)
@@ -222,7 +168,7 @@ function hm._lua_setup()
       end,
     })
   end
-
+--]]
   local properties,deprecated=cacheKeys(),cacheKeys()
   local submodules={}
   local module__index=function(t,k)
@@ -271,13 +217,13 @@ function hm._lua_setup()
 
   local function getTableName(t) return getmetatable(t).__name end
   local function property(t,fieldname,getter,setter,type)
-    checks('hm#module|hm#module.class|hs_compat#module','string','function','function|false|nil','?string')
+    checkargs('hm#module|hm#module.class|hs_compat#module','string','function','function|false|nil','?string')
     assert(rawget(t,fieldname)==nil,'property is shadowed by existing field')
     properties[t]=properties[t] or {}
     local realsetter=setter
     if setter and type then
-      if hm.type(t)=='hm#module.class' then realsetter=function(o,v) hmchecks(t,type) return setter(o,v) end
-      else realsetter=function(v,b) hmchecks(type)return setter(v) end end
+      if hm.type(t)=='hm#module.class' then realsetter=function(o,v) checkargs(t,type) return setter(o,v) end
+      else realsetter=function(v,b) checkargs(type)return setter(v) end end
     end
     properties[t][fieldname]={get=getter,set=realsetter,original=getTableName(t)..'.'..fieldname}
     local capitalized=fieldname:sub(1,1):upper()..fieldname:sub(2)
@@ -301,7 +247,7 @@ function hm._lua_setup()
   -- @apichange Doesn't exist in Hammerspoon
   -- @internalchange Deprecation facility
 
-  local function deprecate(allow,t,fieldname,replacement) checks('boolean','hm#module|hm#module.class|hs_compat#module','string','?string')
+  local function deprecate(allow,t,fieldname,replacement) checkargs('boolean','hm#module|hm#module.class|hs_compat#module','string','?string')
     local isClass=hm.type(t)=='hm#module.class'
     local fld=assert(isClass or rawget(t,fieldname),'no such field: '..fieldname)
     local original=getTableName(t)..'.'..fieldname
@@ -405,13 +351,14 @@ function hm._lua_setup()
 
 
   local newLogger=hm.logger.new
-  local function hmmodule(name,classes,submoduleNames) checks('string','?table','?stringList')
+  local function hmmodule(name,classes,submoduleNames) checkargs('string','?table','?listOrValue(string)')
     --    local clsname='#'..name
     local m=setmetatable({log=newLogger(name)},
       {__type='hm#module',__name='hm.'..name,__index=module__index,__newindex=module__newindex})
     if classes then
       for className,objmt in pairs(classes) do
         local fullname='hm.'..name..'#'..className
+        log.d('added type',fullname)
         local cls=setmetatable({},{__tostring=function()return fullname end,__type='hm#module.class',__name=fullname})
         objmt.__type=fullname
         objmt.__index=makeclass__index(cls)
@@ -454,6 +401,9 @@ function hm._lua_setup()
   core.hs_compat_module=function(name)
     return setmetatable({},{__type='hs_compat#module',__name='hs.'..name,__index=module__index,__newindex=module__newindex})
   end
+
+  require'hm.types.coll'
+
   setmetatable(_G,{__newindex=function(t,k,v) userGlobals[k]=true rawset(t,k,v) end}) --capture globals for cleanup
   require'user'
   --  local ok,err=xpcall(require,debug.traceback,'user')
