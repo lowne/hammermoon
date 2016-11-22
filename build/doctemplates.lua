@@ -161,7 +161,7 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,TEMPLATE_MD_INDEX_LISTS,{
   --  ['returns.pre']='**Returns:**\n\n',
   ['returns.pre']=BR,
   --  ['returntuple']='* >(returntypes) $(short)',
-  ['returntuple']='* Returns: >(returntypes) $(short)',
+  ['returntuple']='* Returns >(returntypes): $(short)@?(selftype)',
   ['returntypes.pre']='',
   ['returntypes.sep']=LINE,
   ['returntypes.post']=LINE,
@@ -195,6 +195,10 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,TEMPLATE_MD_INDEX_LISTS,{
 
   ['internaltype']='[_`<#$(name)>`_]($(typelink))',
   ['internaltype.index']='[_`<#$(name)>`_]($(typelink))',
+
+  --  ['selftype']='',
+  ['selftype.index']='`self`', --only for function returns
+
   ['staticinternaltype']='[_`$(name)`_]($(typelink))',
   ['staticinternaltype.index']='[_`$(name)`_]($(typelink))',
   --  ['listtype']='`{`[`<#$(valuetype.name)>`](@{$(valuetype.module)#($(valuetype.name))})`, ...}`',

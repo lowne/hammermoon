@@ -324,7 +324,13 @@ function M.makeModel(metamodel)
           tinsert(returntuple.returntypes,typeref)
         end
       end
-      if not returntuple.returntypes[1] then returntuple.returntypes[1]=getItemType() end
+      if returntuple.short=='self' then
+        assert(#returntuple.returntypes==1)
+        local tp=returntuple.returntypes[1]
+        returntuple.short=''
+        returntuple.selftype=tp
+        returntuple.returntypes[1]={ttag='selftype'}
+      elseif not returntuple.returntypes[1] then returntuple.returntypes[1]=getItemType() end
       tinsert(t.returns,returntuple)
     end
     t.htag='Function'
