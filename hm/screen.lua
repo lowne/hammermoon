@@ -37,7 +37,7 @@ c.addfunction('CGSGetDisplayModeDescriptionOfLength',{'I','i','^v','i'})
 
 local NSScreen=c.NSScreen
 
-local geom=hm.geometry
+local geom=hm.types.geometry
 local type,ipairs,pairs,next=type,ipairs,pairs,next
 local tonumber,sformat,tinsert=tonumber,string.format,table.insert
 local coll=require'hm.types.coll'
@@ -105,8 +105,8 @@ function screen.primaryScreen() return allScreens[1] end
 
 ---Transform a `geometry.rect` object from HS/HM coordinate system (origin at top left of primary screen)
 -- to Cocoa coordinate system (origin at bottom left of primary screen)
--- @param hm.geometry#rect rect
--- @return hm.geometry#rect transformed rect
+-- @param hm.types.geometry#rect rect
+-- @return hm.types.geometry#rect transformed rect
 -- @dev
 function screen._toCocoa(rect) rect=geom.copy(rect) rect.y=allScreens[1]._frame._h-rect._y-rect._h return rect end
 
