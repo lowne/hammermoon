@@ -26,11 +26,9 @@ Hammermoon core facilities for use by extensions.
 
 Deprecate a field or function of a module or class
 
-**Parameters:**
-
-* [_`<#module>`_](hm.md#class-module) `module`: [_`<#module>`_](hm.md#class-module) table or [_`<#module.class>`_](hm.md#class-moduleclass) table
-* _`<#string>`_ `fieldname`: field or function name
-* _`<#string>`_ `replacement`: the replacement field or function to direct users to
+* `module`: [_`<#module>`_](hm.md#class-module) [_`<#module>`_](hm.md#class-module) table or [_`<#module.class>`_](hm.md#class-moduleclass) table
+* `fieldname`: _`<#string>`_ field or function name
+* `replacement`: _`<#string>`_ the replacement field or function to direct users to
 
 
 
@@ -43,11 +41,9 @@ Deprecate a field or function of a module or class
 
 Disallow a field or function of a module or class (after deprecation)
 
-**Parameters:**
-
-* [_`<#module>`_](hm.md#class-module) `module`: [_`<#module>`_](hm.md#class-module) table or [_`<#module.class>`_](hm.md#class-moduleclass) table
-* _`<#string>`_ `fieldname`: field or function name
-* _`<#string>`_ `replacement`: the replacement field or function to direct users to
+* `module`: [_`<#module>`_](hm.md#class-module) [_`<#module>`_](hm.md#class-module) table or [_`<#module.class>`_](hm.md#class-moduleclass) table
+* `fieldname`: _`<#string>`_ field or function name
+* `replacement`: _`<#string>`_ the replacement field or function to direct users to
 
 
 
@@ -60,18 +56,16 @@ Disallow a field or function of a module or class (after deprecation)
 
 Declare a new Hammermoon module.
 
-**Parameters:**
-
-* _`<#string>`_ `name`: module name (without the `"hm."` prefix)
-* _`<#table>`_ `classes`: a map with the initial metatables (as values) for the module's classes (whose names are the map's keys),
+* `name`: _`<#string>`_ module name (without the `"hm."` prefix)
+* `classes`: _`<#table>`_ a map with the initial metatables (as values) for the module's classes (whose names are the map's keys),
 if any; the metatables can can contain `__tostring`, `__eq`, `__gc`, etc. This table, suitably instrumented, will be
 available in the resuling module's `_classes` field
-* _`<#table>`_ `submodules`: a plain list of submodule names, if any, that will be automatically required as the respective
+* `submodules`: _`<#table>`_ a plain list of submodule names, if any, that will be automatically required as the respective
 fields in this module are accessed
 
-**Returns:**
 
-* [_`<#module>`_](hm.md#class-module) the "naked" table for the new module, ready to be filled with functions
+
+* Returns [_`<#module>`_](hm.md#class-module): the "naked" table for the new module, ready to be filled with functions
 
 Use this function to create the table for your module.
 If your module instantiates objects, you should pass `classes` (the values can just be empty tables),
@@ -99,12 +93,11 @@ return mymodule -- at the end of the file
 
 Add a property to a module or class.
 
-**Parameters:**
-
-* [_`<#module>`_](hm.md#class-module) `module`: [_`<#module>`_](hm.md#class-module) table or [_`<#module.class>`_](hm.md#class-moduleclass) table
-* _`<#string>`_ `fieldname`: desired field name
-* _`<#function>`_ `getter`: getter function
-* _`<#function>`_ `setter`: setter function or `false` (to make the property read-only)
+* `module`: [_`<#module>`_](hm.md#class-module) [_`<#module>`_](hm.md#class-module) table or [_`<#module.class>`_](hm.md#class-moduleclass) table
+* `fieldname`: _`<#string>`_ desired field name
+* `getter`: _`<#function>`_ getter function
+* `setter`: _`<#function>`_ setter function; if `false` the property is read-only; if `nil` the property is
+       immutable and will be cached after the first query.
 
 This function will add to the module or class a user-facing field that uses custom getter and setter.
 
@@ -161,13 +154,17 @@ If falsy, they will get gc'ed unless the userscript keeps a global reference.
 
 # Module `hm._os`
 
+> **Internal/advanced use only** (e.g. for extension developers)
+
 Low level access to macOS
 
 
 
 ------------------
 
-## Module `hm._os` (extends [_`<hm#module>`_](hm.md#class-module))
+## Module `hm._os`
+
+> extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
@@ -184,7 +181,7 @@ Low level access to macOS
 
 ------------------
 
-## Class `<#notificationCenter>`
+## Class `notificationCenter`
 
 
 
@@ -199,11 +196,9 @@ Low level access to macOS
 
 
 
-**Parameters:**
-
-* _`<#string>`_ `event`: 
-* _`<#function>`_ `cb`: 
-* _`<#boolean>`_ `priority`: 
+* `event`: _`<#string>`_ 
+* `cb`: _`<#function>`_ 
+* `priority`: _`<#boolean>`_ 
 
 
 
@@ -219,22 +214,24 @@ Manipulate screens (monitors).
 
 ------------------
 
-## Module `hm.screen` (extends [_`<hm#module>`_](hm.md#class-module))
+## Module `hm.screen`
+
+> extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
 
 
 
-### Function `hm.screen.allScreens()` -> `{`[_`<#screen>`_](hm.screen.md#type-screen-extends-hmmoduleclass)`, ...}`
+### Function `hm.screen.allScreens()` -> `{`[_`<#screen>`_](hm.screen.md#type-screen)`, ...}`
 
 > INTERNAL CHANGE: The screen list is cached (and kept up to date by an internal watcher)
 
 Returns all the screens currently connected and enabled.
 
-**Returns:**
 
-* `{`[_`<#screen>`_](hm.screen.md#type-screen-extends-hmmoduleclass)`, ...}` 
+
+* Returns `{`[_`<#screen>`_](hm.screen.md#type-screen)`, ...}`: 
 
 
 
@@ -243,7 +240,9 @@ Returns all the screens currently connected and enabled.
 
 ------------------
 
-### Type `<#screen>` (extends [_`<hm#module.class>`_](hm.md#class-moduleclass))
+### Type `screen`
+
+> extends [_`<hm#module.class>`_](hm.md#class-moduleclass)
 
 
 
@@ -259,9 +258,7 @@ depth==8 isn't supported in HS!
 
 
 
-**Parameters:**
-
-* [_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string) `mode`: 
+* `mode`: [_`<#screenMode>`_](hm.screen.md#type-screenmode) 
 
 
 
@@ -281,7 +278,9 @@ Schedule asynchronous execution of functions in the future.
 
 ------------------
 
-## Module `hm.timer` (extends [_`<hm#module>`_](hm.md#class-module))
+## Module `hm.timer`
+
+> extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
@@ -294,9 +293,9 @@ Schedule asynchronous execution of functions in the future.
 
 Returns the number of seconds since midnight local time.
 
-**Returns:**
 
-* _`<#number>`_ number of seconds, with millisecond precision or better
+
+* Returns _`<#number>`_: number of seconds, with millisecond precision or better
 
 
 
@@ -305,7 +304,9 @@ Returns the number of seconds since midnight local time.
 
 ------------------
 
-## Class `<#timer>` (extends [_`<hm#module.class>`_](hm.md#class-moduleclass))
+## Class `timer`
+
+> extends [_`<hm#module.class>`_](hm.md#class-moduleclass)
 
 Type for timer objects.
 
@@ -323,14 +324,12 @@ A timer holds an execution unit that can be scheduled for running later in time 
 
 Schedules repeated execution of the timer.
 
-**Parameters:**
+* `repeatInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
+* `delayOrStartTime`: _`<?>`_ (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring) or a number (in seconds),
+       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), at the earliest occurrence for given time
+* `continueOnError`: _`<#boolean>`_ (optional) if `true`, the timer will keep repeating (and executing) even if its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) causes an error
 
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `repeatInterval`: 
-* _`<?>`_ `delayOrStartTime`: (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) or a number (in seconds),
-       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring-extends-string), at the earliest occurrence for given time
-* _`<#boolean>`_ `continueOnError`: (optional) if `true`, the timer will keep repeating (and executing) even if its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) causes an error
-
-If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring-extends-string), the timer will be scheduled to execute for the first time at the earliest occurrence
+If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), the timer will be scheduled to execute for the first time at the earliest occurrence
 given the `repeatInterval`, e.g.:
 
   * If it's 17:00, `myTimer:runEvery("6h","0:00")` will set the timer 1 hour from now (at 18:00)
@@ -362,9 +361,7 @@ myTimer:cancel()
 
 Schedules execution of the timer after a given delay.
 
-**Parameters:**
-
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `delay`: 
+* `delay`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
 
 Every time you call this method the "execution countdown" is restarted - i.e. any previous schedule (created
 with any of the `:run...()` methods) is overwritten. This can be useful

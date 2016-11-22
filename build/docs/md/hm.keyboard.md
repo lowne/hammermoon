@@ -7,28 +7,25 @@ Create and manage keyboard shortcuts.
 ## Overview
 
 
-| Module [hm.keyboard](hm.keyboard.md#module-hmkeyboard-extends-hmmodule) |  |
-| :--- | :---
-Function [`hm.keyboard.bind(keys,fn)`](hm.keyboard.md#function-hmkeyboardbindkeysfn) | 
-Function [`hm.keyboard.newContext(name,windowfilter)`](hm.keyboard.md#function-hmkeyboardnewcontextnamewindowfilter---context) -> [_`<#context>`_](hm.keyboard.md#class-context-extends-hmmoduleobject) | 
-Field [`hm.keyboard.globalContext`](hm.keyboard.md#field-hmkeyboardglobalcontext-) : _`<?>`_ | 
-Field [`hm.keyboard.keys`](hm.keyboard.md#field-hmkeyboardkeys-hmkeyboardkeys) : [_`hm.keyboard.keys`_](hm.keyboard.keys.md#module-hmkeyboardkeys) | 
-Field [`hm.keyboard.symbols`](hm.keyboard.md#field-hmkeyboardsymbols-hmkeyboardsymbols) : [_`hm.keyboard.symbols`_](hm.keyboard.symbols.md#module-hmkeyboardsymbols) | 
+* Module [`hm.keyboard`](hm.keyboard.md#module-hmkeyboard)
+  * [`bind(keys,fn)`](hm.keyboard.md#function-hmkeyboardbindkeysfn) - function
+  * [`newContext(name,windowfilter)`](hm.keyboard.md#function-hmkeyboardnewcontextnamewindowfilter---context) -> [_`<#context>`_](hm.keyboard.md#class-context) - function
+  * [`globalContext`](hm.keyboard.md#field-hmkeyboardglobalcontext-) : _`<?>`_ - field
+  * [`keys`](hm.keyboard.md#field-hmkeyboardkeys-hmkeyboardkeys) : [_`hm.keyboard.keys`_](hm.keyboard.keys.md#module-hmkeyboardkeys) - field
+  * [`symbols`](hm.keyboard.md#field-hmkeyboardsymbols-hmkeyboardsymbols) : [_`hm.keyboard.symbols`_](hm.keyboard.symbols.md#module-hmkeyboardsymbols) - field
 
 
-| Class [<#context>](hm.keyboard.md#class-context-extends-hmmoduleobject) | Type for context objects |
-| :--- | :---
-Method [`<#context>:bind(keys,fn)`](hm.keyboard.md#method-contextbindkeysfn) | 
-Method [`<#context>:disable()`](hm.keyboard.md#method-contextdisable) | 
-Method [`<#context>:enable()`](hm.keyboard.md#method-contextenable) | 
-Method [`<#context>:newHotkey(keys,message)`](hm.keyboard.md#method-contextnewhotkeykeysmessage) | 
+* Class [`context`](hm.keyboard.md#class-context)
+  * [`bind(keys,fn)`](hm.keyboard.md#method-contextbindkeysfn) - method
+  * [`disable()`](hm.keyboard.md#method-contextdisable) - method
+  * [`enable()`](hm.keyboard.md#method-contextenable) - method
+  * [`newHotkey(keys,message)`](hm.keyboard.md#method-contextnewhotkeykeysmessage) - method
 
 
-| Class [<#hotkey>](hm.keyboard.md#class-hotkey-extends-hmmoduleobject) | Type for hotkey objects |
-| :--- | :---
-Method [`<#hotkey>:disable(self)`](hm.keyboard.md#method-hotkeydisableself) | 
-Method [`<#hotkey>:enable()`](hm.keyboard.md#method-hotkeyenable) | 
-Method [`<#hotkey>:onPress(fn)`](hm.keyboard.md#method-hotkeyonpressfn) | 
+* Class [`hotkey`](hm.keyboard.md#class-hotkey)
+  * [`disable(self)`](hm.keyboard.md#method-hotkeydisableself) - method
+  * [`enable()`](hm.keyboard.md#method-hotkeyenable) - method
+  * [`onPress(fn)`](hm.keyboard.md#method-hotkeyonpressfn) - method
 
 
 
@@ -37,7 +34,9 @@ Method [`<#hotkey>:onPress(fn)`](hm.keyboard.md#method-hotkeyonpressfn) |
 
 ------------------
 
-## Module `hm.keyboard` (extends [_`<hm#module>`_](hm.md#class-module))
+## Module `hm.keyboard`
+
+> extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
@@ -48,26 +47,22 @@ Method [`<#hotkey>:onPress(fn)`](hm.keyboard.md#method-hotkeyonpressfn) |
 
 
 
-**Parameters:**
-
-* _`<?>`_ `keys`: 
-* _`<?>`_ `fn`: 
+* `keys`: _`<?>`_ 
+* `fn`: _`<?>`_ 
 
 
 
 
-### Function `hm.keyboard.newContext(name,windowfilter)` -> [_`<#context>`_](hm.keyboard.md#class-context-extends-hmmoduleobject)
+### Function `hm.keyboard.newContext(name,windowfilter)` -> [_`<#context>`_](hm.keyboard.md#class-context)
 
 
 
-**Parameters:**
+* `name`: _`<?>`_ 
+* `windowfilter`: _`<?>`_ 
 
-* _`<?>`_ `name`: 
-* _`<?>`_ `windowfilter`: 
 
-**Returns:**
 
-* [_`<#context>`_](hm.keyboard.md#class-context-extends-hmmoduleobject) 
+* Returns [_`<#context>`_](hm.keyboard.md#class-context): 
 
 
 
@@ -93,7 +88,9 @@ Method [`<#hotkey>:onPress(fn)`](hm.keyboard.md#method-hotkeyonpressfn) |
 
 ------------------
 
-## Class `<#context>` (extends [_`<hm#module.object>`_](hm.md#class-moduleobject))
+## Class `context`
+
+> extends [_`<hm#module.object>`_](hm.md#class-moduleobject)
 
 Type for context objects
 
@@ -104,10 +101,8 @@ Type for context objects
 
 
 
-**Parameters:**
-
-* _`<?>`_ `keys`: 
-* _`<?>`_ `fn`: 
+* `keys`: _`<?>`_ 
+* `fn`: _`<?>`_ 
 
 
 
@@ -130,10 +125,8 @@ Type for context objects
 
 
 
-**Parameters:**
-
-* _`<?>`_ `keys`: 
-* _`<?>`_ `message`: 
+* `keys`: _`<?>`_ 
+* `message`: _`<?>`_ 
 
 
 
@@ -142,7 +135,9 @@ Type for context objects
 
 ------------------
 
-## Class `<#hotkey>` (extends [_`<hm#module.object>`_](hm.md#class-moduleobject))
+## Class `hotkey`
+
+> extends [_`<hm#module.object>`_](hm.md#class-moduleobject)
 
 Type for hotkey objects
 
@@ -153,9 +148,7 @@ Type for hotkey objects
 
 
 
-**Parameters:**
-
-* _`<?>`_ `self`: 
+* `self`: _`<?>`_ 
 
 
 
@@ -171,9 +164,7 @@ Type for hotkey objects
 
 
 
-**Parameters:**
-
-* _`<?>`_ `fn`: 
+* `fn`: _`<?>`_ 
 
 
 

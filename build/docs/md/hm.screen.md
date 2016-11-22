@@ -9,31 +9,27 @@ Screens to the top or the left of the primary screen, and windows on these scree
 ## Overview
 
 
-| Module [hm.screen](hm.screen.md#module-hmscreen-extends-hmmodule) |  |
-| :--- | :---
-Function [`hm.screen._toCocoa(rect)`](hm.screen.md#function-hmscreentococoarect---hmgeometryrect) -> [_`<hm.geometry#rect>`_](hm.geometry.md#type-rect) | Transform a `geometry.rect` object from HS/HM coordinate system (origin at top left of primary screen)
-to Cocoa coordinate system (origin at bottom left of primary screen)
-Function [`hm.screen.allScreens()`](hm.screen.md#function-hmscreenallscreens---screen-) -> `{`[_`<#screen>`_](hm.screen.md#type-screen-extends-hmmoduleclass)`, ...}` | Returns all the screens currently connected and enabled.
-Function [`hm.screen.mainScreen()`](hm.screen.md#function-hmscreenmainscreen---screen) -> [_`<#screen>`_](hm.screen.md#type-screen-extends-hmmoduleclass) | Returns the main screen.
-Function [`hm.screen.primaryScreen()`](hm.screen.md#function-hmscreenprimaryscreen) | 
+* Module [`hm.screen`](hm.screen.md#module-hmscreen)
+  * [`_toCocoa(rect)`](hm.screen.md#function-hmscreentococoarect---hmtypesgeometryrect) -> [_`<hm.types.geometry#rect>`_](hm.types.geometry.md#type-rect) - function
+  * [`allScreens()`](hm.screen.md#function-hmscreenallscreens---screen-) -> `{`[_`<#screen>`_](hm.screen.md#type-screen)`, ...}` - function
+  * [`mainScreen()`](hm.screen.md#function-hmscreenmainscreen---screen) -> [_`<#screen>`_](hm.screen.md#type-screen) - function
+  * [`primaryScreen()`](hm.screen.md#function-hmscreenprimaryscreen) - function
 
 
-| Type [<#screen>](hm.screen.md#type-screen-extends-hmmoduleclass) |  |
-| :--- | :---
-Method [`<#screen>:availableModes(pattern)`](hm.screen.md#method-screenavailablemodespattern---screenmode-) -> `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string)`, ...}` | Returns a list of the modes supported by the screen.
-Method [`<#screen>:currentMode()`](hm.screen.md#method-screencurrentmode---screenmode) -> [_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string) | Returns the screen's current mode.
-Method [`<#screen>:frame()`](hm.screen.md#method-screenframe) | 
-Method [`<#screen>:getGamma()`](hm.screen.md#method-screengetgamma) | 
-Method [`<#screen>:id()`](hm.screen.md#method-screenid---number) -> _`<#number>`_ | Returns a screen's unique ID.
-Method [`<#screen>:isModeAvailable(mode)`](hm.screen.md#method-screenismodeavailablemode) | 
-Method [`<#screen>:name()`](hm.screen.md#method-screenname---string) -> _`<#string>`_ | Returns the screen's name.
-Method [`<#screen>:setGamma(gammaTable,_hscompat)`](hm.screen.md#method-screensetgammagammatablehscompat) | 
-Method [`<#screen>:setMode(mode)`](hm.screen.md#method-screensetmodemode) | 
-Method [`<#screen>:visibleFrame()`](hm.screen.md#method-screenvisibleframe) | 
+* Type [`screen`](hm.screen.md#type-screen)
+  * [`availableModes(pattern)`](hm.screen.md#method-screenavailablemodespattern---screenmode-) -> `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode)`, ...}` - method
+  * [`currentMode()`](hm.screen.md#method-screencurrentmode---screenmode) -> [_`<#screenMode>`_](hm.screen.md#type-screenmode) - method
+  * [`frame()`](hm.screen.md#method-screenframe) - method
+  * [`getGamma()`](hm.screen.md#method-screengetgamma) - method
+  * [`id()`](hm.screen.md#method-screenid---number) -> _`<#number>`_ - method
+  * [`isModeAvailable(mode)`](hm.screen.md#method-screenismodeavailablemode) - method
+  * [`name()`](hm.screen.md#method-screenname---string) -> _`<#string>`_ - method
+  * [`setGamma(gammaTable,_hscompat)`](hm.screen.md#method-screensetgammagammatablehscompat) - method
+  * [`setMode(mode)`](hm.screen.md#method-screensetmodemode) - method
+  * [`visibleFrame()`](hm.screen.md#method-screenvisibleframe) - method
 
 
-| Type [<#screenMode>](hm.screen.md#type-screenmode-extends-string) | A string describing a screen mode. |
-| :--- | :---
+* Type [`screenMode`](hm.screen.md#type-screenmode)
 
 
 
@@ -42,49 +38,49 @@ Method [`<#screen>:visibleFrame()`](hm.screen.md#method-screenvisibleframe) |
 
 ------------------
 
-## Module `hm.screen` (extends [_`<hm#module>`_](hm.md#class-module))
+## Module `hm.screen`
+
+> extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
 
 
 
-### Function `hm.screen._toCocoa(rect)` -> [_`<hm.geometry#rect>`_](hm.geometry.md#type-rect)
+### Function `hm.screen._toCocoa(rect)` -> [_`<hm.types.geometry#rect>`_](hm.types.geometry.md#type-rect)
 
 > **Internal/advanced use only** (e.g. for extension developers)
 
 Transform a `geometry.rect` object from HS/HM coordinate system (origin at top left of primary screen)
 to Cocoa coordinate system (origin at bottom left of primary screen)
 
-**Parameters:**
+* `rect`: [_`<hm.types.geometry#rect>`_](hm.types.geometry.md#type-rect) 
 
-* [_`<hm.geometry#rect>`_](hm.geometry.md#type-rect) `rect`: 
 
-**Returns:**
 
-* [_`<hm.geometry#rect>`_](hm.geometry.md#type-rect) transformed rect
+* Returns [_`<hm.types.geometry#rect>`_](hm.types.geometry.md#type-rect): transformed rect
 
 
 
 
-### Function `hm.screen.allScreens()` -> `{`[_`<#screen>`_](hm.screen.md#type-screen-extends-hmmoduleclass)`, ...}`
+### Function `hm.screen.allScreens()` -> `{`[_`<#screen>`_](hm.screen.md#type-screen)`, ...}`
 
 Returns all the screens currently connected and enabled.
 
-**Returns:**
-
-* `{`[_`<#screen>`_](hm.screen.md#type-screen-extends-hmmoduleclass)`, ...}` 
 
 
+* Returns `{`[_`<#screen>`_](hm.screen.md#type-screen)`, ...}`: 
 
 
-### Function `hm.screen.mainScreen()` -> [_`<#screen>`_](hm.screen.md#type-screen-extends-hmmoduleclass)
+
+
+### Function `hm.screen.mainScreen()` -> [_`<#screen>`_](hm.screen.md#type-screen)
 
 Returns the main screen.
 
-**Returns:**
 
-* [_`<#screen>`_](hm.screen.md#type-screen-extends-hmmoduleclass) 
+
+* Returns [_`<#screen>`_](hm.screen.md#type-screen): 
 
 The main screen is the one containing the currently focused window.
 
@@ -100,39 +96,39 @@ The main screen is the one containing the currently focused window.
 
 ------------------
 
-### Type `<#screen>` (extends [_`<hm#module.class>`_](hm.md#class-moduleclass))
+### Type `screen`
+
+> extends [_`<hm#module.class>`_](hm.md#class-moduleclass)
 
 
 
 
 
 
-### Method `<#screen>:availableModes(pattern)` -> `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string)`, ...}`
+### Method `<#screen>:availableModes(pattern)` -> `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode)`, ...}`
 
 > **API CHANGE**: Returns a plain list of strings. Allows filtering.
 
 Returns a list of the modes supported by the screen.
 
-**Parameters:**
+* `pattern`: _`<#string>`_ A pattern to filter the modes as per `string.find`; e.g. passing `"/60" will only return modes with a refresh rate of 60Hz
 
-* _`<#string>`_ `pattern`: A pattern to filter the modes as per `string.find`; e.g. passing `"/60" will only return modes with a refresh rate of 60Hz
 
-**Returns:**
 
-* `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string)`, ...}` 
+* Returns `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode)`, ...}`: 
 
 
 
 
-### Method `<#screen>:currentMode()` -> [_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string)
+### Method `<#screen>:currentMode()` -> [_`<#screenMode>`_](hm.screen.md#type-screenmode)
 
 > **API CHANGE**: Returns a string instead of a table
 
 Returns the screen's current mode.
 
-**Returns:**
 
-* [_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string) 
+
+* Returns [_`<#screenMode>`_](hm.screen.md#type-screenmode): 
 
 The screen's mode indicates its current resolution and scaling factor.
 
@@ -155,9 +151,9 @@ The screen's mode indicates its current resolution and scaling factor.
 
 Returns a screen's unique ID.
 
-**Returns:**
 
-* _`<#number>`_ the screen ID
+
+* Returns _`<#number>`_: the screen ID
 
 
 
@@ -166,9 +162,7 @@ Returns a screen's unique ID.
 
 
 
-**Parameters:**
-
-* _`<?>`_ `mode`: 
+* `mode`: _`<?>`_ 
 
 
 
@@ -177,9 +171,9 @@ Returns a screen's unique ID.
 
 Returns the screen's name.
 
-**Returns:**
 
-* _`<#string>`_ the screen name
+
+* Returns _`<#string>`_: the screen name
 
 The screen's name is set by the manufacturer.
 
@@ -188,10 +182,8 @@ The screen's name is set by the manufacturer.
 
 
 
-**Parameters:**
-
-* _`<?>`_ `gammaTable`: 
-* _`<?>`_ `_hscompat`: 
+* `gammaTable`: _`<?>`_ 
+* `_hscompat`: _`<?>`_ 
 
 
 
@@ -202,9 +194,7 @@ The screen's name is set by the manufacturer.
 
 
 
-**Parameters:**
-
-* [_`<#screenMode>`_](hm.screen.md#type-screenmode-extends-string) `mode`: 
+* `mode`: [_`<#screenMode>`_](hm.screen.md#type-screenmode) 
 
 
 
@@ -220,7 +210,9 @@ The screen's name is set by the manufacturer.
 
 ------------------
 
-### Type `<#screenMode>` (extends _`<#string>`_)
+### Type `screenMode`
+
+> extends _`<#string>`_
 
 A string describing a screen mode.
 

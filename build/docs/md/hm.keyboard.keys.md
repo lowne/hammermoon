@@ -7,12 +7,11 @@ Key names and codes
 ## Overview
 
 
-| Module [hm.keyboard.keys](hm.keyboard.keys.md#module-hmkeyboardkeys) |  |
-| :--- | :---
-Field [`hm.keyboard.keys.alt`](hm.keyboard.keys.md#field-hmkeyboardkeysalt-) : _`<?>`_ | 
-Field [`hm.keyboard.keys.cmd`](hm.keyboard.keys.md#field-hmkeyboardkeyscmd-) : _`<?>`_ | 
-Field [`hm.keyboard.keys.ctrl`](hm.keyboard.keys.md#field-hmkeyboardkeysctrl-) : _`<?>`_ | 
-Field [`hm.keyboard.keys.esc`](hm.keyboard.keys.md#field-hmkeyboardkeysesc-) : _`<?>`_ | 
+* Module [`hm.keyboard.keys`](hm.keyboard.keys.md#module-hmkeyboardkeys)
+  * [`alt`](hm.keyboard.keys.md#field-hmkeyboardkeysalt-) : _`<?>`_ - field
+  * [`cmd`](hm.keyboard.keys.md#field-hmkeyboardkeyscmd-) : _`<?>`_ - field
+  * [`ctrl`](hm.keyboard.keys.md#field-hmkeyboardkeysctrl-) : _`<?>`_ - field
+  * [`esc`](hm.keyboard.keys.md#field-hmkeyboardkeysesc-) : _`<?>`_ - field
 
 
 

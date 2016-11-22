@@ -1,5 +1,7 @@
 # Module `hm._os`
 
+> **Internal/advanced use only** (e.g. for extension developers)
+
 Low level access to macOS
 
 
@@ -7,21 +9,19 @@ Low level access to macOS
 ## Overview
 
 
-| Module [hm._os](hm._os.md#module-hmos-extends-hmmodule) |  |
-| :--- | :---
-Function [`hm._os.runLoopAddSource(src,mode)`](hm._os.md#function-hmosrunloopaddsourcesrcmode) | 
-Function [`hm._os.runLoopRemoveSource(src,mode)`](hm._os.md#function-hmosrunloopremovesourcesrcmode) | 
-Field [`hm._os.defaultNotificationCenter`](hm._os.md#field-hmosdefaultnotificationcenter-notificationcenter) : [_`<#notificationCenter>`_](hm._os.md#class-notificationcenter) | The default Notification Center.
-Field [`hm._os.events`](hm._os.md#field-hmosevents-hmoseventshmosevents) : [_`<hm._os.events#hm._os.events>`_](hm._os.events.md#module-hmosevents-extends-hmmodule) | 
-Field [`hm._os.runLoop`](hm._os.md#field-hmosrunloop-cdata) : _`<#cdata>`_ | The `CFRunLoop` object for HM's (only) thread.
-Field [`hm._os.sharedWorkspace`](hm._os.md#field-hmossharedworkspace-cdata) : _`<#cdata>`_ | The shared `NSWorkspace` instance
-Field [`hm._os.systemWideAccessibility`](hm._os.md#field-hmossystemwideaccessibility-cdata) : _`<#cdata>`_ | `AXUIElementCreateSystemWide()` instance
-Field [`hm._os.wsNotificationCenter`](hm._os.md#field-hmoswsnotificationcenter-notificationcenter) : [_`<#notificationCenter>`_](hm._os.md#class-notificationcenter) | The shared workspace's Notification Center.
+* Module [`hm._os`](hm._os.md#module-hmos)
+  * [`runLoopAddSource(src,mode)`](hm._os.md#function-hmosrunloopaddsourcesrcmode) - function
+  * [`runLoopRemoveSource(src,mode)`](hm._os.md#function-hmosrunloopremovesourcesrcmode) - function
+  * [`defaultNotificationCenter`](hm._os.md#field-hmosdefaultnotificationcenter-notificationcenter) : [_`<#notificationCenter>`_](hm._os.md#class-notificationcenter) - field
+  * [`events`](hm._os.md#field-hmosevents-hmoseventshmosevents) : [_`<hm._os.events#hm._os.events>`_](hm._os.events.md#module-hmosevents) - field
+  * [`runLoop`](hm._os.md#field-hmosrunloop-cdata) : _`<#cdata>`_ - field
+  * [`sharedWorkspace`](hm._os.md#field-hmossharedworkspace-cdata) : _`<#cdata>`_ - field
+  * [`systemWideAccessibility`](hm._os.md#field-hmossystemwideaccessibility-cdata) : _`<#cdata>`_ - field
+  * [`wsNotificationCenter`](hm._os.md#field-hmoswsnotificationcenter-notificationcenter) : [_`<#notificationCenter>`_](hm._os.md#class-notificationcenter) - field
 
 
-| Class [<#notificationCenter>](hm._os.md#class-notificationcenter) |  |
-| :--- | :---
-Method [`<#notificationCenter>:register(event,cb,priority)`](hm._os.md#method-notificationcenterregistereventcbpriority) | 
+* Class [`notificationCenter`](hm._os.md#class-notificationcenter)
+  * [`register(event,cb,priority)`](hm._os.md#method-notificationcenterregistereventcbpriority) - method
 
 
 
@@ -30,7 +30,9 @@ Method [`<#notificationCenter>:register(event,cb,priority)`](hm._os.md#method-no
 
 ------------------
 
-## Module `hm._os` (extends [_`<hm#module>`_](hm.md#class-module))
+## Module `hm._os`
+
+> extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
@@ -41,10 +43,8 @@ Method [`<#notificationCenter>:register(event,cb,priority)`](hm._os.md#method-no
 
 
 
-**Parameters:**
-
-* _`<?>`_ `src`: 
-* _`<?>`_ `mode`: 
+* `src`: _`<?>`_ 
+* `mode`: _`<?>`_ 
 
 
 
@@ -53,10 +53,8 @@ Method [`<#notificationCenter>:register(event,cb,priority)`](hm._os.md#method-no
 
 
 
-**Parameters:**
-
-* _`<?>`_ `src`: 
-* _`<?>`_ `mode`: 
+* `src`: _`<?>`_ 
+* `mode`: _`<?>`_ 
 
 
 
@@ -67,7 +65,7 @@ The default Notification Center.
 
 
 
-### Field `hm._os.events`: [_`<hm._os.events#hm._os.events>`_](hm._os.events.md#module-hmosevents-extends-hmmodule)
+### Field `hm._os.events`: [_`<hm._os.events#hm._os.events>`_](hm._os.events.md#module-hmosevents)
 
 
 
@@ -100,7 +98,7 @@ The shared workspace's Notification Center.
 
 ------------------
 
-## Class `<#notificationCenter>`
+## Class `notificationCenter`
 
 
 
@@ -113,11 +111,9 @@ The shared workspace's Notification Center.
 
 
 
-**Parameters:**
-
-* _`<#string>`_ `event`: 
-* _`<#function>`_ `cb`: 
-* _`<#boolean>`_ `priority`: 
+* `event`: _`<#string>`_ 
+* `cb`: _`<#function>`_ 
+* `priority`: _`<#boolean>`_ 
 
 
 

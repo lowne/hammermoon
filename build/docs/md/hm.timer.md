@@ -9,49 +9,46 @@ Schedule asynchronous execution of functions in the future.
 ## Overview
 
 
-| Module [hm.timer](hm.timer.md#module-hmtimer-extends-hmmodule) |  |
-| :--- | :---
-Function [`hm.timer.absoluteTime()`](hm.timer.md#function-hmtimerabsolutetime---number) -> _`<#number>`_ | Returns the number of seconds since an arbitrary point in the distant past.
-Function [`hm.timer.localTime()`](hm.timer.md#function-hmtimerlocaltime---number) -> _`<#number>`_ | Returns the number of seconds since midnight local time.
-Function [`hm.timer.new(fn,data)`](hm.timer.md#function-hmtimernewfndata---timer) -> [_`<#timer>`_](hm.timer.md#class-timer-extends-hmmoduleclass) | Creates a new timer.
-Function [`hm.timer.sleep(s)`](hm.timer.md#function-hmtimersleeps) | Halts all processing for a given interval.
-Function [`hm.timer.toSeconds(timeString)`](hm.timer.md#function-hmtimertosecondstimestring---number) -> _`<#number>`_ | Converts to number of seconds
+* Module [`hm.timer`](hm.timer.md#module-hmtimer)
+  * [`absoluteTime()`](hm.timer.md#function-hmtimerabsolutetime---number) -> _`<#number>`_ - function
+  * [`localTime()`](hm.timer.md#function-hmtimerlocaltime---number) -> _`<#number>`_ - function
+  * [`new(fn,data)`](hm.timer.md#function-hmtimernewfndata---timer) -> [_`<#timer>`_](hm.timer.md#class-timer) - function
+  * [`sleep(s)`](hm.timer.md#function-hmtimersleeps) - function
+  * [`toSeconds(timeString)`](hm.timer.md#function-hmtimertosecondstimestring---number) -> _`<#number>`_ - function
 
 
-| Class [<#timer>](hm.timer.md#class-timer-extends-hmmoduleclass) | Type for timer objects. |
-| :--- | :---
-Method [`<#timer>:cancel()`](hm.timer.md#method-timercancel) | Unschedule a timer.
-Method [`<#timer>:run()`](hm.timer.md#method-timerrun) | Executes the timer now.
-Method [`<#timer>:runAfter(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunafterpredicatefncheckintervalcontinueonerror) | Schedules execution of the timer after a given predicate becomes false.
-Method [`<#timer>:runEvery(repeatInterval,delayOrStartTime,continueOnError)`](hm.timer.md#method-timerruneveryrepeatintervaldelayorstarttimecontinueonerror) | Schedules repeated execution of the timer.
-Method [`<#timer>:runIn(delay)`](hm.timer.md#method-timerrunindelay) | Schedules execution of the timer after a given delay.
-Method [`<#timer>:runWhen(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunwhenpredicatefncheckintervalcontinueonerror) | Schedules execution of the timer every time a given predicate is true.
-Method [`<#timer>:runWhile(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunwhilepredicatefncheckintervalcontinueonerror) | Schedules repeated execution of the timer while a given predicate remains true.
-Property (read-only) [`<#timer>.elapsed`](hm.timer.md#property-read-only-timerelapsed-number) : _`<#number>`_ | The timer's last execution time, in seconds since.
-Property [`<#timer>.nextRun`](hm.timer.md#property-timernextrun-number) : _`<#number>`_ | The timer's scheduled next execution time, in seconds from now.
-Property [`<#timer>.scheduled`](hm.timer.md#property-timerscheduled-boolean) : _`<#boolean>`_ | `true` if the timer is scheduled for execution.
+* Class [`timer`](hm.timer.md#class-timer)
+  * [`cancel()`](hm.timer.md#method-timercancel) - method
+  * [`run()`](hm.timer.md#method-timerrun) - method
+  * [`runAfter(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunafterpredicatefncheckintervalcontinueonerror) - method
+  * [`runEvery(repeatInterval,delayOrStartTime,continueOnError)`](hm.timer.md#method-timerruneveryrepeatintervaldelayorstarttimecontinueonerror) - method
+  * [`runIn(delay)`](hm.timer.md#method-timerrunindelay) - method
+  * [`runWhen(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunwhenpredicatefncheckintervalcontinueonerror) - method
+  * [`runWhile(predicateFn,checkInterval,continueOnError)`](hm.timer.md#method-timerrunwhilepredicatefncheckintervalcontinueonerror) - method
+  * [`elapsed`](hm.timer.md#property-read-only-timerelapsed-number) : _`<#number>`_ - property (read-only)
+  * [`nextRun`](hm.timer.md#property-timernextrun-number) : _`<#number>`_ - property
+  * [`scheduled`](hm.timer.md#property-timerscheduled-boolean) : _`<#boolean>`_ - property
 
 
-| Type [<#intervalString>](hm.timer.md#type-intervalstring-extends-string) | A string describing a time interval. |
-| :--- | :---
+* Type [`intervalString`](hm.timer.md#type-intervalstring)
 
 
-| Type [<#timeOfDayString>](hm.timer.md#type-timeofdaystring-extends-string) | A string describing a time of day. |
-| :--- | :---
+* Type [`timeOfDayString`](hm.timer.md#type-timeofdaystring)
 
 
 
 
-| Function prototypes | |
-| :--- | :--- |
-Function prototype [`predicateFunction(data)`](hm.timer.md#function-prototype-predicatefunctiondata---boolean) -> _`<#boolean>`_ | A predicate function that controls conditional execution of a timer.
-Function prototype [`timerFunction(timer,data)`](hm.timer.md#function-prototype-timerfunctiontimerdata) | A function that will be executed by a timer.
+* Function prototypes:
+  * [`predicateFunction(data)`](hm.timer.md#function-prototype-predicatefunctiondata---boolean) -> _`<#boolean>`_ - function prototype
+  * [`timerFunction(timer,data)`](hm.timer.md#function-prototype-timerfunctiontimerdata) - function prototype
 
 
 
 ------------------
 
-## Module `hm.timer` (extends [_`<hm#module>`_](hm.md#class-module))
+## Module `hm.timer`
+
+> extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
@@ -62,9 +59,9 @@ Function prototype [`timerFunction(timer,data)`](hm.timer.md#function-prototype-
 
 Returns the number of seconds since an arbitrary point in the distant past.
 
-**Returns:**
 
-* _`<#number>`_ number of seconds, with millisecond precision or better
+
+* Returns _`<#number>`_: number of seconds, with millisecond precision or better
 
 This function should only be used for measuring time intervals. The starting point is Jan 1 2001 00:00:00 GMT, so *not* the UNIX epoch.
 
@@ -73,27 +70,25 @@ This function should only be used for measuring time intervals. The starting poi
 
 Returns the number of seconds since midnight local time.
 
-**Returns:**
-
-* _`<#number>`_ number of seconds, with millisecond precision or better
 
 
+* Returns _`<#number>`_: number of seconds, with millisecond precision or better
 
 
-### Function `hm.timer.new(fn,data)` -> [_`<#timer>`_](hm.timer.md#class-timer-extends-hmmoduleclass)
+
+
+### Function `hm.timer.new(fn,data)` -> [_`<#timer>`_](hm.timer.md#class-timer)
 
 > **API CHANGE**: All `hs.timer` constructors are covered by the new `:run...()` methods
 
 Creates a new timer.
 
-**Parameters:**
+* `fn`: [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) a function to be executed later
+* `data`: _`<?>`_ (optional) arbitrary data that will be passed to `fn`; if the special string `"elapsed"`, `fn` will be passed the time in seconds since the previous execution (or creation)
 
-* [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) `fn`: a function to be executed later
-* _`<?>`_ `data`: (optional) arbitrary data that will be passed to `fn`; if the special string `"elapsed"`, `fn` will be passed the time in seconds since the previous execution (or creation)
 
-**Returns:**
 
-* [_`<#timer>`_](hm.timer.md#class-timer-extends-hmmoduleclass) a new timer object
+* Returns [_`<#timer>`_](hm.timer.md#class-timer): a new timer object
 
 
 
@@ -102,9 +97,7 @@ Creates a new timer.
 
 Halts all processing for a given interval.
 
-**Parameters:**
-
-* _`<#number>`_ `s`: interval in seconds
+* `s`: _`<#number>`_ interval in seconds
 
 **WARNING**: this function will stop *all* processing by Hammermoon.
 For anything other than very short intervals, use [`hm.timer.new()`](hm.timer.md#function-hmtimernewfndata---timer) with a callback instead.
@@ -114,13 +107,11 @@ For anything other than very short intervals, use [`hm.timer.new()`](hm.timer.md
 
 Converts to number of seconds
 
-**Parameters:**
+* `timeString`: _`<#string>`_ a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring) or [_`<#intervalString>`_](hm.timer.md#type-intervalstring)
 
-* _`<#string>`_ `timeString`: a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring-extends-string) or [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string)
 
-**Returns:**
 
-* _`<#number>`_ number of seconds in the interval (if [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string)) or after midnight (if [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring-extends-string))
+* Returns _`<#number>`_: number of seconds in the interval (if [_`<#intervalString>`_](hm.timer.md#type-intervalstring)) or after midnight (if [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring))
 
 
 
@@ -129,7 +120,9 @@ Converts to number of seconds
 
 ------------------
 
-## Class `<#timer>` (extends [_`<hm#module.class>`_](hm.md#class-moduleclass))
+## Class `timer`
+
+> extends [_`<hm#module.class>`_](hm.md#class-moduleclass)
 
 Type for timer objects.
 
@@ -159,11 +152,9 @@ Executes the timer now.
 
 Schedules execution of the timer after a given predicate becomes false.
 
-**Parameters:**
-
-* [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) `predicateFn`: A predicate function that determines whether to contine waiting before executing the timer
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `checkInterval`: interval between predicate checks
-* _`<#boolean>`_ `continueOnError`: (optional) if `true`, `predicateFn` will keep being checked even if it causes an error
+* `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to contine waiting before executing the timer
+* `checkInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) interval between predicate checks
+* `continueOnError`: _`<#boolean>`_ (optional) if `true`, `predicateFn` will keep being checked even if it causes an error
 
 The given `predicateFn` will start being checked right away. As soon as it returns `false`, the timer will
 execute (once).
@@ -175,14 +166,12 @@ execute (once).
 
 Schedules repeated execution of the timer.
 
-**Parameters:**
+* `repeatInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
+* `delayOrStartTime`: _`<?>`_ (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring) or a number (in seconds),
+       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), at the earliest occurrence for given time
+* `continueOnError`: _`<#boolean>`_ (optional) if `true`, the timer will keep repeating (and executing) even if its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) causes an error
 
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `repeatInterval`: 
-* _`<?>`_ `delayOrStartTime`: (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) or a number (in seconds),
-       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring-extends-string), at the earliest occurrence for given time
-* _`<#boolean>`_ `continueOnError`: (optional) if `true`, the timer will keep repeating (and executing) even if its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) causes an error
-
-If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring-extends-string), the timer will be scheduled to execute for the first time at the earliest occurrence
+If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), the timer will be scheduled to execute for the first time at the earliest occurrence
 given the `repeatInterval`, e.g.:
 
   * If it's 17:00, `myTimer:runEvery("6h","0:00")` will set the timer 1 hour from now (at 18:00)
@@ -211,9 +200,7 @@ myTimer:cancel()
 
 Schedules execution of the timer after a given delay.
 
-**Parameters:**
-
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `delay`: 
+* `delay`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
 
 Every time you call this method the "execution countdown" is restarted - i.e. any previous schedule (created
 with any of the `:run...()` methods) is overwritten. This can be useful
@@ -236,11 +223,9 @@ end
 
 Schedules execution of the timer every time a given predicate is true.
 
-**Parameters:**
-
-* [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) `predicateFn`: A predicate function that determines whether to execute the timer
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `checkInterval`: interval between predicate checks (and potential timer executions)
-* _`<#boolean>`_ `continueOnError`: (optional) if `true`, `predicateFn` will keep being checked even if it - or the
+* `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to execute the timer
+* `checkInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) interval between predicate checks (and potential timer executions)
+* `continueOnError`: _`<#boolean>`_ (optional) if `true`, `predicateFn` will keep being checked even if it - or the
        timer's [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) - causes an error
 
 The given `predicateFn` will start being checked right away. Every time it returns `true`, the timer will
@@ -253,11 +238,9 @@ execute.
 
 Schedules repeated execution of the timer while a given predicate remains true.
 
-**Parameters:**
-
-* [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) `predicateFn`: A predicate function that determines whether to contine executing the timer
-* [_`<#intervalString>`_](hm.timer.md#type-intervalstring-extends-string) `checkInterval`: interval between predicate checks (and timer executions)
-* _`<#boolean>`_ `continueOnError`: (optional) if `true`, the timer will keep repeating (and executing) even if
+* `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to contine executing the timer
+* `checkInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) interval between predicate checks (and timer executions)
+* `continueOnError`: _`<#boolean>`_ (optional) if `true`, the timer will keep repeating (and executing) even if
        its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) or `predicateFn` cause an error
 
 The given `predicateFn` will start being checked right away. While it returns `true`, the timer will
@@ -293,7 +276,9 @@ Setting this to `false` or `nil` unschedules the timer.
 
 ------------------
 
-### Type `<#intervalString>` (extends _`<#string>`_)
+### Type `intervalString`
+
+> extends _`<#string>`_
 
 A string describing a time interval.
 
@@ -307,7 +292,9 @@ Examples: `"1m30s"` or `90` (in seconds); `"1500ms"` or `1.5`.
 
 ------------------
 
-### Type `<#timeOfDayString>` (extends _`<#string>`_)
+### Type `timeOfDayString`
+
+> extends _`<#string>`_
 
 A string describing a time of day.
 
@@ -327,13 +314,11 @@ Examples: `"8:00:00"` or `"800"` or `28800` (in seconds).
 
 A predicate function that controls conditional execution of a timer.
 
-**Parameters:**
+* `data`: _`<?>`_ `data` passed to `timer.new()` or, if `data` was `"elapsed"`, elapsed time in seconds since last execution
 
-* _`<?>`_ `data`: `data` passed to `timer.new()` or, if `data` was `"elapsed"`, elapsed time in seconds since last execution
 
-**Returns:**
 
-* _`<#boolean>`_ the return value will determine wheter to run, repeat, skip or cancel altogether the timer's execution, depending on what method was used
+* Returns _`<#boolean>`_: the return value will determine wheter to run, repeat, skip or cancel altogether the timer's execution, depending on what method was used
 
 
 
@@ -345,10 +330,8 @@ A predicate function that controls conditional execution of a timer.
 
 A function that will be executed by a timer.
 
-**Parameters:**
-
-* [_`<#timer>`_](hm.timer.md#class-timer-extends-hmmoduleclass) `timer`: the timer that scheduled execution of this function
-* _`<?>`_ `data`: `data` passed to `timer.new()` or, if `data` was `"elapsed"`, elapsed time in seconds since last execution
+* `timer`: [_`<#timer>`_](hm.timer.md#class-timer) the timer that scheduled execution of this function
+* `data`: _`<?>`_ `data` passed to `timer.new()` or, if `data` was `"elapsed"`, elapsed time in seconds since last execution
 
 
 
