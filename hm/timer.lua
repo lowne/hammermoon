@@ -143,13 +143,14 @@ local runningTimers=hm._core.retainValues()
 local timerCount=0
 
 ---Creates a new timer.
+-- @function [parent=#hm.timer] new
 -- @param #timerFunction fn a function to be executed later
 -- @param data (optional) arbitrary data that will be passed to `fn`; if the special string `"elapsed"`, `fn` will be passed the time in seconds since the previous execution (or creation)
 -- @return #timer a new timer object
 -- @apichange All `hs.timer` constructors are covered by the new `:run...()` methods
 function timer.new(fn,data) hmcheck'function'
   timerCount=timerCount+1
-  local o=new{_ref=timerCount,_runcb=fn,_timercb=fn,_data=data,isRunning=false,_lastTrigger=CFAbsoluteTimeGetCurrent(),_elapsed=data=='elapsed' or nil}
+  local o=new{_ref=timerCount,_runcb=fn,_timercb=fn,_data=data,_isRunning=false,_lastTrigger=CFAbsoluteTimeGetCurrent(),_elapsed=data=='elapsed' or nil}
   log.d('Created',o) return o
 end
 
@@ -168,6 +169,7 @@ local function start(self,nextTrigger)
   log.v('Scheduled',self)
   runningTimers[nptr(self._timer)]=self
   CFRunLoopAddTimer(currentRL,self._timer,kCFRunLoopDefaultMode)
+  return self
 end
 
 local function stop(self)
@@ -340,7 +342,7 @@ function tmr:runEvery(repeatInterval,delayOrStartTime,continueOnError)
   self._continueOnError=continueOnError
   repeatInterval=parseInterval(repeatInterval)
   local delay
-  if not delayOrStartTime then delay=CFAbsoluteTimeGetCurrent()+0.01 --was nil
+  if not delayOrStartTime then delay=CFAbsoluteTimeGetCurrent()+0.001 --was nil
   else delay=parseInterval(delayOrStartTime) --was interval
     if not delay then --was time of day
       delay=parseLocalTime(delayOrStartTime)
