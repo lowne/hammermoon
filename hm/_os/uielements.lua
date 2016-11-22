@@ -33,7 +33,7 @@ local CFEqual=c.CFEqual
 ---@type hm._os.uielements
 -- @extends hm#module
 local uielements=hm._core.module('_os.uielements',{uielement={
-  __tostring=function(self)return sformat('uielement: %s <%s>',self.role,self[1]) end,
+  __tostring=function(self)return sformat('uielement: [%d] %s',self._ref,self.role) end,
   __gc=function(self) end,
   __eq=function(e1,e2) return e2[1] and CFEqual(e1[1],e2[1]) end,
 },watcher={
@@ -60,7 +60,7 @@ local AXUIElementCopyAttributeValue=c.AXUIElementCopyAttributeValue
 local function getProp(self,prop)
   local res=AXUIElementCopyAttributeValue(self[1],prop,prop_out)
   --TODO do something smarter with errors
-  return res==0 and prop_out[0] or log.fe('%s: %s <= %s',require'hm._os.bridge.axerrors'[res],tolua(prop),self)
+  return res==0 and prop_out[0] or log.fe('%s: %s <= %d',require'hm._os.bridge.axerrors'[res],tolua(prop),self._ref)
 end
 
 --typedef enum {kAXValueCGPointType = 1,kAXValueCGSizeType = 2,kAXValueCGRectType = 3,kAXValueCFRangeType = 4,
@@ -70,7 +70,7 @@ local valueTypes,valueCasts={CGPoint=1,CGSize=2,CGRect=3,CFRange=4},{}
 for k in pairs(valueTypes) do valueCasts[k]=ffi.typeof(k..' *') end
 local function getValueProp(self,prop,cls)
   local res=AXValueGetValue(getProp(self,prop),valueTypes[cls],value_out)
-  if not res then return log.fe('AXValueGetValue: %s <= %s',tolua(prop),self) end
+  if not res then return log.fe('AXValueGetValue: %s <= %d',tolua(prop),self._ref) end
   --TODO do something smarter with errors
   return cast(valueCasts[cls],value_out) -- cast to appropriate struct (which is bridged by objc.lua)
 end
@@ -83,7 +83,7 @@ end
 local AXUIElementSetAttributeValue=c.AXUIElementSetAttributeValue
 local function setProp(self,prop,v)
   local result=AXUIElementSetAttributeValue(self[1],prop,v)
-  return result==0 and true or log.fe('%s: %s => %s',require'hm._os.bridge.axerrors'[result],tolua(prop),self)
+  return result==0 and true or log.fe('%s: %s => %d',require'hm._os.bridge.axerrors'[result],tolua(prop),self._ref)
 end
 
 ---Checks if this element has a given AX property
@@ -227,14 +227,15 @@ property(elem,'size',
 local cachedElements=hm._core.cacheValues()
 local CFHash=c.CFHash
 local AXUIElementGetPid=c.AXUIElementGetPid
-local function newElem(ax,pid)
+local function newElem(ax,pid,o)
   local hash=nptr(CFHash(ax))
   if cachedElements[hash] then return cachedElements[hash] end
   if not pid then
     local result=AXUIElementGetPid(ax,value_out)
     pid=result==0 and value_out[0] or error'cannot get pid from axuielement'
   end
-  local o=new{ax,_pid=pid}
+  o=o or {} o[1]=ax o._pid=pid o._ref=hash
+  o=new(o)
   log.v('cached hash',hash) cachedElements[hash]=o
   return o
 end
@@ -296,11 +297,7 @@ local elementDestroyed = "AXUIElementDestroyed"
 ---@type eventNameList
 -- @list <#eventName>
 
-checkers['hm._os.uielement#eventNameList']=function(v)
-  if type(v)=='string' then return events[v] and {[events[v]]=true}
-  elseif type(v)=='table' then return v[1] and coll.ievery(v,function(el)return events[el] end) and coll.toSet(v)
-  else return false end
-end
+checkers['hm._os.uielement#eventName']=function(v) return type(v)=='string' and events[v] and true end
 
 ---A uielement watcher
 -- @type watcher
@@ -381,7 +378,7 @@ local runLoopAddSource=require'hm._os'.runLoopAddSource
 -- @param #watcher self
 -- @param #eventNameList events events to watch
 -- @return #watcher this watcher
-function watcher:start(events) hmsanitize('hm._os.uielement#watcher','hm._os.uielement#eventNameList')
+function watcher:start(events) hmsanitize('hm._os.uielement#watcher','listOrValue(hm._os.uielement#eventName)')
   if not globalWatcher then
     require'hm._os'.wsNotificationCenter:register('NSWorkspaceDidTerminateApplicationNotification',stopChildrenWatchers,true)
     globalWatcher=true
