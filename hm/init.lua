@@ -364,7 +364,7 @@ function hm._lua_setup()
         objmt.__index=makeclass__index(cls)
         objmt.__newindex=makeclass__newindex(cls)
         local make=function(o,name) --hmcheck('table','?string')
-          setmetatable(o,objmt) o.log=name and newLogger(name) o._name=name
+          setmetatable(o,objmt) o.log=name and newLogger(name) if name then o._name=name end
           log.v('allocated:',o) return o
         end
         local gc=objmt.__gc
