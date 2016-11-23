@@ -138,7 +138,7 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,TEMPLATE_MD_INDEX_LISTS,{
   ['headersize']=function(o)return string.rep('#',o) end,
   --  ['type.headersize']=function(o)return o.extra.class and '##' or '###' end,
   ['type.header']='$(htag) `$(name)`',
-  ['extends']='> extends @@(type)\n\n',
+  ['extends']='> Extends @@(type)\n\n',
   ['type.fullname']=function(o)return sformat(o.extra.static and '%s' or '<#%s>',o.name) end,
   ['type.headername']=function(o)return sformat(o.extra.static and '%s' or '#%s',o.name) end,
   ['types.sep']=HR,
@@ -176,9 +176,10 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,TEMPLATE_MD_INDEX_LISTS,{
   ['fields.post']='',
 
 
-  ['extra']='?(dev)?(apichange)',
+  ['extra']='?(dev)?(checker)?(apichange)?(internalchange)',
 
-  ['dev']='> **Internal/advanced use only** (e.g. for extension developers)\n\n',
+  ['checker']='> Defines type checker `$(short)`\n\n',
+  ['dev']='> **Internal/advanced use only**\n\n',
   ['apichange']='> **API CHANGE**: $(short)\n\n',
   ['internalchange']='> INTERNAL CHANGE: $(short)\n\n',
 
@@ -234,6 +235,9 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,TEMPLATE_MD_INDEX_LISTS,{
   ['docfiles.sep']=LINE,
   ['docfiles.post']=BR,
 })
+local TEMPLATE_USERDOCS_MD=extend(TEMPLATE_MD,{
+  ['extra']=''
+})
 
 local TEMPLATE_CHANGES_BASE=extend(TEMPLATE_BASE,{
   ['module']='$(title)>>(globalfunctions)>>(globalfields)>>(types)>>(prototypes)', -- no index
@@ -252,6 +256,7 @@ local TEMPLATE_INTERNALCHANGES_MD=extend(TEMPLATE_MD,TEMPLATE_INTERNALCHANGES_BA
   })
 return {
   all={md=TEMPLATE_MD,html=TEMPLATE_HTML},
+  ['-dev']={md=TEMPLATE_USERDOCS_MD,html=TEMPLATE_USERDOCS_HTML},
   apichange={md=TEMPLATE_APICHANGES_MD,html=TEMPLATE_APICHANGES_HTML},
   internalchange={md=TEMPLATE_INTERNALCHANGES_MD,html=TEMPLATE_INTERNALCHANGES_HTML},
 }
