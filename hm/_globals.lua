@@ -140,7 +140,7 @@ checkers = setmetatable({},{
 
 local checkers=checkers
 check_one=function(expected,val) return hmassertf(checkers[expected],'no checker for type %s',expected)(val) end
-local function check_many(name, expected, val)
+local function check_many(expected,val)
   if expected=='?' then return true
   elseif expected=='!' then return (val~=nil)
   elseif type(expected)=='function' then return expected(val)
@@ -159,19 +159,21 @@ end
 function checkargs(...)
   for i, arg in ipairs{...} do
     local name, val = getlocal(2, i)
-    local newval,err = check_many(name, arg, val)
+    local newval,err = check_many(arg, val)
     if not newval then
-      local fmt = "bad argument #%d to '%s' (%s expected, got %s)"
+      if name:sub(1)=='(' then name=nil end
+      local fmt = "bad argument #%d%s to '%s' (%s expected, got %s)"
       local fname = getinfo(2, 'n').name
       if getinfo(3, 'n').name=='__newindex' then
-        local k,v=getlocal(3,2) fname=v
-        fmt = "[%d] bad value for '%s' (%s expected, got %s)"
+        local k,v=getlocal(3,2) fname=v name=nil
+        fmt = "[%d] bad value%s for '%s' (%s expected, got %s)"
       end
       local types={}
       if arg:sub(1,1)=='?' then types[1]='nil' end
       for type in arg:gmatch'[^|?]+' do types[#types+1]=type:match'[^:]+':gsub('value%((.-)%)','%1') end
       types=table.concat(types,' or ')
-      error(string.format(fmt, i, fname or "?", types, type(val))..'\n'..(err or ''), 3)
+      name=name and " ('"..name.."')" or ''
+      error(string.format(fmt, i, name, fname or "?", types, type(val))..'\n'..(err or ''), 3)
     elseif newval~=true then setlocal(2,i,newval)
     end
   end
@@ -194,4 +196,16 @@ checkers['callable']=isCallable
 
 -- this is pretty pointless, but this template is used by e.g. 'value(sometype):list'
 checkers['value(_)']=function(v)return function(item,idx) if idx then return false,item end end,v,true end
+function checkers.valueOf(chkr)
+  assert(type(chkr)=='function')
+  return function(v)
+    return function(item,idx)
+      if idx then
+        local newitem=chkr(item)
+        if newitem then return false,item end
+      end
+    end,v,true
+  end
+end
 
+checkers.checkValue=check_many
