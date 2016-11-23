@@ -22,10 +22,12 @@
 /.mgit/objc.exclude
 
 # docs
-/build/docs/models
+/build/docmodels
 
 # dev
 /user.lua
 /scratchpad.lua
 /build/previewmd
 /build/testdocs.lua
+/run
+/test
