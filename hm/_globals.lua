@@ -179,7 +179,7 @@ function checkargs(...)
   end
 end
 
-for _,type in ipairs{'string','number','boolean','table','function'} do checkers[type]=type end
+for _,type in ipairs{'string','number','boolean','table','function','nil'} do checkers[type]=type end
 
 local floor=math.floor
 checkers['uint']=function(v)return type(v)=='number' and v>0 and floor(v)==v end

@@ -18,10 +18,10 @@ require'hm._globals'
 sanitizeargs=checkargs
 
 --- Hammermoon main module
---@module hm
---@static
---@internalchange Using the 'checks' library for userscript argument checking.
---@internalchange Using the 'compat53' library, but syntax-level things (such as # not using __len) are still Lua 5.1
+-- @module hm
+-- @static
+-- @internalchange Using the 'checks' library for userscript argument checking.
+-- @internalchange Using the 'compat53' library, but syntax-level things (such as # not using __len) are still Lua 5.1
 
 --- Hammermoon's namespace, globally accessible from userscripts
 hm={} --#hm
@@ -287,6 +287,7 @@ function hm._lua_setup()
   })
 
   checkers['hm#module']='hm#module'
+  checkers['hm#module.class']='hm#module.class'
   hm.logger.defaultLogLevel=5
   log=hm.logger.new'core'
   log.d'Autoload extensions ready'
@@ -333,6 +334,7 @@ function hm._lua_setup()
   -- @field #module.classes _classes The classes (i.e., object metatables) declared by this module
   -- @field hm.logger#logger log The extension's module-level logger instance
   -- @class
+  -- @checker hm#module
 
   ---Implement this function to perform any required cleanup when a module is unloaded
   -- @function [parent=#module] __gc
@@ -342,6 +344,7 @@ function hm._lua_setup()
   -- @type module.class
   -- @dev
   -- @class
+  -- @checker hm#module.class
 
   ---@type module.classes
   -- @map <#string,#module.class>
