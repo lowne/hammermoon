@@ -70,17 +70,26 @@ local defaultFilterTag=setmetatable({
 
 
 local defaultFilter=makeFilter(defaultFilterTag)
+local function includeTag(tag) return function() return function(o)
+  if not defaultFilter(o) then return
+  elseif o.extra[tag] then return o
+  elseif o.parent and o.parent.extra[tag] then return o end
+  for _,children in ipairs{'globalfunctions','globalfields','types','functions','fields','prototypes'} do
+    if o[children] and o[children][1] then return o end
+  end
+end end end
+local function excludeTag(tag) return function() return function(o)
+  if not defaultFilter(o) then return
+  elseif o.extra[tag] then return
+  else return o end
+end end end
+
 function M.makeMetadataTagFilter(metadataTag)
   if metadataTag=='all' then return defaultFilter end
-  return makeFilter(setmetatable({},{__index=function()return function(o)
-    if not defaultFilter(o) then return
-    elseif o.extra[metadataTag] then return o
-    elseif o.parent and o.parent.extra[metadataTag] then return o end
-    for _,children in ipairs{'globalfunctions','globalfields','types','functions','fields','prototypes'} do
-      if o[children] and o[children][1] then return o end
-    end
-    --    return defaultFilter(o) and o.extra[metadataTag] and o
-  end end}))
+  local f
+  if metadataTag:sub(1,1)=='-' then f=excludeTag(metadataTag:sub(2))
+  else f=includeTag(metadataTag) end
+  return makeFilter(setmetatable({},{__index=f}))
 end
 
 
@@ -361,9 +370,6 @@ function M.makeModel(metamodel)
     return t
   end
 
-  --TODO:htag, invokator into template
-  --TODO:@prototype for @function - describes callbacks, has no parent (but is not global)
-
   ---traverse metamodel
   module.ttag='module' module.htag='Module'
   module.globalfields={ttag='globalfields'} module.globalfunctions={ttag='globalfunctions'}
@@ -538,6 +544,7 @@ function M.resolveLinks(moduleName,doc,anchors,templ)
         if o then break end
       end
     end
+    o=o or anchors[destModule..'#('..destModule..').'..destField]
     local anchor=makeLink(o,destModule,origl)
     local res=templ[isType and 'userlinktype' or 'userlink'](origl,anchor)  resolved[origl]=res
     return res

@@ -5,16 +5,18 @@ local SOURCE_DIRS                  = {'../hm'}
 local INCLUDE_UNDOCUMENTED         = true
 local VERBOSE                      = true
 --comment any of these to skip
-local OUTPUT_DOCS                  = true --comment for just apichanges
-local OUTPUT_MD_DIR                = 'docs/md'
-local OUTPUT_MD_INDEX_FILE         = 'README'
---local OUTPUT_HTML_DIR              = 'docs/html'
-local OUTPUT_HTML_INDEX_FILE       = 'index'
-local OUTPUT_MODELS_DIR            = 'docs/models' --just for debug
-local OUTPUT_API_CHANGES_FILE      = 'API_CHANGES'
-local OUTPUT_INTERNAL_CHANGES_FILE = 'INTERNAL_CHANGES'
---local OUTPUT_DEV_ONLY_FILE         = 'MODULE_DEVELOPERS'
+local OUTPUT_MD_DIR                = 'md'
+--local OUTPUT_HTML_DIR              = 'html'
 
+--ends in / == folder, otherwise filename (will be a single file for all modules)
+local OUTPUT_USER_DOCS             = 'docs/'
+local OUTPUT_DEV_DOCS              = 'fulldocs/'
+local OUTPUT_MD_INDEX_FILE         = 'README'
+local OUTPUT_HTML_INDEX_FILE       = 'index'
+local OUTPUT_MODELS_DIR            = 'docmodels/' --just for debug
+local OUTPUT_API_CHANGES_FILE      = 'docs/?/API_CHANGES'
+local OUTPUT_INTERNAL_CHANGES_FILE = 'docs/?/INTERNAL_CHANGES'
+--local OUTPUT_DEV_ONLY_FILE         = 'MODULE_DEVELOPERS'
 
 --- cwd
 local cwd=debug.getinfo(1).source:match("@?(.*)/") or '.'
@@ -29,7 +31,7 @@ local inspect=require'inspect'
 local ipairs,pairs,print,tinsert,tconcat=ipairs,pairs,print,table.insert,table.concat
 local rawprint=print
 local function print(...)return VERBOSE and rawprint(...)end
-local function join(path,name,ext) return (path and path..fs.separator or '')..name..'.'..ext end
+local function join(path,name,ext) return (path and path:match'(.-)/?$'..fs.separator or '')..name..'.'..ext end
 local function writeFile(path,name,ext,s)
   local dest=join(path,name,ext)
   assert(fs.fill(dest,s)) rawprint('Saved '..dest)
@@ -59,14 +61,18 @@ for _,filePath in ipairs(filePaths) do if filePath:sub(-4)=='.lua' then
   end
 end end
 table.sort(modules,function(a,b)return a.name<b.name end)
-local filters={all=OUTPUT_DOCS or nil,dev=OUTPUT_DEV_ONLY_FILE or nil,
-  apichange=OUTPUT_API_CHANGES_FILE or nil,internalchange=OUTPUT_INTERNAL_CHANGES_FILE or nil}
-for flt,filename in pairs(filters) do
+local filters={['all']=OUTPUT_DEV_DOCS or nil,['-dev']=OUTPUT_USER_DOCS or nil,['dev']=OUTPUT_DEV_ONLY_FILE or nil,
+  ['apichange']=OUTPUT_API_CHANGES_FILE or nil,['internalchange']=OUTPUT_INTERNAL_CHANGES_FILE or nil}
+for flt,dirname in pairs(filters) do
   print('Loading filter '..flt)
+  local filename
+  if dirname:sub(-1)~='/' then filename=dirname dirname='' end
   local filter=builder.makeMetadataTagFilter(flt)
   local formats={md=OUTPUT_MD_DIR or nil,html=OUTPUT_HTML_DIR or nil}
   local indexFiles={md=OUTPUT_MD_INDEX_FILE or nil,html=OUTPUT_HTML_INDEX_FILE or nil}
   for format,destPath in pairs(formats) do
+    if filename then filename=filename:gsub('%?',destPath) destPath='.'
+    else destPath=dirname..destPath end
     print('Loading template '..flt..'.'..format)
     local indexFile=indexFiles[format]
     local template=require'doctemplates'[flt][format]
@@ -79,17 +85,18 @@ for flt,filename in pairs(filters) do
         print('Applying template '..flt..'.'..format..' for '..module.name)
         local body=builder.template(module,template)
         print('Resolving links for '..module.name)
-        body=builder.resolveLinks(filename==true and module.name or 'N/A',body,anchors,template)
-        tinsert(docs,filename==true and {body=body,name=module.name,link=join(nil,module.name,format),short=module.short,ttag='docfile'} or body)
+        body=builder.resolveLinks(not filename and module.name or 'N/A',body,anchors,template)
+        tinsert(docs,not filename and {body=body,name=module.name,link=join(nil,module.name,format),short=module.short,ttag='docfile'} or body)
       end
     end
-    if filename==true then
+    if filename then writeFile(destPath,filename,format,tconcat(docs,'\n\n'))
+    else
       for _,doc in ipairs(docs) do writeFile(destPath,doc.name,format,doc.body) end
       if indexFile then
         print('Generating ToC')
         writeFile(destPath,indexFile,format,builder.template({ttag='toc',docfiles=docs},template))
       end
-    else writeFile(destPath,filename,format,tconcat(docs,'\n\n')) end
+    end
   end
 end
 
