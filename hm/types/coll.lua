@@ -58,10 +58,12 @@ local function isListIndex(k)
   return type(k)=='number' and k>=1 and floor(k)==k -- not using 5.3 syntax (k//1==k, or math.type), as you never know
 end
 checkers['listIndex']=isListIndex
-local function isList(t) return M.everyk(t,isListIndex) end
+local function isList(t) return type(t)=='table' and M.everyk(t,isListIndex) end
 checkers['list']=isList
-checkers['listOrValue']=function(t) if hmtype(t)~='table' then return {t} else return isList(t) end end
+checkers['list(_)']=function(v)if isList(v) then return ipairs(v) end end
+checkers['value(_):list']=function(v) return ipairs{v} end
 local function isSet(t)
+  if type(t)~='table' then return false end
   local val
   for k,v in pairs(t) do
     if val==nil then val=v
@@ -70,7 +72,8 @@ local function isSet(t)
   return true
 end
 checkers['set']=isSet
-checkers['setOrValue']=function(t) if hmtype(t)~='table' then return {[t]=true} else return isSet(t) end end
+checkers['set(_)']=function(v) if isSet(v) then return pairs(v) end end
+checkers['value(_):set']=function(v) return next{[v]=true} end
 
 ---Creates a dict object.
 -- You can also use the shortcut `coll(table)`.
