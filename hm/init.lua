@@ -286,6 +286,7 @@ function hm._lua_setup()
     __newindex=function(t,k)error'Only Hammermoon extensions can go into table hm' end,
   })
 
+  checkers['hm#module']='hm#module'
   hm.logger.defaultLogLevel=5
   log=hm.logger.new'core'
   log.d'Autoload extensions ready'
@@ -407,7 +408,7 @@ function hm._lua_setup()
   require'hm.types.coll'
 
   setmetatable(_G,{__newindex=function(t,k,v) userGlobals[k]=true rawset(t,k,v) end}) --capture globals for cleanup
-  require'user'
+  --  require'user'
   --  local ok,err=xpcall(require,debug.traceback,'user')
   --  if not ok then print('\n\n[USERSCRIPT ERROR] ----------- \n'..err..'\n-------------------------------\n\n') hm.quit() end
 

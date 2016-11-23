@@ -11,5 +11,5 @@ end
 
 require'hm'
 
-require'hammermoon_app'
+require'hammermoon_app'(function()require'user'end)
 
