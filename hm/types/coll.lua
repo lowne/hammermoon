@@ -62,6 +62,7 @@ local function isList(t) return type(t)=='table' and M.everyk(t,isListIndex) end
 checkers['list']=isList
 checkers['list(_)']=function(v)if isList(v) then return ipairs(v) end end
 checkers['value(_):list']=function(v) return ipairs{v} end
+checkers['listOrValue(_)']=function(v) if not isList(v) then v={v} end return ipairs(v) end
 local function isSet(t)
   if type(t)~='table' then return false end
   local val
@@ -74,6 +75,7 @@ end
 checkers['set']=isSet
 checkers['set(_)']=function(v) if isSet(v) then return pairs(v) end end
 checkers['value(_):set']=function(v) return next{[v]=true} end
+checkers['setOrValue(_)']=function(v) if not isSet(v) then v={[v]=true} end return pairs(v) end
 
 ---Creates a dict object.
 -- You can also use the shortcut `coll(table)`.
@@ -203,6 +205,17 @@ end
 ---@private
 function M:imap(fn) checkargs('table','callable')
   local nt=list() for k,v in ipairs(self) do nt[#nt+1]=fn(v,k) end return nt
+end
+
+---Collects a field from each element in this list.
+-- @function [parent=#coll.list] imapToField
+-- @param #coll.list self
+-- @param #string fieldName
+-- @return #coll.list a list containing `fieldName` for each of the elements in this list
+
+---@private
+function M:imapToField(fieldName) checkargs('table','string')
+  local nt=list() for k,v in ipairs(self) do nt[#nt+1]=v[fieldName] end return nt
 end
 
 ---Executes a function across a dict (in arbitrary order) and collects the results.
@@ -807,13 +820,14 @@ end
 -- @param #coll.list self
 -- @param #string fieldName The elements' field to use as sorting key; the `<` (less than) operator is used as comparator
 -- @param #boolean inPlace (optional) if `true` modifies and returns this list
+-- @param #boolean reverse (optional) if `true`, the `>` operator is used instead
 -- @return #coll.list a list with the same elements of this list, sorted by `fieldName`
 
 ---@private
-function M:sortByField(fieldName,inPlace) checkargs('table','string','?boolean')
+function M:sortByField(fieldName,inPlace,reverse) checkargs('table','string','?boolean')
   hmassert(self[1] and self[1][fieldName],'field '..fieldName..'not found in the list elements')
   local nt=inPlace and list(self) or copy(self)
-  tsort(nt,function(a,b) return a[fieldName]<b[fieldName] end)
+  tsort(nt,reverse and function(a,b) return b[fieldName]<a[fieldName] end or function(a,b) return a[fieldName]<b[fieldName] end)
   return nt
 end
 
@@ -877,7 +891,9 @@ M.pairs=M.keys
 function M:ipairs() return ipairs(self) end
 
 local function sortByValues(t,fn)
-  fn=fn and function(a,b)return fn(a.v,b.v) end or function(a,b)return a.v<b.v end
+  if fn==true then fn=function(a,b)return b.v<a.v end
+  elseif not fn then fn=function(a,b)return a.b<b.v end end
+  --  fn=fn and function(a,b)return fn(a.v,b.v) end or function(a,b)return a.v<b.v end
   local r={}
   for k,v in pairs(t) do tinsert(r,{k=k,v=v}) end
   tsort(r,fn) return r
@@ -886,17 +902,19 @@ end
 ---Returns an iterator that returns `value,key` at every iteration, sorted by values.
 -- @function [parent=#coll.dict] byValues
 -- @param #coll.dict self
--- @param #function fn (optional) a comparator function to determine the sorting order
+-- @param #function fn (optional) a comparator function to determine the sorting order;
+-- if omitted, uses `<`; if `true`, uses `>`
 -- @return #function an iterator function meant for "for" loops: `for v,k in my_coll:byValues() do...`
 
 ---Returns an iterator that returns `value,index` at every iteration, sorted by values.
 -- @function [parent=#coll.list] byValues
 -- @param #coll.list self
--- @param #function fn (optional) a comparator function to determine the sorting order
+-- @param #function fn (optional) a comparator function to determine the sorting order;
+-- if omitted, uses `<`; if `true`, uses `>`
 -- @return #function an iterator function meant for "for" loops: `for v,i in my_coll:byValues() do...`
 
 ---@private
-function M:byValues(fn) checkargs('table','?callable')
+function M:byValues(fn) checkargs('table','?callable|true')
   local i,r=0,sortByValues(self,fn)
   return function() i=i+1 return r[i].v,r[i].k end
 end
@@ -904,17 +922,19 @@ end
 ---Returns an iterator that returns `key,value` at every iteration, sorted by values.
 -- @function [parent=#coll.dict] keysByValues
 -- @param #coll.dict self
--- @param #function fn (optional) a comparator function to determine the sorting order
+-- @param #function fn (optional) a comparator function to determine the sorting order;
+-- if omitted, uses `<`; if `true`, uses `>`
 -- @return #function an iterator function meant for "for" loops: `for k,v in my_coll:keysByValues() do...`
 
 ---Returns an iterator that returns `index,value` at every iteration, sorted by values.
 -- @function [parent=#coll.list] keysByValues
 -- @param #coll.list self
--- @param #function fn (optional) a comparator function to determine the sorting order
+-- @param #function fn (optional) a comparator function to determine the sorting order;
+-- if omitted, uses `<`; if `true`, uses `>`
 -- @return #function an iterator function meant for "for" loops: `for i,v in my_coll:keysByValues() do...`
 
 ---@private
-function M:keysByValues(fn) checkargs('table','?callable')
+function M:keysByValues(fn) checkargs('table','?callable|true')
   local i,r=0,sortByValues(self,fn)
   return function() i=i+1 return r[i].k,r[i].v end
 end
@@ -922,11 +942,12 @@ end
 ---Returns an iterator that returns `key,value` at every iteration, sorted by keys.
 -- @function [parent=#coll.dict] byKeys
 -- @param #coll.dict self
--- @param #function fn (optional) a comparator function to determine the sorting order
+-- @param #function fn (optional) a comparator function to determine the sorting order;
+-- if omitted, uses `<`; if `true`, uses `>`
 -- @return #function an iterator function meant for "for" loops: `for k,v in my_coll:byKeys() do...`
 
 ---@private
-function M:byKeys(fn) checkargs('table','?callable')
+function M:byKeys(fn) checkargs('table','?callable|true')
   local i,kl=0,M.toList(self) tsort(kl,fn)
   return function()i=i+1 local k=kl[i] return k,self[k]end
 end
@@ -934,11 +955,12 @@ end
 ---Returns an iterator that returns `value,key` at every iteration, sorted by keys.
 -- @function [parent=#coll.dict] valuesByKeys
 -- @param #coll.dict self
--- @param #function fn (optional) a comparator function to determine the sorting order
+-- @param #function fn (optional) a comparator function to determine the sorting order;
+-- if omitted, uses `<`; if `true`, uses `>`
 -- @return #function an iterator function meant for "for" loops: `for v,k in my_coll:valuesByKeys() do...`
 
 ---@private
-function M:valuesByKeys(fn) checkargs('table','?callable')
+function M:valuesByKeys(fn) checkargs('table','?callable|true')
   local i,kl=0,M.toList(self) tsort(kl,fn)
   return function()i=i+1 local k=kl[i] return self[k],k end
 end
