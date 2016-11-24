@@ -37,9 +37,21 @@ local function runtests()
       end
       local nArgs=select('#',...)
       for i=1,nArgs do args[i]=args[i] or 'nil' end
-      local fmt=srep('%s ',nArgs)
-      output[#output+1]='--> '.. sformat(fmt,unpack(args))
-      chunkLen=chunkLen+1
+      local s=sformat(srep('%s ',nArgs),unpack(args))
+      local first=true
+      repeat
+        local i=121
+        repeat
+          i=i-1
+          local c=s:sub(i,i)
+        until c=='' or c==' ' or c==',' or i<80
+        output[#output+1]=(first and '--> ' or '--~ ')..s:sub(1,i) chunkLen=chunkLen+1
+        s=s:sub(i+1)
+        first=nil
+      until #s==0
+      --      local fmt=srep('%s ',nArgs)
+      --      output[#output+1]='--> '.. sformat(fmt,unpack(args))
+      --      chunkLen=chunkLen+1
     end
     local inlineError=function(msg)
       msg=trace(msg)
@@ -102,7 +114,8 @@ local function runtests()
     for line in lines(file) do
       --      chunkLines=chunkLines+1
       --        line=line:gsub('%-%-%>.*','') -- remove generated output
-      if line:sub(1,3)~='-->' then
+      local lineprefix=line:sub(1,3)
+      if lineprefix~='-->' and lineprefix~='--~' then
         --        line=line:gsub('%-%-%>.-\n','\n') --remove test results
         s=s..line..'\n'
         chunkLen=chunkLen+1
@@ -123,8 +136,8 @@ local function runtests()
             log.v('  eval exp:',evals)
             local ok,res=pcall(setfenv(retChunk,nullSandbox))
             if ok and res~=nil then
-              if type(res)~='string' then res=baseSandbox.pl3(res) end
-              inlinePrint(res)
+              --              if type(res)~='string' then res=baseSandbox.pl1(res) end
+              inlinePrint(tostring(res))
             end
           else
             log.v('  eval:   ',evals)
@@ -133,7 +146,8 @@ local function runtests()
               for i=1, #capn do
                 --                local s=tostring(capv[i])
                 --                if type(s)~='string' then s=nullSandbox.pl1(capv[i]) end
-                inlinePrint(capn[i]..' = '..nullSandbox.pl2(capv[i]))
+                --                inlinePrint(capn[i]..' = '..nullSandbox.pl1(capv[i]))
+                inlinePrint(capn[i]..' = '..tostring(capv[i]))
               end
               --            if ok and capn then print(capn..': '..tostring(capv))
             else --TODO sethook, getlocal
