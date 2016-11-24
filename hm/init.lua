@@ -93,7 +93,9 @@ local function make_hmdebug()
     v=not(not v) --toboolean
     if rawget(hmdebug,k)==v then return end
     if k=='disableTypeChecks' then checkargs=v and rawcheckargs or function()end
-    elseif k=='disableAssertions' then hmassert=v and rawassert or function()end hmassertf=v and rawassertf or function()end
+    elseif k=='disableAssertions' then
+      hmassert=v and rawassert or function(v)return v end
+      hmassertf=v and rawassertf or function(v)return v end
     elseif k=='retainUserObjects' then
     elseif k=='cacheUIElements' then
     else error('Invalid debug field '..k) end
@@ -360,7 +362,8 @@ function hm._lua_setup()
   local function hmmodule(name,classes,submoduleNames) checkargs('string','?table','?listOrValue(string)')
     --    local clsname='#'..name
     local m=setmetatable({log=newLogger(name)},
-      {__type='hm#module',__name='hm.'..name,__index=module__index,__newindex=module__newindex})
+      {__type='hm#module',__name='hm.'..name,__tostring=function()return 'module: hm.'..name end,
+        __index=module__index,__newindex=module__newindex})
     if classes then
       for className,objmt in pairs(classes) do
         local fullname='hm.'..name..'#'..className
