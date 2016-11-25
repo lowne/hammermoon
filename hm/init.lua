@@ -116,7 +116,7 @@ function hm._lua_setup()
 
   local rawrequire=require
   local function hmrequire(modname)
-    if not loadedModules[modname] then print('[Loading module: '..modname..']') end
+    --    if not loadedModules[modname] then print('[Loading module: '..modname..']') end
     local ok,mod=xpcall(rawrequire,debug.traceback,modname)
     if ok and mod then
       loadedModules[modname]=true
@@ -125,7 +125,7 @@ function hm._lua_setup()
         if gc and not rawget(mod,'__proxy') then
           assert(not rawget(mod,'__proxy'))
           local proxy=newproxy(true)
-          getmetatable(proxy).__gc=function()print('[Unloading module: '..modname..']') return gc(mod) end
+          getmetatable(proxy).__gc=function()log.i('Unloading module:',modname) return gc(mod) end
           rawset(mod,'__proxy',proxy)
         end
       end
@@ -226,13 +226,13 @@ function hm._lua_setup()
     properties[t]=properties[t] or {}
     local realsetter=setter
     if setter and type then
-      if hm.type(t)=='hm#module.class' then realsetter=function(o,v) checkargs(t,type) return setter(o,v) end
+      if hm.type(t)=='hm#module.class' then realsetter=function(o,v) checkargs(t,type) setter(o,v) return o end
       else realsetter=function(v,b) checkargs(type)return setter(v) end end
     end
     properties[t][fieldname]={get=getter,set=realsetter,values=setter==nil and cacheKeys() or nil,original=getTableName(t)..'.'..fieldname}
     local capitalized=fieldname:sub(1,1):upper()..fieldname:sub(2)
     rawset(t,'get'..capitalized,getter)
-    if setter then rawset(t,'set'..capitalized,setter) end
+    if setter then rawset(t,'set'..capitalized,realsetter) end
   end
 
   ---Deprecate a field or function of a module or class
@@ -285,12 +285,12 @@ function hm._lua_setup()
       rawset(t,k,hmrequire('hm.'..k))
       return rawget(t,k)
     end,
-    __newindex=function(t,k)error'Only Hammermoon extensions can go into table hm' end,
+    __newindex=function(t,k)error'Only Hammermoon modules can go into table hm' end,
   })
 
   checkers['hm#module']='hm#module'
   checkers['hm#module.class']='hm#module.class'
-  hm.logger.defaultLogLevel=5
+  hm.logger.defaultLogLevel=3
   log=hm.logger.new'core'
   log.d'Autoload extensions ready'
   core.log=log
@@ -360,14 +360,16 @@ function hm._lua_setup()
 
   local newLogger=hm.logger.new
   local function hmmodule(name,classes,submoduleNames) checkargs('string','?table','?listOrValue(string)')
-    --    local clsname='#'..name
+    assert(name:sub(1,3)=='hm.')
+    log.i('Loading module',name)
     local m=setmetatable({log=newLogger(name)},
-      {__type='hm#module',__name='hm.'..name,__tostring=function()return 'module: hm.'..name end,
+      {__type='hm#module',__name=name,__tostring=function()return 'module: '..name end,
         __index=module__index,__newindex=module__newindex})
     if classes then
       for className,objmt in pairs(classes) do
-        local fullname='hm.'..name..'#'..className
-        log.d('added type',fullname)
+        local fullname=name..'#'..className
+        checkers[fullname]=fullname
+        --        log.d('added type',fullname)
         local cls=setmetatable({},{__tostring=function()return fullname end,__type='hm#module.class',__name=fullname})
         objmt.__type=fullname
         objmt.__index=makeclass__index(cls)
@@ -400,7 +402,7 @@ function hm._lua_setup()
       m._classes=classes
     end
     submodules[m]={}
-    for _,sub in ipairs(submoduleNames or {}) do submodules[m][sub]='hm.'..name..'.'..sub end
+    for _,sub in ipairs(submoduleNames or {}) do submodules[m][sub]=name..'.'..sub end
     return m
   end
 
@@ -410,6 +412,7 @@ function hm._lua_setup()
   core.hs_compat_module=function(name)
     return setmetatable({},{__type='hs_compat#module',__name='hs.'..name,__index=module__index,__newindex=module__newindex})
   end
+  checkers['hs_compat#module']='hs_compat#module'
 
   require'hm.types.coll'
 
@@ -433,6 +436,6 @@ end
 ---@private
 hm.__proxy=newproxy(true)
 getmetatable(hm.__proxy).__gc=function()
-  print'[Shutting down]'
+  print'[Hammermoon shutting down]'
 end
 

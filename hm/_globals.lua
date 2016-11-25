@@ -133,7 +133,7 @@ checkers = setmetatable({},{
       end
     else f=v end
     assert(type(f)=='function','invalid checker')
-    printf('[added checker %s]',k)
+    --    printf('                     checkers: added %s',k)
     rawset(t,k,f)
   end
 })
