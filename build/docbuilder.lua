@@ -412,6 +412,15 @@ function M.makeModel(metamodel)
       if itemtype.ttag=='functiontype' then addFunction(newFunction(item,type),type.functions)
       else tinsert(type.fields,newField(item,type)) end
     end
+    -- readonly properties on top
+    tsort(type.fields,function(a,b)
+      if a.extra.readonlyproperty then
+        if b.extra.readonlyproperty then
+          return a.name<b.name
+        else return true end
+      elseif b.extra.readonlyproperty then return false
+      else return a.name<b.name end
+    end)
     type.metamodel=nil --cleanup
   end
   --- remove "shadow" types that might be used by prototypes
@@ -537,9 +546,11 @@ function M.resolveLinks(moduleName,doc,anchors,templ)
     destModule=#destModule>0 and destModule or moduleName
     if isType then o=anchors[destModule..'#('..destField..')']
     else
+      destField=destField:gsub('%(%)$',''):gsub('^:',''):gsub(':','.')
       local pieces={}
       for piece in destField:gmatch('([%w_]+)%.?') do tinsert(pieces,piece) end
       for i=0,#pieces do
+        --        print(destModule..'#('..tconcat(pieces,'.',1,i)..').'..tconcat(pieces,'.',i+1,#pieces))
         o=anchors[destModule..'#('..tconcat(pieces,'.',1,i)..').'..tconcat(pieces,'.',i+1,#pieces)]
         if o then break end
       end

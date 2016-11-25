@@ -22,7 +22,7 @@ local TEMPLATE_BASE=extend{
   ['field.link']='@[#($(plainparent)).$(name)]',
   ['type.link']='@[#($(name))]',
 
-  ['type']='$(title)>>(functions)>>(fields)',
+  ['type']='$(title)>>(fields)>>(functions)',
 
   ['fullname']='?(parent)$(invokator)$(name)',
   ['parent']='$(fullname)',
@@ -103,7 +103,7 @@ local TEMPLATE_MD_INDEX_LISTS=extend{
   ['types.index.sep']='',
   ['types.index.post']=BR,
 
-  ['type.index']='* $(htag) [`$(name)`]($(link))\n>(functions)>(fields)\n\n',
+  ['type.index']='* $(htag) [`$(name)`]($(link))\n>(fields)>(functions)\n\n',
 
   ['htag']=function(o)return o:lower()end,
   ['functions.index.pre']='',
@@ -133,7 +133,7 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,TEMPLATE_MD_INDEX_LISTS,{
   ['prototypes.post']=LINE,
 
   ['types.pre']=HR,
-  ['type']='$(title)>>(functions)>>(fields)',
+  --  ['type']='$(title)>>(fields)>>(functions)',
   ['type.title']='@(headersize) $(header)\n\n@?(extends)@(extra)$(short)\n\n?(long)$(usage)',
   ['headersize']=function(o)return string.rep('#',o) end,
   --  ['type.headersize']=function(o)return o.extra.class and '##' or '###' end,
