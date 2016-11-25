@@ -41,15 +41,32 @@ local tostring,sformat=tostring,string.format
 ---@type hm.types.coll
 local M={}
 
-local mt_dict={__index=M,__call=function(self)return next,self end}
-local mt_list={
-  __index=M,
+local function keytostring(k)return type(k)~='string' and sformat('[%s]',tostring(k)) or k end
+local mt_dict={__index=M,
+  __call=function(self)return next,self end,
+  __tostring=function(self) end,
+  __tostring=function(self)
+    local s={} for k,v in pairs(self) do s[#s+1]=keytostring(k)..'='..tostring(v) end
+    return sformat('dict: {%s}',tconcat(s,', '))
+  end,
+}
+local mt_dict_printkeys={__index=M,
+  __call=function(self)return next,self end,
+  __tostring=function(self)return sformat('dict: keys={%s}',self:listKeys():tostring()) end,
+}
+
+local mt_dict_printvalues={__index=M,
+  __call=function(self)return next,self end,
+  __tostring=function(self)return sformat('dict: values={%s}',self:listValues():tostring()) end,
+}
+--local mt_dict={__index=M,__call=function(self)return next,self end}
+local mt_list={__index=M,
   __call=function(self)local i=0 return function()i=i+1 return self[i] end end,
-  __tostring=function(self)return sformat('{%s}',self:tostring()) end,
+  __tostring=function(self)return sformat('list: {%s}',self:tostring()) end,
 }
 local mt_set={__index=M,
   __call=function(self)return next,self end,
-  __tostring=function(self)return sformat('set(%s)',self:toList():tostring()) end,
+  __tostring=function(self)return sformat('set: keys={%s}',self:toList():tostring()) end,
 }
 
 -- the following methods work on both maps and lists
@@ -84,6 +101,22 @@ checkers['setOrValue(_)']=function(v) if not isSet(v) then v={[v]=true} end retu
 -- @return #coll.dict the table, that will now accept the @{<#coll.dict>} methods
 function M.dict(table) checkargs'?table' return setmetatable(table or {},mt_dict) end
 local dict=M.dict
+
+---Sets `tostring` of this dict to only print keys.
+-- @function [parent=#dict] tostringShowsKeys
+-- @param #dict self
+-- @return #dict self
+
+---@private
+function M:tostringShowsKeys() return setmetatable(self,mt_dict_printkeys) end
+
+---Sets `tostring` of this dict to only print values.
+-- @function [parent=#dict] tostringShowsValues
+-- @param #dict self
+-- @return #dict self
+
+---@private
+function M:tostringShowsValues() return setmetatable(self,mt_dict_printvalues) end
 
 ---Creates a list object.
 -- @function [parent=#hm.types.coll] list
@@ -180,6 +213,37 @@ function M:toSet(value) checkargs'table'
   local nt=set() for _,v in ipairs(self) do nt[v]=value end return nt
 end
 
+---Creates a dict from a list.
+-- Returns a dict where the values are this list's values, and each key is determined
+-- by a given function on each element.
+-- @function [parent=#coll.list] toDict
+-- @param #coll.list self
+-- @param #function fn a function that accepts a list element and returns a key for it
+-- @return #coll.dict the resulting dict
+
+---@private
+function M:toDict(fn) checkargs('table','callable')
+  local nt=dict() for _,v in ipairs(self) do local k=fn(v) if k then nt[k]=v end end return nt
+end
+
+local function checkField(self,fieldName)
+  hmassertf(#self==0 or (self[1] and self[1][fieldName]),'field %s not found in the collection elements',fieldName)
+end
+
+---Creates a dict from a list, using a field of each element for its key.
+-- Returns a dict where the values are this list's values, and each key is a given field
+-- of each element.
+-- @function [parent=#coll.list] toDictByField
+-- @param #coll.list self
+-- @param #string fieldName the name of the field to use as each element's key
+-- @return #coll.dict the resulting dict
+
+---@private
+function M:toDictByField(fieldName) checkargs('table','string')
+  checkField(self,fieldName)
+  return M.map(self,function(v) return v,hmassert(v[fieldName],'field not found') end)
+end
+
 ---Creates a dict with keys and values swapped.
 -- Returns a dict where keys and values of this dict are swapped (i.e. an index table).
 -- Any duplicates among the values in this dict will be discarded, as the keys in a Lua table are unique.
@@ -197,25 +261,41 @@ end
 -- you can use `hs.func:dict()` if necessary.
 -- @function [parent=#coll.list] imap
 -- @param #coll.list self
--- @param #function fn a function that accepts two parameters, a list element and its index, and returns a value.
+-- @param #function fn a function that accepts two parameters, a list index and its element, and returns a value.
+-- The values returned from this function will be collected, in order, into the result list; when `nil` is
+-- returned the relevant element is discarded - the result list will *not* have "holes".
+-- @return #coll.list a list containing the results of calling the function on every element in this list
+
+---@private
+function M:imapkv(fn) checkargs('table','callable')
+  local nt=list() for k,v in ipairs(self) do nt[#nt+1]=fn(k,v) end return nt
+end
+
+---Executes a function across a list in order, and collects the results.
+-- If this table has "holes", all elements after the first hole will be lost, as the table is iterated over with `ipairs`;
+-- you can use `hs.func:dict()` if necessary.
+-- @function [parent=#coll.list] imapv
+-- @param #coll.list self
+-- @param #function fn a function that accepts a list element and returns a value.
 -- The values returned from this function will be collected, in order, into the result list; when `nil` is
 -- returned the relevant element is discarded - the result list will *not* have "holes".
 -- @return #coll.list a list containing the results of calling the function on every element in this list
 
 ---@private
 function M:imap(fn) checkargs('table','callable')
-  local nt=list() for k,v in ipairs(self) do nt[#nt+1]=fn(v,k) end return nt
+  local nt=list() for _,v in ipairs(self) do nt[#nt+1]=fn(v) end return nt
 end
 
----Collects a field from each element in this list.
+---Creates a list by collecting a field from each element in this list.
 -- @function [parent=#coll.list] imapToField
 -- @param #coll.list self
--- @param #string fieldName
+-- @param #string fieldName the name of the field to collect
 -- @return #coll.list a list containing `fieldName` for each of the elements in this list
 
 ---@private
-function M:imapToField(fieldName) checkargs('table','string')
-  local nt=list() for k,v in ipairs(self) do nt[#nt+1]=v[fieldName] end return nt
+function M:toListByField(fieldName) checkargs('table','string')
+  checkField(self,fieldName)
+  local nt=list() for k,v in ipairs(self) do nt[#nt+1]=hmassert(v[fieldName],'field not found') end return nt
 end
 
 ---Executes a function across a dict (in arbitrary order) and collects the results.
@@ -309,16 +389,20 @@ function M:ifilter(fn) checkargs('table','callable')
 end
 
 ---Filters a list by an elements' field.
+-- Returns a new list containing only the elements whose `fieldName` equals (or if `unequal`
+-- is not equal to) `value`
 -- @function [parent=#coll.list] ifilterByField
 -- @param #coll.list self
 -- @param #string fieldName the elements' field to use for filtering
 -- @param value if the element's `fieldName` doesn't have this value the element will be discarded
--- @return #coll.list a list containing the elements whose `fieldName` equals `value`
+-- @param #boolean unequal (optional) if `true`, `fieldName` must be *not* equal to `value` to allow the element
+-- @return #coll.list the resulting filtered list
 
 ---@private
-function M:ifilterByField(fieldName,value) checkargs('table','string')
-  hmassert(self[1] and self[1][fieldName],'field '..fieldName..'not found in the list elements')
-  return M.ifilter(self,function(el)return el[fieldName]==value end)
+function M:ifilterByField(fieldName,value,unequal) checkargs('table','string')
+  checkField(self,fieldName)
+  local fn=unequal and function(el)return el[fieldName]~=value end or function(el)return el[fieldName]==value end
+  return M.ifilter(self,fn)
 end
 
 ---Filters a dict by running a predicate function on its elements, in arbitrary order.
@@ -385,7 +469,7 @@ function M:copy(self,maxDepth) checkargs('table','?positiveIntegerOrZero') retur
 -- @return #coll.list a new list containing the same elements as this collection
 
 ---@private
-function M:icopy(self) checkargs'table'
+function M:icopy() checkargs'table'
   local nt=list() for k,v in ipairs(self) do nt[k]=v end return nt
 end
 
@@ -604,6 +688,21 @@ function M:reduce(fn,...) checkargs('table','callable')
   return tunpack(r)
 end
 
+---Returns the first element in this list whose field is equal to a given value.
+-- @function [parent=#coll.list] ifindByField
+-- @param #coll.list self
+-- @param #string fieldName the elements' field to use for filtering
+-- @param value the desired value
+-- @param #boolean unequal (optional) if `true`, `fieldName` must be *not* equal to `value` to be a match
+-- @return #?,#number the first element of this list that caused `fn(value,index)` to return `true`, and its index
+-- @return #nil if not found
+
+---@private
+function M:ifindByField(fieldName,value,unequal) checkargs('table','string')
+  local fn=unequal and function(el)return el[fieldName]~=value end or function(el)return el[fieldName]==value end
+  return self:ifind(fn)
+end
+
 ---Executes a predicate function across a list, in order, and returns the first element where that function returns true.
 -- @function [parent=#coll.list] ifind
 -- @param #coll.list self
@@ -810,7 +909,7 @@ end
 
 ---@private
 function M:sort(fn,inPlace) checkargs('table','?callable','?boolean')
-  local nt=inPlace and list(self) or copy(self)
+  local nt=inPlace and list(self) or M.icopy(self)
   tsort(nt,fn)
   return nt
 end
@@ -825,8 +924,8 @@ end
 
 ---@private
 function M:sortByField(fieldName,inPlace,reverse) checkargs('table','string','?boolean')
-  hmassert(self[1] and self[1][fieldName],'field '..fieldName..'not found in the list elements')
-  local nt=inPlace and list(self) or copy(self)
+  checkField(self,fieldName)
+  local nt=inPlace and list(self) or M.icopy(self)
   tsort(nt,reverse and function(a,b) return b[fieldName]<a[fieldName] end or function(a,b) return a[fieldName]<b[fieldName] end)
   return nt
 end

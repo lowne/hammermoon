@@ -8,4 +8,7 @@
 -- @field hm.types.geometry#hm.types.geometry geometry
 -- @NOfield hm.types.color#hm.types.color color
 
-return hm._core.module('types',nil,{'coll','geometry','color'})
+local types=hm._core.module('types',nil,{'coll','geometry','color'})
+
+checkers['hm.types#path']=nil
+return types
