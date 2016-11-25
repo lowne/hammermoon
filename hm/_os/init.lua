@@ -19,7 +19,7 @@ local rawset,rawget,pairs,tinsert=rawset,rawget,pairs,table.insert
 
 ---@type hm._os
 -- @extends hm#module
-local os=hm._core.module('_os',nil,{'events'})
+local os=hm._core.module('hm._os',nil,{'events'})
 
 --- @field [parent=#hm._os] hm._os.events#hm._os.events events
 
@@ -43,8 +43,7 @@ local function makeNCwrapper(nc)
     --@param #boolean priority
     --@dev
     --@internalchange Centralized callback registry for notification centers, to be used by extensions.
-    register=function(self,event,cb,priority)
-      assert(type(event)=='string')
+    register=function(self,event,cb,priority) checkargs('?','string','callable','?boolean')
       if not self._events[event] then
         log.d('Adding observer for notification',event)
         tinsert(self._observers,(assert(self._nc:addObserverForName_object_queue_usingBlock(event,nil,nil,self._block),'cannot add observer')))
