@@ -24,7 +24,7 @@ local function runtests()
   local nullSandbox=setmetatable({print=function()end,require=function()end,test=function()end,terr=function()end},
     {__index=baseSandbox,__newindex=function(t,k,v)capn[#capn+1]=k capv[#capv+1]=v end})
   local trace=debug.traceback
-
+  local sleep
   local function runfile(file)
     log.i('running',file)
     local s,output='',{}
@@ -101,11 +101,12 @@ local function runtests()
     end
     local function setGlobal(t,k,v)
       log.v('set global',k)
+      capn[#capn+1]=k capv[#capv+1]=v
       --      testGlobals[k]=v
       rawset(t,k,v)
     end
     fileSandbox=setmetatable({
-      test=inlineTest,terr=inlineTestError,print=inlinePrint,rawprint=print,require=sandboxRequire},
+      test=inlineTest,terr=inlineTestError,sleep=sleep,print=inlinePrint,rawprint=print,require=sandboxRequire},
     --    {__index=nullSandbox,--[[__newindex=_G--]]}) -- sandbox; don't escape globals (rest is running live anyway!)
     {__index=baseSandbox,__newindex=setGlobal}) -- sandbox; DO escape globals as required for whole-pad evalling
     nullSandbox.require=sandboxRequire
@@ -134,14 +135,14 @@ local function runtests()
           local retChunk,err=loadstring('return ('..evals..')')
           if retChunk then -- it's an expression, print the result
             log.v('  eval exp:',evals)
-            local ok,res=pcall(setfenv(retChunk,nullSandbox))
+            local ok,res=xpcall(setfenv(retChunk,fileSandbox),inlineError)
             if ok and res~=nil then
               --              if type(res)~='string' then res=baseSandbox.pl1(res) end
               inlinePrint(tostring(res))
             end
           else
             log.v('  eval:   ',evals)
-            local ok,res=pcall(setfenv(chunk,nullSandbox))
+            local ok,res=xpcall(setfenv(chunk,fileSandbox),inlineError)
             if ok then
               for i=1, #capn do
                 --                local s=tostring(capv[i])
@@ -154,10 +155,10 @@ local function runtests()
               --              inlinePrint'?'
               inlinePrint(res)
             end
-            capn,capv={},{}
           end
+          capn,capv={},{}
           --          local ok,res=xpcall(chunk,inlineError)
-          xpcall(setfenv(chunk,fileSandbox),inlineError)
+          --          xpcall(setfenv(chunk,fileSandbox),inlineError)
           s=''
           chunkStart=chunkStart+chunkLen chunkLen=0
         else lastError=err end
@@ -176,18 +177,45 @@ local function runtests()
     for m in pairs(sandboxPackages) do package.loaded[m]=nil log.d('unloaded package',m) end
     return total,passed,failed
   end
-  local files,total,passed,failed=0,0,0,0
+  local total,passed,failed=0,0,0
+
+
+  --  runner=coroutine.create(runfile)
+  local files={}
   for file in lfs.dir'tests' do
     local path='tests/'..file
     if lfs.attributes(path).mode=='file' then
-      files=files+1
-      local t,p,f=runfile(path)
-      total=total+t passed=passed+p failed=failed+f
+      files[#files+1]=path
     end
   end
-  log.w(files,' files processed')
-  log.w(total,'total tests,',passed,'passed,',failed,'failed')
-  os.exit(1,1)
+  local nfiles=#files
+  --  coroutine.wr
+  local runnerCoro=coroutine.wrap(function()
+    while files[1] do
+      local t,p,f=runfile(files[1])
+      total=total+t passed=passed+p failed=failed+f
+      tremove(files,1)
+    end
+    log.w(nfiles,' files processed')
+    log.w(total,'total tests,',passed,'passed,',failed,'failed')
+    os.exit(1,1)
+  end)
+  local sleepTimer=hm.timer.new(runnerCoro)
+  sleep=function(s)
+    sleepTimer:runIn(s)
+    coroutine.yield(true)
+  end
+  runnerCoro()
+
+  --      local ok,t,p,f=coroutine.resume(runner,path)
+  --      if not ok then error(t) end
+  -- --      local t,p,f=runfile(path)
+  --      total=total+t passed=passed+p failed=failed+f
+  --    end
+  --  end
+  --  log.w(files,' files processed')
+  --  log.w(total,'total tests,',passed,'passed,',failed,'failed')
+  --  os.exit(1,1)
 end
 local cwd=debug.getinfo(1).source:match("@?(.*)/") or '.'
 package.cpath=package.cpath..';'..cwd..'/lib/?.so'
