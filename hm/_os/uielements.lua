@@ -32,7 +32,7 @@ local sformat,tinsert,tremove=string.format,table.insert,table.remove
 local CFEqual=c.CFEqual
 ---@type hm._os.uielements
 -- @extends hm#module
-local uielements=hm._core.module('_os.uielements',{uielement={
+local uielements=hm._core.module('hm._os.uielements',{uielement={
   __tostring=function(self)return sformat('uielement: [%d] %s',self._ref,self.role) end,
   __gc=function(self) end,
   __eq=function(e1,e2) return e2[1] and CFEqual(e1[1],e2[1]) end,
@@ -100,12 +100,17 @@ function elem:hasProp(prop) return AXUIElementCopyAttributeValue(self[1],prop,pr
 elem.getRawProp=getProp
 
 local NSString,NSNumber,NSArray=c.NSString,c.NSNumber,c.NSArray
+local getNumberFromCFNumberRef=c.caller('NSNumber','doubleValue')
+
 ---Returns an AX property of type integer
 -- @function [parent=#uielement] getIntegerProp
 -- @param #uielement self
 -- @param #string prop property name
 -- @return #number
-function elem:getIntegerProp(prop) return getNSObjectProp(self,prop,NSNumber,'numberWithInteger') or 0 end
+function elem:getIntegerProp(prop) return getNumberFromCFNumberRef(getProp(self,prop)) end
+--function elem:getIntegerProp(prop) return tolua(getProp(self,prop)) end
+--function elem:getIntegerProp(prop) return getNSObjectProp(self,prop,NSNumber,'numberWithInteger') or 0 end
+
 ---Returns an AX property of type boolean
 -- @function [parent=#uielement] getBooleanProp
 -- @param #uielement self
