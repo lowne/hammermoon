@@ -4,6 +4,7 @@
 | :--- | :---|
 | [`hm`](hm.md) | Hammermoon main module |
 | [`hm._globals`](hm._globals.md) | Additions to the global namespace |
+| [`hm._os`](hm._os.md) | Low level access to macOS |
 | [`hm._os.events`](hm._os.events.md) | `CGEvent`/`NSEvent` interface |
 | [`hm._os.uielements`](hm._os.uielements.md) | `AXUIElement` interface |
 | [`hm.applications`](hm.applications.md) | Run, stop, query and manage applications. |

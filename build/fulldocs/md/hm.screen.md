@@ -10,6 +10,7 @@ Screens to the top or the left of the primary screen, and windows on these scree
 
 
 * Module [`hm.screen`](hm.screen.md#module-hmscreen)
+  * [`_toCocoa(rect)`](hm.screen.md#function-hmscreentococoarect---hmtypesgeometryrect) -> [_`<hm.types.geometry#rect>`_](hm.types.geometry.md#type-rect) - function
   * [`allScreens()`](hm.screen.md#function-hmscreenallscreens---screen-) -> `{`[_`<#screen>`_](hm.screen.md#type-screen)`, ...}` - function
   * [`mainScreen()`](hm.screen.md#function-hmscreenmainscreen---screen) -> [_`<#screen>`_](hm.screen.md#type-screen) - function
   * [`primaryScreen()`](hm.screen.md#function-hmscreenprimaryscreen) - function
@@ -46,7 +47,25 @@ Screens to the top or the left of the primary screen, and windows on these scree
 
 
 
+### Function `hm.screen._toCocoa(rect)` -> [_`<hm.types.geometry#rect>`_](hm.types.geometry.md#type-rect)
+
+> **Internal/advanced use only**
+
+Transform a `geometry.rect` object from HS/HM coordinate system (origin at top left of primary screen)
+to Cocoa coordinate system (origin at bottom left of primary screen)
+
+* `rect`: [_`<hm.types.geometry#rect>`_](hm.types.geometry.md#type-rect) 
+
+
+
+* Returns [_`<hm.types.geometry#rect>`_](hm.types.geometry.md#type-rect): transformed rect
+
+
+
+
 ### Function `hm.screen.allScreens()` -> `{`[_`<#screen>`_](hm.screen.md#type-screen)`, ...}`
+
+> INTERNAL CHANGE: The screen list is cached (and kept up to date by an internal watcher)
 
 Returns all the screens currently connected and enabled.
 
@@ -90,6 +109,8 @@ The main screen is the one containing the currently focused window.
 
 ### Method `<#screen>:availableModes(pattern)` -> `{`[_`<#screenMode>`_](hm.screen.md#type-screenmode)`, ...}`
 
+> **API CHANGE**: Returns a plain list of strings. Allows filtering.
+
 Returns a list of the modes supported by the screen.
 
 * `pattern`: _`<#string>`_ A pattern to filter the modes as per `string.find`; e.g. passing `"/60" will only return modes with a refresh rate of 60Hz
@@ -102,6 +123,8 @@ Returns a list of the modes supported by the screen.
 
 
 ### Method `<#screen>:currentMode()` -> [_`<#screenMode>`_](hm.screen.md#type-screenmode)
+
+> **API CHANGE**: Returns a string instead of a table
 
 Returns the screen's current mode.
 
@@ -168,6 +191,11 @@ The screen's name is set by the manufacturer.
 
 
 ### Method `<#screen>:setMode(mode)`
+
+> **API CHANGE**: Refresh rate, color depth are supported.
+
+> INTERNAL CHANGE: Will pick the highest refresh rate (if not specified) and color depth=4 (if available, and unless specified to 8).
+depth==8 isn't supported in HS!
 
 
 

@@ -8,6 +8,7 @@
 
 
 * Module [`hm._os.uielements`](hm._os.uielements.md#module-hmosuielements)
+  * [`_newElement(ax,pid)`](hm._os.uielements.md#function-hmosuielementsnewelementaxpid---uielement) -> [_`<#uielement>`_](hm._os.uielements.md#class-uielement) - function
 
 
 * Class [`uielement`](hm._os.uielements.md#class-uielement)
@@ -60,6 +61,23 @@
 
 > Extends [_`<hm#module>`_](hm.md#class-module)
 
+
+
+
+
+
+### Function `hm._os.uielements._newElement(ax,pid)` -> [_`<#uielement>`_](hm._os.uielements.md#class-uielement)
+
+> **Internal/advanced use only**
+
+
+
+* `ax`: _`<#cdata>`_ `AXUIElementRef`
+* `pid`: _`<#number>`_ (optional)
+
+
+
+* Returns [_`<#uielement>`_](hm._os.uielements.md#class-uielement): 
 
 
 

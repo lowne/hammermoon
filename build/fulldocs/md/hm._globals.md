@@ -10,6 +10,8 @@ Additions to the global namespace
   * [`assertf(v,fmt,...)`](hm._globals.md#global-function-assertfvfmt) - global function
   * [`checkargs(...)`](hm._globals.md#global-function-checkargs) - global function
   * [`errorf(fmt,...)`](hm._globals.md#global-function-errorffmt) - global function
+  * [`hmassert(v,msg)`](hm._globals.md#global-function-hmassertvmsg) - global function
+  * [`hmassertf(v,fmt,...)`](hm._globals.md#global-function-hmassertfvfmt) - global function
   * [`inspect(t,inline,depth)`](hm._globals.md#global-function-inspecttinlinedepth) - global function
   * [`printf(fmt,...)`](hm._globals.md#global-function-printffmt) - global function
 
@@ -54,6 +56,29 @@ Additions to the global namespace
 * `...`: _`<?>`_ 
 
 
+
+### Global function `hmassert(v,msg)`
+
+> **Internal/advanced use only**
+
+`assert`.
+
+* `v`: _`<?>`_ 
+* `msg`: _`<#string>`_ 
+
+Modules should use this (instead of `assert`), as it can be disabled via `hm.debug`
+
+### Global function `hmassertf(v,fmt,...)`
+
+> **Internal/advanced use only**
+
+`assertf`.
+
+* `v`: _`<?>`_ 
+* `fmt`: _`<#string>`_ 
+* `...`: _`<?>`_ 
+
+Modules should use this (instead of `assertf`), as it can be disabled via `hm.debug`
 
 ### Global function `inspect(t,inline,depth)`
 

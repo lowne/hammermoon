@@ -1,5 +1,7 @@
 # Module `hm.applications`
 
+> **API CHANGE**: Running applications and app bundles are distinct objects. Edge cases with multiple bundles with the same id are solved.
+
 Run, stop, query and manage applications.
 
 
@@ -13,10 +15,18 @@ Run, stop, query and manage applications.
   * [`runningBackgroundApplications`](hm.applications.md#property-read-only-hmapplicationsrunningbackgroundapplications-application-) : `{`[_`<#application>`_](hm.applications.md#class-application)`, ...}` - property (read-only)
   * [`activeApplication`](hm.applications.md#property-hmapplicationsactiveapplication-application) : [_`<#application>`_](hm.applications.md#class-application) - property
   * [`menuBarOwningApplication`](hm.applications.md#property-hmapplicationsmenubarowningapplication-application) : [_`<#application>`_](hm.applications.md#class-application) - property
+  * [`applicationForPID(pid)`](hm.applications.md#function-hmapplicationsapplicationforpidpid---application) -> [_`<#application>`_](hm.applications.md#class-application) - function
+  * [`bundlesForBundleID(bid)`](hm.applications.md#function-hmapplicationsbundlesforbundleidbid---bundle-) -> `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}` - function
+  * [`bundlesForFile(path,role)`](hm.applications.md#function-hmapplicationsbundlesforfilepathrole---bundle-) -> `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}` - function
+  * [`bundlesForURL(url)`](hm.applications.md#function-hmapplicationsbundlesforurlurl---bundle-) -> `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}` - function
+  * [`defaultBundleForBundleID(bid)`](hm.applications.md#function-hmapplicationsdefaultbundleforbundleidbid---bundle) -> [_`<#bundle>`_](hm.applications.md#class-bundle) - function
+  * [`defaultBundleForFile(path,role)`](hm.applications.md#function-hmapplicationsdefaultbundleforfilepathrole---bundle) -> [_`<#bundle>`_](hm.applications.md#class-bundle) - function
+  * [`defaultBundleForURL(url)`](hm.applications.md#function-hmapplicationsdefaultbundleforurlurl---bundle) -> [_`<#bundle>`_](hm.applications.md#class-bundle) - function
   * [`findBundle(hint,ignoreCase)`](hm.applications.md#function-hmapplicationsfindbundlehintignorecase) - function
   * [`getBundle(bid)`](hm.applications.md#function-hmapplicationsgetbundlebid) - function
   * [`launchOrFocus(name)`](hm.applications.md#function-hmapplicationslaunchorfocusname) - function
   * [`launchOrFocusByBundleID(bid)`](hm.applications.md#function-hmapplicationslaunchorfocusbybundleidbid) - function
+  * [`newWatcher(fn,data,events,name)`](hm.applications.md#function-hmapplicationsnewwatcherfndataeventsname---watcher) -> [_`<#watcher>`_](hm.applications.md#class-watcher) - function
 
 
 * Class [`application`](hm.applications.md#class-application)
@@ -52,13 +62,25 @@ Run, stop, query and manage applications.
   * [`launch()`](hm.applications.md#method-bundlelaunch---application) -> [_`<#application>`_](hm.applications.md#class-application) - method
 
 
+* Class [`watcher`](hm.applications.md#class-watcher)
+  * [`active`](hm.applications.md#property-watcheractive-boolean) : _`<#boolean>`_ - property
+  * [`start(events,fn,data)`](hm.applications.md#method-watcherstarteventsfndata---self) -> `self` - method
+  * [`stop()`](hm.applications.md#method-watcherstop---self) -> `self` - method
+
+
 * Type [`applicationKind`](hm.applications.md#type-applicationkind)
 
 
 * Type [`bundleRole`](hm.applications.md#type-bundlerole)
 
 
+* Type [`eventName`](hm.applications.md#type-eventname)
 
+
+
+
+* Function prototypes:
+  * [`watcherCallback(application,event,data)`](hm.applications.md#function-prototype-watchercallbackapplicationeventdata) - function prototype
 
 
 
@@ -102,6 +124,115 @@ The application owning the menu bar.
 Note that this is not necessarily the same as [`activeApplication`](hm.applications.md#property-hmapplicationsactiveapplication-application).
 
 
+### Function `hm.applications.applicationForPID(pid)` -> [_`<#application>`_](hm.applications.md#class-application)
+
+> **Internal/advanced use only**
+
+
+
+* `pid`: _`<?>`_ 
+
+
+
+* Returns [_`<#application>`_](hm.applications.md#class-application): 
+
+
+
+
+### Function `hm.applications.bundlesForBundleID(bid)` -> `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}`
+
+> **Internal/advanced use only**
+
+> INTERNAL CHANGE: returns all bundles for a given bundle id
+
+
+
+* `bid`: _`<?>`_ 
+
+
+
+* Returns `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}`: 
+
+
+
+
+### Function `hm.applications.bundlesForFile(path,role)` -> `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}`
+
+> **Internal/advanced use only**
+
+
+
+* `path`: _`<?>`_ 
+* `role`: _`<?>`_ 
+
+
+
+* Returns `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}`: 
+
+
+
+
+### Function `hm.applications.bundlesForURL(url)` -> `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}`
+
+> **Internal/advanced use only**
+
+
+
+* `url`: _`<?>`_ 
+
+
+
+* Returns `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}`: 
+
+
+
+
+### Function `hm.applications.defaultBundleForBundleID(bid)` -> [_`<#bundle>`_](hm.applications.md#class-bundle)
+
+> **Internal/advanced use only**
+
+
+
+* `bid`: _`<?>`_ 
+
+
+
+* Returns [_`<#bundle>`_](hm.applications.md#class-bundle): 
+
+
+
+
+### Function `hm.applications.defaultBundleForFile(path,role)` -> [_`<#bundle>`_](hm.applications.md#class-bundle)
+
+> **Internal/advanced use only**
+
+
+
+* `path`: _`<?>`_ 
+* `role`: _`<?>`_ 
+
+
+
+* Returns [_`<#bundle>`_](hm.applications.md#class-bundle): 
+
+
+
+
+### Function `hm.applications.defaultBundleForURL(url)` -> [_`<#bundle>`_](hm.applications.md#class-bundle)
+
+> **Internal/advanced use only**
+
+
+
+* `url`: _`<?>`_ 
+
+
+
+* Returns [_`<#bundle>`_](hm.applications.md#class-bundle): 
+
+
+
+
 ### Function `hm.applications.findBundle(hint,ignoreCase)`
 
 
@@ -139,6 +270,24 @@ Note that this is not necessarily the same as [`activeApplication`](hm.applicati
 
 
 
+### Function `hm.applications.newWatcher(fn,data,events,name)` -> [_`<#watcher>`_](hm.applications.md#class-watcher)
+
+> **Internal/advanced use only**
+
+Creates a new watcher for application events.
+
+* `fn`: [_`<#watcherCallback>`_](hm.applications.md#function-prototype-watchercallbackapplicationeventdata) (optional) callback function
+* `data`: _`<?>`_ (optional)
+* `events`: `{`[_`<#eventName>`_](hm.applications.md#type-eventname)`, ...}` (optional)
+* `name`: _`<#string>`_ 
+
+
+
+* Returns [_`<#watcher>`_](hm.applications.md#class-watcher): the new watcher
+
+
+
+
 
 
 ------------------
@@ -146,6 +295,9 @@ Note that this is not necessarily the same as [`activeApplication`](hm.applicati
 ## Class `application`
 
 > Extends [_`<hm#module.object>`_](hm.md#class-moduleobject)
+
+> Defines type checker `hm.applications#application
+application`
 
 Type for running application objects.
 
@@ -318,6 +470,9 @@ Unhides the application.
 
 > Extends [_`<hm#module.object>`_](hm.md#class-moduleobject)
 
+> Defines type checker `hm.applications#bundle
+appBundle`
+
 Type for application bundle objects.
 
 
@@ -367,6 +522,54 @@ Launches this bundle.
 
 ------------------
 
+## Class `watcher`
+
+> Extends [_`<hm#module.object>`_](hm.md#class-moduleobject)
+
+> **Internal/advanced use only**
+
+> Defines type checker `hm.applications#watcher`
+
+Type for application watcher objects.
+
+
+
+### Property `<#watcher>.active`: _`<#boolean>`_
+Whether this watcher is currently active.
+
+
+
+
+### Method `<#watcher>:start(events,fn,data)` -> `self`
+
+Starts the watcher.
+
+* `events`: `{`[_`<#eventName>`_](hm.applications.md#type-eventname)`, ...}` (optional)
+* `fn`: [_`<#watcherCallback>`_](hm.applications.md#function-prototype-watchercallbackapplicationeventdata) (optional)
+* `data`: _`<?>`_ (optional)
+
+
+
+* Returns `self`: [_`<#watcher>`_](hm.applications.md#class-watcher)
+
+
+
+
+### Method `<#watcher>:stop()` -> `self`
+
+Stops the watcher.
+
+
+
+* Returns `self`: [_`<#watcher>`_](hm.applications.md#class-watcher)
+
+
+
+
+
+
+------------------
+
 ### Type `applicationKind`
 
 > Extends _`<#string>`_
@@ -386,8 +589,43 @@ Valid values are:
 
 > Extends _`<#string>`_
 
+> Defines type checker `hm.applications#bundleRole`
+
 The required role for finding app bundles.
 
 Valid values are `"viewer"`, `"editor"`, `"all"` or `nil` (same as `"all"`)
+
+
+
+------------------
+
+### Type `eventName`
+
+> Extends _`<#string>`_
+
+> **Internal/advanced use only**
+
+> Defines type checker `hm.applications#eventName`
+
+Application event name.
+
+Valid values are `"launching"`,`"launched"`,`"activated"`,`"deactivated"`,`"hidden"`,`"unhidden"`,`"terminated"`.
+
+
+
+
+------------------
+
+### Function prototype `watcherCallback(application,event,data)`
+
+> **Internal/advanced use only**
+
+Callback for application watchers.
+
+* `application`: [_`<#application>`_](hm.applications.md#class-application) the application that caused the event
+* `event`: [_`<#eventName>`_](hm.applications.md#type-eventname) the event
+* `data`: _`<?>`_ 
+
+
 
 

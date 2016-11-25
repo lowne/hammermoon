@@ -1,5 +1,9 @@
 # Module `hm.timer`
 
+> **API CHANGE**: All timers are of the 'delayed' sort for maximum flexibility.
+
+> INTERNAL CHANGE: Don't bother with NSTimer intermediates, we abstract directly from CFRunLoopTimer
+
 Schedule asynchronous execution of functions in the future.
 
 
@@ -67,6 +71,8 @@ This function should only be used for measuring time intervals. The starting poi
 
 ### Function `hm.timer.localTime()` -> _`<#number>`_
 
+> INTERNAL CHANGE: high precision
+
 Returns the number of seconds since midnight local time.
 
 
@@ -77,6 +83,8 @@ Returns the number of seconds since midnight local time.
 
 
 ### Function `hm.timer.new(fn,data)` -> [_`<#timer>`_](hm.timer.md#class-timer)
+
+> **API CHANGE**: All `hs.timer` constructors are covered by the new `:run...()` methods
 
 Creates a new timer.
 
@@ -129,12 +137,16 @@ A timer holds an execution unit that can be scheduled for running later in time 
  After being scheduled a timer can be unscheduled (thus prevented from running) via its [`:cancel()`](hm.timer.md#method-timercancel) method.
 
 ### Property (read-only) `<#timer>.elapsed`: _`<#number>`_
+> **API CHANGE**: Was `<#hs.timer>:nextTrigger()` when negative, but only if the timer was not running.
+
 The timer's last execution time, in seconds since.
 
 If the timer has never been executed, this value is the time since creation.
 
 
 ### Property `<#timer>.nextRun`: _`<#number>`_
+> **API CHANGE**: `<#hs.timer>:nextTrigger()`, with some differences.
+
 The timer's scheduled next execution time, in seconds from now.
 
 If this value is `nil`, the timer is currently unscheduled.
@@ -143,12 +155,16 @@ setting it to `nil` unschedules the timer.
 
 
 ### Property `<#timer>.scheduled`: _`<#boolean>`_
+> **API CHANGE**: `<#hs.timer>:running()`, with some differences.
+
 `true` if the timer is scheduled for execution.
 
 Setting this to `false` or `nil` unschedules the timer.
 
 
 ### Method `<#timer>:cancel()`
+
+> **API CHANGE**: All timers can be rescheduled freely
 
 Unschedule a timer.
 
@@ -164,6 +180,8 @@ Executes the timer now.
 
 ### Method `<#timer>:runAfter(predicateFn,checkInterval,continueOnError,data)`
 
+> **API CHANGE**: Replaces `hs.timer.waitWhile()` and `hs.timer.waitUntil()`
+
 Schedules execution of the timer after a given predicate becomes false.
 
 * `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to contine waiting before executing the timer
@@ -176,6 +194,12 @@ execute (once).
 
 
 ### Method `<#timer>:runEvery(repeatInterval,delayOrStartTime,continueOnError,data)`
+
+> **API CHANGE**: This replaces all repeating timers, whether created via `hs.timer.new()`, `hs.timer.doEvery()`, or `hs.timer.doAt()`
+
+> INTERNAL CHANGE: High frequency timers (less than 1s repeat interval) are like `hs.timer`s, i.e. the repeat schedule is managed
+                internally by the `CFRunLoopTimer` for performance. Other timers behave like `hs.timer.delayed`s,
+                i.e. they are rescheduled "manually" after every trigger.
 
 Schedules repeated execution of the timer.
 
@@ -210,6 +234,11 @@ myTimer:cancel()
 
 ### Method `<#timer>:runIn(delay,data)`
 
+> **API CHANGE**: This replaces non-repeating timers (`hs.timer.new()` and `hs.timer.doAfter()`) as well as `hs.timer.delayed`s
+
+> INTERNAL CHANGE: These timers technically "repeat" into the distant future, so they can be reused at will, but are
+                transparently added to and removed from the run loop as needed
+
 Schedules execution of the timer after a given delay.
 
 * `delay`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
@@ -232,6 +261,8 @@ end
 
 ### Method `<#timer>:runWhen(predicateFn,checkInterval,continueOnError,data)`
 
+> **API CHANGE**: Not (directly) available in HS, but of dubious utility anyway.
+
 Schedules execution of the timer every time a given predicate is true.
 
 * `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to execute the timer
@@ -245,6 +276,8 @@ execute.
 
 
 ### Method `<#timer>:runWhile(predicateFn,checkInterval,continueOnError,data)`
+
+> **API CHANGE**: Replaces `hs.timer.doWhile()` and `hs.timer.doUntil()`
 
 Schedules repeated execution of the timer while a given predicate remains true.
 
@@ -309,6 +342,8 @@ Examples: `"8:00:00"` or `"800"` or `28800` (in seconds).
 
 ### Function prototype `predicateFunction(data)` -> _`<#boolean>`_
 
+> **API CHANGE**: Predicate functions can receive arbitrary data.
+
 A predicate function that controls conditional execution of a timer.
 
 * `data`: _`<?>`_ the arbitrary data for this timer, or if `"timer"` was passed to [`new()`](hm.timer.md#function-hmtimernewfndata---timer), the timer itself
@@ -322,6 +357,8 @@ A predicate function that controls conditional execution of a timer.
 
 
 ### Function prototype `timerFunction(timer,data)`
+
+> **API CHANGE**: Timer callbacks can receive arbitrary data.
 
 A function that will be executed by a timer.
 

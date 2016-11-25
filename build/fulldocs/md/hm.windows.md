@@ -11,6 +11,7 @@ Manage windows
   * [`allWindows`](hm.windows.md#property-read-only-hmwindowsallwindows-window-) : `{`[_`<#window>`_](hm.windows.md#class-window)`, ...}` - property (read-only)
   * [`visibleWindows`](hm.windows.md#property-read-only-hmwindowsvisiblewindows-window-) : `{`[_`<#window>`_](hm.windows.md#class-window)`, ...}` - property (read-only)
   * [`focusedWindow`](hm.windows.md#property-hmwindowsfocusedwindow-window) : [_`<#window>`_](hm.windows.md#class-window) - property
+  * [`_newWindow(ax,pid,wid)`](hm.windows.md#function-hmwindowsnewwindowaxpidwid---window) -> [_`<#window>`_](hm.windows.md#class-window) - function
 
 
 * Class [`window`](hm.windows.md#class-window)
@@ -21,6 +22,8 @@ Manage windows
   * [`hidden`](hm.windows.md#property-windowhidden-boolean) : _`<#boolean>`_ - property
   * [`minimized`](hm.windows.md#property-windowminimized-boolean) : _`<#boolean>`_ - property
   * [`visible`](hm.windows.md#property-windowvisible-boolean) : _`<#boolean>`_ - property
+  * [`newWatcher(fn,data)`](hm.windows.md#method-windownewwatcherfndata---hmosuielementswatcher) -> [_`<hm._os.uielements#watcher>`_](hm._os.uielements.md#class-watcher) - method
+  * [`startWatcher(events,fn,data)`](hm.windows.md#method-windowstartwatchereventsfndata---hmosuielementswatcher) -> [_`<hm._os.uielements#watcher>`_](hm._os.uielements.md#class-watcher) - method
 
 
 
@@ -51,6 +54,24 @@ This property only includes windows in the current Mission Control space.
 
 ### Property `hm.windows.focusedWindow`: [_`<#window>`_](hm.windows.md#class-window)
 The currently focused window.
+
+
+
+
+### Function `hm.windows._newWindow(ax,pid,wid)` -> [_`<#window>`_](hm.windows.md#class-window)
+
+> **Internal/advanced use only**
+
+
+
+* `ax`: _`<#cdata>`_ `AXUIElementRef`
+* `pid`: _`<#number>`_ 
+* `wid`: _`<#number>`_ (optional)
+
+
+
+* Returns [_`<#window>`_](hm.windows.md#class-window): 
+
 
 
 
@@ -108,5 +129,39 @@ Whether the window is currently visible.
 A window is not visible if it's minimized or its parent application is hidden.
 Setting this value to `true` will unminimize the window and unhide the parent application.
 Setting this value to `false` will hide the parent application, unless the window is already minimized.
+
+
+### Method `<#window>:newWatcher(fn,data)` -> [_`<hm._os.uielements#watcher>`_](hm._os.uielements.md#class-watcher)
+
+> **Internal/advanced use only**
+
+Creates a new watcher for this window.
+
+* `fn`: [_`<hm._os.uielements#watcherCallback>`_](hm._os.uielements.md#function-prototype-watchercallbackelementeventwatcherdata) callback function
+* `data`: _`<?>`_ (optional)
+
+
+
+* Returns [_`<hm._os.uielements#watcher>`_](hm._os.uielements.md#class-watcher): the new watcher
+
+
+
+
+### Method `<#window>:startWatcher(events,fn,data)` -> [_`<hm._os.uielements#watcher>`_](hm._os.uielements.md#class-watcher)
+
+> **Internal/advanced use only**
+
+Creates and starts a new watcher for this window.
+
+* `events`: `{`[_`<hm._os.uielements#eventName>`_](hm._os.uielements.md#type-eventname)`, ...}` 
+* `fn`: _`<#function>`_ callback function
+* `data`: _`<?>`_ (optional)
+
+
+
+* Returns [_`<hm._os.uielements#watcher>`_](hm._os.uielements.md#class-watcher): the new watcher
+
+This method is a shortcut for `window:newWatcher():start()`
+
 
 

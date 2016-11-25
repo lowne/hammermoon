@@ -56,6 +56,8 @@ all logger instances created without specifying a `loglevel` parameter
 
 
 ### Field `hm.logger.historySize`: _`<#number>`_
+> **API CHANGE**: function hm.logger.historySize([v]) -> field hm.logger.historySize
+
 The number of log entries to keep in the history.
 
 The starting value is 0 (history is disabled). To enable the log history, set this at the top of your userscript.
@@ -158,6 +160,8 @@ Logs debug info to the console
 
 ### Function `<#logger>.e(...)` -> _`nil`_,_`<#string>`_
 
+> **API CHANGE**: returns nil,error as per Lua informal standard; module functions can use the idiom `return log.e(...)` to fail
+
 Logs an error to the console
 
 * `...`: _`<?>`_ one or more message strings
@@ -171,6 +175,8 @@ Logs an error to the console
 
 ### Function `<#logger>.fd(fmt,...)`
 
+> **API CHANGE**: logger.df -> logger.fd
+
 Logs formatted debug info to the console
 
 * `fmt`: _`<#string>`_ formatting string as per `string.format`
@@ -180,6 +186,9 @@ Logs formatted debug info to the console
 
 
 ### Function `<#logger>.fe(fmt,...)` -> _`nil`_,_`<#string>`_
+
+> **API CHANGE**: logger.ef -> logger.fe
+returns nil,error as per Lua informal standard; module functions can use the idiom `return log.fe(fmt,...)` to fail
 
 Logs a formatted error to the console
 
@@ -195,6 +204,8 @@ Logs a formatted error to the console
 
 ### Function `<#logger>.fi(fmt,...)`
 
+> **API CHANGE**: logger.f -> logger.fi
+
 Logs formatted info to the console
 
 * `fmt`: _`<#string>`_ formatting string as per `string.format`
@@ -205,6 +216,8 @@ Logs formatted info to the console
 
 ### Function `<#logger>.fv(fmt,...)`
 
+> **API CHANGE**: logger.vf -> logger.fv
+
 Logs formatted verbose info to the console
 
 * `fmt`: _`<#string>`_ formatting string as per `string.format`
@@ -214,6 +227,8 @@ Logs formatted verbose info to the console
 
 
 ### Function `<#logger>.fw(fmt,...)`
+
+> **API CHANGE**: logger.wf -> logger.fw
 
 Logs a formatted warning to the console
 

@@ -11,7 +11,7 @@ Hammermoon main module
 
 ## Table `hm._core`
 
-> **Internal/advanced use only** (e.g. for extension developers)
+> **Internal/advanced use only**
 
 Hammermoon core facilities for use by extensions.
 
@@ -108,7 +108,7 @@ This function will add to the module or class a user-facing field that uses cust
 
 ## Table `hm.debug`
 
-> **Internal/advanced use only** (e.g. for extension developers)
+> **Internal/advanced use only**
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
@@ -154,7 +154,7 @@ If falsy, they will get gc'ed unless the userscript keeps a global reference.
 
 # Module `hm._os`
 
-> **Internal/advanced use only** (e.g. for extension developers)
+> **Internal/advanced use only**
 
 Low level access to macOS
 
@@ -164,7 +164,7 @@ Low level access to macOS
 
 ## Module `hm._os`
 
-> extends [_`<hm#module>`_](hm.md#class-module)
+> Extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
@@ -190,7 +190,7 @@ Low level access to macOS
 
 ### Method `<#notificationCenter>:register(event,cb,priority)`
 
-> **Internal/advanced use only** (e.g. for extension developers)
+> **Internal/advanced use only**
 
 > INTERNAL CHANGE: Centralized callback registry for notification centers, to be used by extensions.
 
@@ -199,6 +199,45 @@ Low level access to macOS
 * `event`: _`<#string>`_ 
 * `cb`: _`<#function>`_ 
 * `priority`: _`<#boolean>`_ 
+
+
+
+
+
+
+
+# Module `hm.applications`
+
+> **API CHANGE**: Running applications and app bundles are distinct objects. Edge cases with multiple bundles with the same id are solved.
+
+Run, stop, query and manage applications.
+
+
+
+------------------
+
+## Module `hm.applications`
+
+> Extends [_`<hm#module>`_](hm.md#class-module)
+
+
+
+
+
+
+### Function `hm.applications.bundlesForBundleID(bid)` -> `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}`
+
+> **Internal/advanced use only**
+
+> INTERNAL CHANGE: returns all bundles for a given bundle id
+
+
+
+* `bid`: _`<?>`_ 
+
+
+
+* Returns `{`[_`<#bundle>`_](hm.applications.md#class-bundle)`, ...}`: 
 
 
 
@@ -216,7 +255,7 @@ Manipulate screens (monitors).
 
 ## Module `hm.screen`
 
-> extends [_`<hm#module>`_](hm.md#class-module)
+> Extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
@@ -242,7 +281,7 @@ Returns all the screens currently connected and enabled.
 
 ### Type `screen`
 
-> extends [_`<hm#module.class>`_](hm.md#class-moduleclass)
+> Extends [_`<hm#module.class>`_](hm.md#class-moduleclass)
 
 
 
@@ -268,7 +307,7 @@ depth==8 isn't supported in HS!
 
 # Module `hm.timer`
 
-> **API CHANGE**: Fully overhauled module; all timers are of the 'delayed' sort for maximum flexibility.
+> **API CHANGE**: All timers are of the 'delayed' sort for maximum flexibility.
 
 > INTERNAL CHANGE: Don't bother with NSTimer intermediates, we abstract directly from CFRunLoopTimer
 
@@ -280,7 +319,7 @@ Schedule asynchronous execution of functions in the future.
 
 ## Module `hm.timer`
 
-> extends [_`<hm#module>`_](hm.md#class-module)
+> Extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
@@ -306,7 +345,7 @@ Returns the number of seconds since midnight local time.
 
 ## Class `timer`
 
-> extends [_`<hm#module.class>`_](hm.md#class-moduleclass)
+> Extends [_`<hm#module.object>`_](hm.md#class-moduleobject)
 
 Type for timer objects.
 
@@ -314,7 +353,7 @@ A timer holds an execution unit that can be scheduled for running later in time 
  After being scheduled a timer can be unscheduled (thus prevented from running) via its [`:cancel()`](hm.timer.md#method-timercancel) method.
 
 
-### Method `<#timer>:runEvery(repeatInterval,delayOrStartTime,continueOnError)`
+### Method `<#timer>:runEvery(repeatInterval,delayOrStartTime,continueOnError,data)`
 
 > **API CHANGE**: This replaces all repeating timers, whether created via `hs.timer.new()`, `hs.timer.doEvery()`, or `hs.timer.doAt()`
 
@@ -326,8 +365,9 @@ Schedules repeated execution of the timer.
 
 * `repeatInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
 * `delayOrStartTime`: _`<?>`_ (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring) or a number (in seconds),
-       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), at the earliest occurrence for given time
+       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), at the earliest occurrence for the given time
 * `continueOnError`: _`<#boolean>`_ (optional) if `true`, the timer will keep repeating (and executing) even if its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) causes an error
+* `data`: _`<?>`_ (optional) arbitrary data that will be passed to the [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata)
 
 If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), the timer will be scheduled to execute for the first time at the earliest occurrence
 given the `repeatInterval`, e.g.:
@@ -352,7 +392,7 @@ myTimer:runEvery(1,5)
 myTimer:cancel()
 ```
 
-### Method `<#timer>:runIn(delay)`
+### Method `<#timer>:runIn(delay,data)`
 
 > **API CHANGE**: This replaces non-repeating timers (`hs.timer.new()` and `hs.timer.doAfter()`) as well as `hs.timer.delayed`s
 
@@ -362,6 +402,7 @@ myTimer:cancel()
 Schedules execution of the timer after a given delay.
 
 * `delay`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
+* `data`: _`<?>`_ (optional) arbitrary data that will be passed to the [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata)
 
 Every time you call this method the "execution countdown" is restarted - i.e. any previous schedule (created
 with any of the `:run...()` methods) is overwritten. This can be useful

@@ -8,7 +8,7 @@ Hammermoon main module
 
 ## Table `hm._core`
 
-> **Internal/advanced use only** (e.g. for extension developers)
+> **Internal/advanced use only**
 
 Hammermoon core facilities for use by extensions.
 
@@ -97,7 +97,7 @@ This function will add to the module or class a user-facing field that uses cust
 
 ## Table `hm.debug`
 
-> **Internal/advanced use only** (e.g. for extension developers)
+> **Internal/advanced use only**
 
 > **API CHANGE**: Doesn't exist in Hammerspoon
 
@@ -130,6 +130,14 @@ User objects (timers, watchers, etc.) are retained internally by default, so
 userscripts needn't worry about their lifecycle.
 If falsy, they will get gc'ed unless the userscript keeps a global reference.
 
+
+
+
+# Module `hm.applications`
+
+> **API CHANGE**: Running applications and app bundles are distinct objects. Edge cases with multiple bundles with the same id are solved.
+
+Run, stop, query and manage applications.
 
 
 
@@ -259,7 +267,7 @@ Manipulate screens (monitors).
 
 ### Type `screen`
 
-> extends [_`<hm#module.class>`_](hm.md#class-moduleclass)
+> Extends [_`<hm#module.class>`_](hm.md#class-moduleclass)
 
 
 
@@ -310,7 +318,7 @@ The screen's mode indicates its current resolution and scaling factor.
 
 # Module `hm.timer`
 
-> **API CHANGE**: Fully overhauled module; all timers are of the 'delayed' sort for maximum flexibility.
+> **API CHANGE**: All timers are of the 'delayed' sort for maximum flexibility.
 
 Schedule asynchronous execution of functions in the future.
 
@@ -320,7 +328,7 @@ Schedule asynchronous execution of functions in the future.
 
 ## Module `hm.timer`
 
-> extends [_`<hm#module>`_](hm.md#class-module)
+> Extends [_`<hm#module>`_](hm.md#class-module)
 
 
 
@@ -333,14 +341,16 @@ Schedule asynchronous execution of functions in the future.
 
 Creates a new timer.
 
-* `fn`: [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) a function to be executed later
-* `data`: _`<?>`_ (optional) arbitrary data that will be passed to `fn`; if the special string `"elapsed"`, `fn` will be passed the time in seconds since the previous execution (or creation)
+* `fn`: [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) (optional) a function to be executed later
+* `data`: _`<?>`_ (optional) arbitrary data that will be passed to `fn`; as a convenience, you can use the special string `"timer"`
+       to have `fn` receive the timer object being created
 
 
 
 * Returns [_`<#timer>`_](hm.timer.md#class-timer): a new timer object
 
-
+If `fn` is not provided here, it must be set via [`timer:setFn()`](hm.timer.md#method-timersetfnfn---self) before calling any of the `:run...()` methods.
+`data` can be overridden (and dynamically changed) later when calling the `:run...()` methods.
 
 
 
@@ -349,123 +359,12 @@ Creates a new timer.
 
 ## Class `timer`
 
-> extends [_`<hm#module.class>`_](hm.md#class-moduleclass)
+> Extends [_`<hm#module.object>`_](hm.md#class-moduleobject)
 
 Type for timer objects.
 
 A timer holds an execution unit that can be scheduled for running later in time in various ways via its `:run...()` methods.
  After being scheduled a timer can be unscheduled (thus prevented from running) via its [`:cancel()`](hm.timer.md#method-timercancel) method.
-
-
-### Method `<#timer>:cancel()`
-
-> **API CHANGE**: Timers can be rescheduled freely without needing to create new ones (unlike with `hs.timer:stop()`)
-
-Unschedule a timer.
-
-The timer's [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) will not be executed again until you call one of its `:run...()` methods.
-
-
-### Method `<#timer>:runAfter(predicateFn,checkInterval,continueOnError)`
-
-> **API CHANGE**: Replaces `hs.timer.waitWhile()` and `hs.timer.waitUntil()`
-
-Schedules execution of the timer after a given predicate becomes false.
-
-* `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to contine waiting before executing the timer
-* `checkInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) interval between predicate checks
-* `continueOnError`: _`<#boolean>`_ (optional) if `true`, `predicateFn` will keep being checked even if it causes an error
-
-The given `predicateFn` will start being checked right away. As soon as it returns `false`, the timer will
-execute (once).
-
-
-### Method `<#timer>:runEvery(repeatInterval,delayOrStartTime,continueOnError)`
-
-> **API CHANGE**: This replaces all repeating timers, whether created via `hs.timer.new()`, `hs.timer.doEvery()`, or `hs.timer.doAt()`
-
-Schedules repeated execution of the timer.
-
-* `repeatInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
-* `delayOrStartTime`: _`<?>`_ (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring) or a number (in seconds),
-       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), at the earliest occurrence for given time
-* `continueOnError`: _`<#boolean>`_ (optional) if `true`, the timer will keep repeating (and executing) even if its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) causes an error
-
-If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), the timer will be scheduled to execute for the first time at the earliest occurrence
-given the `repeatInterval`, e.g.:
-
-  * If it's 17:00, `myTimer:runEvery("6h","0:00")` will set the timer 1 hour from now (at 18:00)
-  * If it's 19:00, `myTimer:runEvery("6h","0:00")` will set the timer 5 hour from now (at 0:00 tomorrow)
-  * If it's 21:00, `myTimer:runEvery("6h","20:00")` will set the timer 5 hours from now (at 2:00 tomorrow)
-
-**Usage**:
-
-```lua
--- run a job every day at 8, regardless of when Hammermoon was (re)started:
-hm.timer.new(doThisEveryMorning,myData):runEvery("1d","8:00")
-
--- run a job every hour on the hour from 8:00 to 20:00:
-for h=8,20 do hm.timer.new(runJob):runEvery("1d",h..":00") end
-
--- start doing something every second in 5 seconds:
-local myTimer=hm.timer.new(mustDoThisVeryOften)
-myTimer:runEvery(1,5)
--- and later (maybe in some event callback), stop:
-myTimer:cancel()
-```
-
-### Method `<#timer>:runIn(delay)`
-
-> **API CHANGE**: This replaces non-repeating timers (`hs.timer.new()` and `hs.timer.doAfter()`) as well as `hs.timer.delayed`s
-
-Schedules execution of the timer after a given delay.
-
-* `delay`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
-
-Every time you call this method the "execution countdown" is restarted - i.e. any previous schedule (created
-with any of the `:run...()` methods) is overwritten. This can be useful
-to coalesce processing of unpredictable asynchronous events into a single
-callback; for example, if you have an event stream that happens in "bursts" of dozens of events at once,
-use an appropriate `delay` to wait for things to settle down, and then your callback will run just once.
-
-**Usage**:
-
-```lua
-local coalesceTimer=hm.timer.new(doSomethingExpensiveOnlyOnce)
-local function burstyEventCallback(...)
-  coalesceTimer:runIn(2.5) -- wait 2.5 seconds after the last event in the burst
-end
-```
-
-### Method `<#timer>:runWhen(predicateFn,checkInterval,continueOnError)`
-
-> **API CHANGE**: Not (directly) available in HS, but of dubious utility anyway.
-
-Schedules execution of the timer every time a given predicate is true.
-
-* `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to execute the timer
-* `checkInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) interval between predicate checks (and potential timer executions)
-* `continueOnError`: _`<#boolean>`_ (optional) if `true`, `predicateFn` will keep being checked even if it - or the
-       timer's [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) - causes an error
-
-The given `predicateFn` will start being checked right away. Every time it returns `true`, the timer will
-execute.
-
-
-### Method `<#timer>:runWhile(predicateFn,checkInterval,continueOnError)`
-
-> **API CHANGE**: Replaces `hs.timer.doWhile()` and `hs.timer.doUntil()`
-
-Schedules repeated execution of the timer while a given predicate remains true.
-
-* `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to contine executing the timer
-* `checkInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) interval between predicate checks (and timer executions)
-* `continueOnError`: _`<#boolean>`_ (optional) if `true`, the timer will keep repeating (and executing) even if
-       its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) or `predicateFn` cause an error
-
-The given `predicateFn` will start being checked right away. While it returns `true`, the timer will
-execute; as soon as it returns `false` the timer will be canceled.
-
 
 ### Property (read-only) `<#timer>.elapsed`: _`<#number>`_
 > **API CHANGE**: Was `<#hs.timer>:nextTrigger()` when negative, but only if the timer was not running.
@@ -493,17 +392,133 @@ setting it to `nil` unschedules the timer.
 Setting this to `false` or `nil` unschedules the timer.
 
 
+### Method `<#timer>:cancel()`
+
+> **API CHANGE**: All timers can be rescheduled freely
+
+Unschedule a timer.
+
+The timer's [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) will not be executed again until you call one of its `:run...()` methods.
+
+
+### Method `<#timer>:runAfter(predicateFn,checkInterval,continueOnError,data)`
+
+> **API CHANGE**: Replaces `hs.timer.waitWhile()` and `hs.timer.waitUntil()`
+
+Schedules execution of the timer after a given predicate becomes false.
+
+* `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to contine waiting before executing the timer
+* `checkInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) interval between predicate checks
+* `continueOnError`: _`<#boolean>`_ (optional) if `true`, `predicateFn` will keep being checked even if it causes an error
+* `data`: _`<?>`_ (optional) arbitrary data that will be passed to the [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) and [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata)
+
+The given `predicateFn` will start being checked right away. As soon as it returns `false`, the timer will
+execute (once).
+
+
+### Method `<#timer>:runEvery(repeatInterval,delayOrStartTime,continueOnError,data)`
+
+> **API CHANGE**: This replaces all repeating timers, whether created via `hs.timer.new()`, `hs.timer.doEvery()`, or `hs.timer.doAt()`
+
+Schedules repeated execution of the timer.
+
+* `repeatInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
+* `delayOrStartTime`: _`<?>`_ (optional) the timer will start executing: if omitted or `nil`, right away; if an [_`<#intervalString>`_](hm.timer.md#type-intervalstring) or a number (in seconds),
+       after the given delay; if a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), at the earliest occurrence for the given time
+* `continueOnError`: _`<#boolean>`_ (optional) if `true`, the timer will keep repeating (and executing) even if its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) causes an error
+* `data`: _`<?>`_ (optional) arbitrary data that will be passed to the [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata)
+
+If `delayOrStartTime` is a [_`<#timeOfDayString>`_](hm.timer.md#type-timeofdaystring), the timer will be scheduled to execute for the first time at the earliest occurrence
+given the `repeatInterval`, e.g.:
+
+  * If it's 17:00, `myTimer:runEvery("6h","0:00")` will set the timer 1 hour from now (at 18:00)
+  * If it's 19:00, `myTimer:runEvery("6h","0:00")` will set the timer 5 hour from now (at 0:00 tomorrow)
+  * If it's 21:00, `myTimer:runEvery("6h","20:00")` will set the timer 5 hours from now (at 2:00 tomorrow)
+
+**Usage**:
+
+```lua
+-- run a job every day at 8, regardless of when Hammermoon was (re)started:
+hm.timer.new(doThisEveryMorning,myData):runEvery("1d","8:00")
+
+-- run a job every hour on the hour from 8:00 to 20:00:
+for h=8,20 do hm.timer.new(runJob):runEvery("1d",h..":00") end
+
+-- start doing something every second in 5 seconds:
+local myTimer=hm.timer.new(mustDoThisVeryOften)
+myTimer:runEvery(1,5)
+-- and later (maybe in some event callback), stop:
+myTimer:cancel()
+```
+
+### Method `<#timer>:runIn(delay,data)`
+
+> **API CHANGE**: This replaces non-repeating timers (`hs.timer.new()` and `hs.timer.doAfter()`) as well as `hs.timer.delayed`s
+
+Schedules execution of the timer after a given delay.
+
+* `delay`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) 
+* `data`: _`<?>`_ (optional) arbitrary data that will be passed to the [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata)
+
+Every time you call this method the "execution countdown" is restarted - i.e. any previous schedule (created
+with any of the `:run...()` methods) is overwritten. This can be useful
+to coalesce processing of unpredictable asynchronous events into a single
+callback; for example, if you have an event stream that happens in "bursts" of dozens of events at once,
+use an appropriate `delay` to wait for things to settle down, and then your callback will run just once.
+
+**Usage**:
+
+```lua
+local coalesceTimer=hm.timer.new(doSomethingExpensiveOnlyOnce)
+local function burstyEventCallback(...)
+  coalesceTimer:runIn(2.5) -- wait 2.5 seconds after the last event in the burst
+end
+```
+
+### Method `<#timer>:runWhen(predicateFn,checkInterval,continueOnError,data)`
+
+> **API CHANGE**: Not (directly) available in HS, but of dubious utility anyway.
+
+Schedules execution of the timer every time a given predicate is true.
+
+* `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to execute the timer
+* `checkInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) interval between predicate checks (and potential timer executions)
+* `continueOnError`: _`<#boolean>`_ (optional) if `true`, `predicateFn` will keep being checked even if it - or the
+       timer's [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) - causes an error
+* `data`: _`<?>`_ (optional) arbitrary data that will be passed to the [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) and [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata)
+
+The given `predicateFn` will start being checked right away. Every time it returns `true`, the timer will
+execute.
+
+
+### Method `<#timer>:runWhile(predicateFn,checkInterval,continueOnError,data)`
+
+> **API CHANGE**: Replaces `hs.timer.doWhile()` and `hs.timer.doUntil()`
+
+Schedules repeated execution of the timer while a given predicate remains true.
+
+* `predicateFn`: [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) A predicate function that determines whether to contine executing the timer
+* `checkInterval`: [_`<#intervalString>`_](hm.timer.md#type-intervalstring) interval between predicate checks (and timer executions)
+* `continueOnError`: _`<#boolean>`_ (optional) if `true`, the timer will keep repeating (and executing) even if
+       its [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata) or `predicateFn` cause an error
+* `data`: _`<?>`_ (optional) arbitrary data that will be passed to the [_`<#predicateFunction>`_](hm.timer.md#function-prototype-predicatefunctiondata---boolean) and [_`<#timerFunction>`_](hm.timer.md#function-prototype-timerfunctiontimerdata)
+
+The given `predicateFn` will start being checked right away. While it returns `true`, the timer will
+execute; as soon as it returns `false` the timer will be canceled.
+
+
+
 
 
 ------------------
 
 ### Function prototype `predicateFunction(data)` -> _`<#boolean>`_
 
-> **API CHANGE**: Predicate functions can receive arbitrary data (or the elapsed time) as argument.
+> **API CHANGE**: Predicate functions can receive arbitrary data.
 
 A predicate function that controls conditional execution of a timer.
 
-* `data`: _`<?>`_ `data` passed to `timer.new()` or, if `data` was `"elapsed"`, elapsed time in seconds since last execution
+* `data`: _`<?>`_ the arbitrary data for this timer, or if `"timer"` was passed to [`new()`](hm.timer.md#function-hmtimernewfndata---timer), the timer itself
 
 
 
@@ -515,12 +530,12 @@ A predicate function that controls conditional execution of a timer.
 
 ### Function prototype `timerFunction(timer,data)`
 
-> **API CHANGE**: Timer callbacks can receive the timer itself and arbitrary data (or the elapsed time) as arguments.
+> **API CHANGE**: Timer callbacks can receive arbitrary data.
 
 A function that will be executed by a timer.
 
 * `timer`: [_`<#timer>`_](hm.timer.md#class-timer) the timer that scheduled execution of this function
-* `data`: _`<?>`_ `data` passed to `timer.new()` or, if `data` was `"elapsed"`, elapsed time in seconds since last execution
+* `data`: _`<?>`_ the arbitrary data for this timer, or if `"timer"` was passed to [`new()`](hm.timer.md#function-hmtimernewfndata---timer), the timer itself
 
 
 
