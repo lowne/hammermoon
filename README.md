@@ -1,7 +1,9 @@
 # Hammermoon
+
 A [`luajit`](https://github.com/luapower/luajit)+[`objc.lua`](https://github.com/lowne/objc/)-powered reimplementation of [Hammerspoon](https://hammerspoon.org) in pure Lua.
 
 ### WIP status
+
 Not even.
 
 - [ ] Cocoa app just a dumb window for now
@@ -16,27 +18,31 @@ Not even.
 
 
 ### Docs
+
 - [User documentation](build/docs/md/README.md) (no advanced stuff)
 - [Full documentation](build/fulldocs/md/README.md)
 - [API changes](build/docs/md/API_CHANGES.md) from Hammerspoon
 - [Internal changes](build/docs/md/INTERNAL_CHANGES.md) from Hammerspoon
 
 ### Setup
+
 ```bash
 git clone https://github.com/lowne/hammermoon.git hammermoon
 cd hammermoon
-./mgit clone-all
+./hammermoon_tests.lua run
 ```
 
 ### Run
+
 For now Hammermoon does `require'user'`, so create a `user.lua` file with your userscript. Then:
+
 ```
-./luajit hammermoon
+./hammermoon.lua
 ```
 
 ### Why?
 
-1. Performance 
+1. Performance (luajit)
   - Hammerspoon can struggle with "heavy" userscripts (I can attest to that from personal experience)
   - Initial, *very* informal benchmarks show that even in a contrived worst-case scenario relying heavily on (slow) ffi callbacks (where ObjC has the full home advantage) Hammermoon seems to be at least twice as fast. Yay luajit!
 2. Practicality
@@ -47,7 +53,7 @@ For now Hammermoon does `require'user'`, so create a `user.lua` file with your u
   - Live coding beats debugging: type, save, see the results
       - For example with the testrunner the results even appear inline
 3. A clean slate
-  - A full rewrite is a chance to design easier/cleaner/better APIs
+  - A full rewrite with a new architecture is a chance to design easier/cleaner/better APIs
 4. Beauty
   - FACT: Objective C is ugly, Lua is elegant :)
   - Bliss is never having to type `make`
@@ -80,10 +86,6 @@ For now Hammermoon does `require'user'`, so create a `user.lua` file with your u
 [...]
 
 > I *abhor* leaky abstractions. [...]
-
-> I want many small puddles - in a hellish landscape full of sharp rocks and monstrous creatures - of thick, disgusting, toxic slime, so that I can't look into the multibranched abyss beneath even if I wanted to. [...] As I'm busy running from the monsters I want to jump from puddle to puddle, dip in briefly as small a piece of my toe as possible (the slime is disgusting!), and get the job done quickly without even knowing where all the magic came from. [...]
-
-> This nightmarish landscape is *all software ever made*, built with the sole purpose of making me suffer as much as possible.
 
 > To me, HS itself is clearly an *abstraction* over OSX, and I'd rather have it not leak all over the place. [...]
 
