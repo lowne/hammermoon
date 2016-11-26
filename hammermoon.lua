@@ -1,3 +1,7 @@
+#!/usr/bin/env ./luajit
+package.cpath="./?.so;./lib/?.so"
+package.path="./?.lua;./?/init.lua;./lib/?.lua;./lib/?/init.lua"
+
 local c=require'objc'
 --c.debug.logtopics.addmethod=true
 --c.debug.logtopics.refcount=true

@@ -3,23 +3,7 @@
 /.buildpath
 /.project
 /.settings/
-
-# artifacts from mgit repos
-/.bundle-tmp
-/.metadata
-/bin/
-/csrc/
-/jit/
-/bundle*
-/luajit*
-/objc*
-/strict.lua
-
-/.mgit/bundle*
-/.mgit/luajit/
-/.mgit/luajit.exclude
-/.mgit/objc/
-/.mgit/objc.exclude
+/.metadata/
 
 # docs
 /build/docmodels
@@ -31,3 +15,4 @@
 /build/testdocs.lua
 /run
 /test
+/temp/

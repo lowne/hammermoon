@@ -1,7 +1,15 @@
-local function runtests()
-  --  package.cpath=package.cpath..';./lib/?.so'
-  --  local open,lines=io.open,io.lines
-  local lfs=require'lfs'
+#!/usr/bin/env ./luajit
+package.cpath="./?.so;./lib/?.so"
+package.path="./?.lua;./?/init.lua;./lib/?.lua;./lib/?/init.lua"
+
+local cwd=debug.getinfo(1).source:match("@?(.*)/") or '.'
+package.cpath=package.cpath..';'..cwd..'/lib/?.so'
+
+local lfs=require'lfs'
+lfs.chdir(cwd)
+
+require'hm'
+require'hammermoon_app'(function()
   local inspect=require'lib.inspect'
   local getmetatable,setmetatable,tonumber,tostring,pairs,select,pcall,xpcall,rawset,loadstring,type,setfenv
     = getmetatable,setmetatable,tonumber,tostring,pairs,select,pcall,xpcall,rawset,loadstring,type,setfenv
@@ -225,20 +233,5 @@ local function runtests()
     coroutine.yield(true)
   end
   runnerCoro()
+end)
 
-  --      local ok,t,p,f=coroutine.resume(runner,path)
-  --      if not ok then error(t) end
-  -- --      local t,p,f=runfile(path)
-  --      total=total+t passed=passed+p failed=failed+f
-  --    end
-  --  end
-  --  log.w(files,' files processed')
-  --  log.w(total,'total tests,',passed,'passed,',failed,'failed')
-  --  os.exit(1,1)
-end
-local cwd=debug.getinfo(1).source:match("@?(.*)/") or '.'
-package.cpath=package.cpath..';'..cwd..'/lib/?.so'
-require'lfs'.chdir(cwd)
-
-require'hm'
-require'hammermoon_app'(runtests)
