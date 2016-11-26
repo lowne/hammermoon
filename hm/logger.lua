@@ -192,7 +192,7 @@ function logger.new(id,loglevel)
     v = function(...) return l(loglevel,VERBOSE,id,...) end,
 
     fe = function(fmt,...) return lf(loglevel,ERROR,id,fmt,...) end,
-    fe = function(fmt,...) return lf(loglevel,WARNING,id,fmt,...) end,
+    fw = function(fmt,...) return lf(loglevel,WARNING,id,fmt,...) end,
     fi= function(fmt,...) return lf(loglevel,INFO,id,fmt,...) end,
     fd = function(fmt,...) return lf(loglevel,DEBUG,id,fmt,...) end,
     fv = function(fmt,...) return lf(loglevel,VERBOSE,id,fmt,...) end,

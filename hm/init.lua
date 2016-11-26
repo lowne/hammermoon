@@ -51,7 +51,7 @@ function hm.quit()os.exit(1,1)end
 function hm.type(obj)
   local t=type(obj)
   if t=='table' then
-    local mt=getmetatable(t)
+    local mt=getmetatable(obj)
     return mt.__type or 'table'
   else return t end
 end
@@ -216,18 +216,22 @@ function hm._lua_setup()
   -- @param #function getter getter function
   -- @param #function setter setter function; if `false` the property is read-only; if `nil` the property is
   --        immutable and will be cached after the first query.
+  -- @param #string type field type (for writable fields)
+  -- @param #boolean sanitize if `true`, use `sanitizeargs` instead of `checkargs`
   -- @apichange Doesn't exist in Hammerspoon; this also allows fields in modules and objects to be trivially type-checked.
   -- @internalchange Modules don't need to handle properties internally.
 
   local function getTableName(t) return getmetatable(t).__name end
-  local function property(t,fieldname,getter,setter,type)
-    checkargs('hm#module|hm#module.class|hs_compat#module','string','function','function|false|nil','?string')
+  local function property(t,fieldname,getter,setter,type,sanitize)
+    checkargs('hm#module|hm#module.class|hs_compat#module','string','function','function|false|nil','?string','?boolean')
     assert(rawget(t,fieldname)==nil,'property is shadowed by existing field')
     properties[t]=properties[t] or {}
     local realsetter=setter
     if setter and type then
-      if hm.type(t)=='hm#module.class' then realsetter=function(o,v) checkargs(t,type) setter(o,v) return o end
-      else realsetter=function(v,b) checkargs(type)return setter(v) end end
+      if hm.type(t)=='hm#module.class' then
+        local clsname=tostring(t)
+        realsetter=function(o,v) (sanitize and sanitizeargs or checkargs)(clsname,type) setter(o,v) return o end
+      else realsetter=function(v,b) (sanitize and sanitizeargs or checkargs)(type)return setter(v) end end
     end
     properties[t][fieldname]={get=getter,set=realsetter,values=setter==nil and cacheKeys() or nil,original=getTableName(t)..'.'..fieldname}
     local capitalized=fieldname:sub(1,1):upper()..fieldname:sub(2)
@@ -290,7 +294,7 @@ function hm._lua_setup()
 
   checkers['hm#module']='hm#module'
   checkers['hm#module.class']='hm#module.class'
-  hm.logger.defaultLogLevel=3
+  hm.logger.defaultLogLevel=5
   log=hm.logger.new'core'
   log.d'Autoload extensions ready'
   core.log=log
@@ -319,7 +323,7 @@ function hm._lua_setup()
   -- fields in this module are accessed
   -- @return #module the "naked" table for the new module, ready to be filled with functions
   -- @usage local mymodule=hm._core.module('mymodule',{myclass={}})
-  -- @usage local myclass=mymodule._class_myclass
+  -- @usage local myclass=mymodule._classes.myclass
   -- @usage function mymodule.myfunction(param) ... end
   -- @usage function mymodule.construct(args) ... return myclass._new(...) end
   -- @usage function myclass:mymethod() ... end
