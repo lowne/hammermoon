@@ -330,7 +330,7 @@ property(app,'mainWindow',
   function(self)return newWindow(self._ax:getRawProp(c.NSAccessibilityMainWindowAttribute),self._pid) end,
   function(self,win)
     if win.application~=self then return log.e(win,'belongs to another application, cannot set as main window for',self) end
-    self._ax:setRawProp(c.NSAccessibilityMainWindowAttribute,win)
+    self._ax:setRawProp(c.NSAccessibilityMainWindowAttribute,win._ax)
   end,'hm.windows#window')
 
 ---The application's focused window.
@@ -340,7 +340,7 @@ property(app,'focusedWindow',
   function(self)return newWindow(self._ax:getRawProp(c.NSAccessibilityFocusedWindowAttribute),self._pid)end,
   function(self,win)
     if win.application~=self then return log.e(win,'belongs to another application, cannot set as focused window for',self) end
-    self._ax:setRawProp(c.NSAccessibilityMainWindowAttribute,win)
+    self._ax:setRawProp(c.NSAccessibilityFocusedWindowAttribute,win._ax)
   end,'hm.windows#window')
 
 ---@type windowList
