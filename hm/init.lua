@@ -294,7 +294,7 @@ function hm._lua_setup()
 
   checkers['hm#module']='hm#module'
   checkers['hm#module.class']='hm#module.class'
-  hm.logger.defaultLogLevel=5
+  hm.logger.defaultLogLevel=2
   log=hm.logger.new'core'
   log.d'Autoload extensions ready'
   core.log=log

@@ -8,13 +8,20 @@ package.cpath=package.cpath..';'..cwd..'/lib/?.so'
 local lfs=require'lfs'
 lfs.chdir(cwd)
 
+local TESTSDIR='tests'
+local TIMESTAMPS='tests/.timestamps'
+
 require'hm'
 require'hammermoon_app'(function()
+  hm._core.log.level=4
+  hm.logger.setGlobalLogLevel(4)
+  hm.logger.defaultLogLevel=4
+
   local inspect=require'lib.inspect'
   local getmetatable,setmetatable,tonumber,tostring,pairs,select,pcall,xpcall,rawset,loadstring,type,setfenv
     = getmetatable,setmetatable,tonumber,tostring,pairs,select,pcall,xpcall,rawset,loadstring,type,setfenv
   local unpack,tconcat,tremove,tinsert=unpack,table.concat,table.remove,table.insert
-  local sformat,srep=string.format,string.rep
+  local sformat,srep,ipairs=string.format,string.rep,ipairs
 
   local capn,capv={},{}
   --  local testGlobals=setmetatable({},{__index=_G})
@@ -25,7 +32,7 @@ require'hammermoon_app'(function()
     --    baseSandbox['pl'..i]=function(a)return inspect(a,true,i)end
     --    baseSandbox['p'..i]=function(a)return inspect(a,false,i)end
   end
-  local log=hm.logger.new'tests'
+  local log=hm.logger.new('tests',5)
   local require=hm._core.rawrequire
   baseSandbox.pl=baseSandbox.pl3 baseSandbox.p=baseSandbox.p3
   getmetatable(baseSandbox).__newindex=function()error'!'end
@@ -34,7 +41,6 @@ require'hammermoon_app'(function()
   local trace=debug.traceback
   local sleep
   local function runfile(lines)
-    local hasError
     local path=lines.path
     log.i('running',path)
     local s,output='',{}
@@ -59,12 +65,10 @@ require'hammermoon_app'(function()
         s=s:sub(i+1)
         first=nil
       until #s==0
-      --      local fmt=srep('%s ',nArgs)
-      --      output[#output+1]='--> '.. sformat(fmt,unpack(args))
-      --      chunkLen=chunkLen+1
     end
+    local total,passed,failed=0,0,0
     local inlineError=function(msg)
-      hasError=true
+      failed=failed+1
       msg=trace(msg)
       log.e(path,msg)
       for l in msg:gmatch('(.-)\n') do
@@ -74,16 +78,16 @@ require'hammermoon_app'(function()
           inlinePrint(pre and (pre..path:sub(2)..':'..(tonumber(st)+tonumber(offs))..post) or l)
         end
       end
+      output[#output+1]='--:'..'FAILED:'
     end
-    local total,passed,failed=0,0,0
     local inlineTest=function(pred)
       total=total+1
-      local out=output[#output]:gsub('%s+%-%-.-$','')
+      local out=output[#output]:gsub('%s+%-%-:.-$','')
       if type(pred)=='function' then pred=pred() end
-      if not pred then log.e(path,' - test failed:',out) hasError=true end
+      if not pred then log.e(path,' - test failed:',out) end
       passed=passed+(pred and 1 or 0)
       failed=failed+(pred and 0 or 1)
-      output[#output]=out..(pred and ' -- ok' or ' -- FAILED')
+      output[#output]=out..(pred and ' --:ok:' or ' --:FAILED:')
       if output[#output-1]=='' then
         tremove(output,#output-1)
         chunkLen=chunkLen-1
@@ -127,52 +131,50 @@ require'hammermoon_app'(function()
       --      chunkLines=chunkLines+1
       --        line=line:gsub('%-%-%>.*','') -- remove generated output
       local lineprefix=line:sub(1,3)
-      if lineprefix~='-->' and lineprefix~='--~' then
+      if lineprefix~='-->' and lineprefix~='--~' and lineprefix~='--:' then
         --        line=line:gsub('%-%-%>.-\n','\n') --remove test results
         s=s..line..'\n'
         chunkLen=chunkLen+1
         -- remove all comments and newlines
         local evals=s:gsub('%-%-%[%[.-%-%-%]%]',''):gsub('%-%-.-\n','\n'):gsub('%s+',' ')
         local chunk,err
-        if #evals:gsub('%s','')>0 then chunk,err=loadstring(s,'__'..chunkStart) end
-        if chunk then --valid, proceed with eval
-          -- if a test, assume failed
-          --          local pres=evals:gsub('%s',''):sub(1,5)
-          --          if pres=='test(' or pres=='terr(' then s=s:gsub('%s+%-%-.+$','')..' -- FAILED\n' end
-          lastError=nil
-          --            output[#output+1]='' output[#output+1]=s:sub(1,-2)
+        if #evals:gsub('%s','')==0 then
           output[#output+1]=s:sub(1,-2)
-          --            chunkLen=chunkLen+1
-          local retChunk,err=loadstring('return ('..evals..')')
-          if retChunk then -- it's an expression, print the result
-            log.v('  eval exp:',evals)
-            local ok,res=xpcall(setfenv(retChunk,fileSandbox),inlineError)
-            if ok and res~=nil then
-              --              if type(res)~='string' then res=baseSandbox.pl1(res) end
-              inlinePrint(tostring(res))
-            end
-          else
-            log.v('  eval:   ',evals)
-            local ok,res=xpcall(setfenv(chunk,fileSandbox),inlineError)
-            if ok then
-              for i=1, #capn do
-                --                local s=tostring(capv[i])
-                --                if type(s)~='string' then s=nullSandbox.pl1(capv[i]) end
-                --                inlinePrint(capn[i]..' = '..nullSandbox.pl1(capv[i]))
-                inlinePrint(capn[i]..' = '..tostring(capv[i]))
+          s='' chunkStart=chunkStart+chunkLen chunkLen=0
+        else
+          chunk,err=loadstring(s,'__'..chunkStart)
+          if not chunk then lastError=err else --valid, proceed with eval
+            lastError=nil
+            output[#output+1]=s:sub(1,-2)
+            --            chunkLen=chunkLen+1
+            local retChunk,err=loadstring('return ('..evals..')')
+            if retChunk then -- it's an expression, print the result
+              log.v('  eval exp:',evals)
+              local ok,res=xpcall(setfenv(retChunk,fileSandbox),inlineError)
+              if ok and res~=nil then
+                --              if type(res)~='string' then res=baseSandbox.pl1(res) end
+                inlinePrint(tostring(res))
               end
-              --            if ok and capn then print(capn..': '..tostring(capv))
-            else --TODO sethook, getlocal
-              --              inlinePrint'?'
-              inlinePrint(res)
+            else
+              log.v('  eval:   ',evals)
+              local ok,res=xpcall(setfenv(chunk,fileSandbox),inlineError)
+              if ok then
+                for i=1, #capn do
+                  --                local s=tostring(capv[i])
+                  --                if type(s)~='string' then s=nullSandbox.pl1(capv[i]) end
+                  --                inlinePrint(capn[i]..' = '..nullSandbox.pl1(capv[i]))
+                  inlinePrint(capn[i]..' = '..tostring(capv[i]))
+                end
+                --            if ok and capn then print(capn..': '..tostring(capv))
+              else --TODO sethook, getlocal
+                --              inlinePrint'?'
+                inlinePrint(res)
+              end
             end
+            capn,capv={},{}
+            s='' chunkStart=chunkStart+chunkLen chunkLen=0
           end
-          capn,capv={},{}
-          --          local ok,res=xpcall(chunk,inlineError)
-          --          xpcall(setfenv(chunk,fileSandbox),inlineError)
-          s=''
-          chunkStart=chunkStart+chunkLen chunkLen=0
-        else lastError=err end
+        end
       end
     end
     if lastError then
@@ -180,49 +182,55 @@ require'hammermoon_app'(function()
       output[#output+1]='' output[#output+1]=s:sub(1,-2)
       inlinePrint(lastError)
     end
-    output[#output+1]=''
     inlinePrint(total,'total tests,',passed,'passed,',failed,'failed')
     log.i(total,'total tests,',passed,'passed,',failed,'failed')
     for m in pairs(sandboxPackages) do package.loaded[m]=nil log.d('unloaded package',m) end
-    local now=hasError and 0 or os.time()
-    for reqpath in pairs(lines.req) do
-      tinsert(output,1,sformat('--@file %s %d',reqpath,now))
-    end
     local f=io.open(path,'w')
     f:write(tconcat(output,'\n')..'\n') f:flush() f:close()
     return total,passed,failed
   end
+
   local total,passed,failed=0,0,0
-
-
-  --  runner=coroutine.create(runfile)
+  local timestamps={}
+  if not lfs.attributes(TIMESTAMPS) then
+    local f=io.open(TIMESTAMPS,'w') f:write'' f:close()
+  end
+  for line in io.lines(TIMESTAMPS) do
+    local testfile,testtime=line:match('^([%l._/]+)%s*(%d+)%s*$')
+    --    assert(testfile,testtime)
+    timestamps[testfile]=tonumber(testtime)
+  end
   local files={}
-  for file in lfs.dir'tests' do
-    local path='tests/'..file
-    if lfs.attributes(path,'mode')=='file' then
-      local lines={req={}}
+  for file in lfs.dir(TESTSDIR) do
+    local path=TESTSDIR..'/'..file
+    if lfs.attributes(path,'mode')=='file' and path:sub(-9)=='.test.lua' then
+      local lines={}
+      local mtime=lfs.attributes(path,'modification')
+      timestamps[path]=timestamps[path] or 0
+      if timestamps[path]<mtime then lines.path=path end
       --      files[#files+1]=path
       for line in io.lines(path) do
-        local reqpath,reqtime=line:match('%-%-@file ([%l._/]+)%s*(%d*)%s*$')
+        local reqpath=line:match('^%-%-@file ([%l._/]+)')
         if reqpath then
-          lines.req[reqpath]=true
-          reqtime=reqtime and tonumber(reqtime) or 0
           local mtime=lfs.attributes(reqpath,'modification')
-          --          lines[#lines+1]=sformat('--@file %s %d',reqpath,mtime)
-          if mtime>reqtime then lines.path=path end
-        else lines[#lines+1]=line end
+          if mtime>timestamps[path] then lines.path=path end
+        end
+        lines[#lines+1]=line
       end
-      if lines.path then lines.req[path]=true files[#files+1]=lines end
+      if lines.path then files[#files+1]=lines end
     end
   end
   local nfiles=#files
-  --  coroutine.wr
   local runnerCoro=coroutine.wrap(function()
     while files[1] do
       local t,p,f=runfile(files[1])
+      timestamps[files[1].path]=f>0 and 0 or os.time()
       total=total+t passed=passed+p failed=failed+f
       tremove(files,1)
     end
+    local f=io.open(TIMESTAMPS,'w')
+    for testfile,timestamp in pairs(timestamps) do f:write(sformat('%s %d\n',testfile,timestamp)) end
+    f:flush() f:close()
     log.w(nfiles,' files processed')
     log.w(total,'total tests,',passed,'passed,',failed,'failed')
     os.exit(1,1)

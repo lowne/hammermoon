@@ -8,6 +8,9 @@
 # docs
 /build/docmodels
 
+#tests
+/tests/.timestamps
+
 # dev
 /user.lua
 /scratchpad.lua
@@ -16,3 +19,4 @@
 /run
 /test
 /temp/
+
