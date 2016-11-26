@@ -6,10 +6,7 @@ local c=require'objc'
 c.load'CoreFoundation'
 
 local tolua,toobj,nptr=c.tolua,c.toobj,c.nptr
--- private API yeah!
-c.addfunction('_AXUIElementGetWindow',{retval='i','^{__AXUIElement=}','^i'},false)
---c.addfunction('_AXUIElementGetWindow',{retval='i','^v','^i'},false)
---local AXUIElementGetPid=c.AXUIElementGetPid
+
 local geometry=require'hm.types.geometry'
 local pairs,ipairs,next,setmetatable=pairs,ipairs,next,setmetatable
 local sformat=string.format
@@ -18,8 +15,8 @@ local hmtype=hm.type
 
 ---@type hm.windows
 -- @extends hm#module
-local windows=hm._core.module('window',{window={
-  __tostring=function(self) return sformat('window: [id:%s] %s',self._wid or '?',self.title) end,
+local windows=hm._core.module('hm.windows',{window={
+  __tostring=function(self) return sformat('window: [id:%s] %s',self.id or '?',self.title) end,
   __gc=function(self) end, --TODO
   __eq=function(w1,w2) return hmtype(w2)=='hm.windows#window' and w1._ax==w2._ax end,
 }})
@@ -33,37 +30,27 @@ local win=windows._classes.window
 local new=win._new
 
 
-local value_out=require'ffi'.new'int[1]'
---local function getPid(axelem)
---    local result=AXGetPid(axelem,value_out)
---    return result==0 and value_out[0] or error'cannot get pid from axuielement'
---end
-local _AXUIElementGetWindow=c._AXUIElementGetWindow
-local function getwid(axwin,pid)
-  local result=_AXUIElementGetWindow(axwin,value_out)
-  return result==0 and value_out[0] or
-    log.wf('%s: window ID <= [pid:%d]',require'bridge.axerror'[result],pid)
-end
-
-local newElement=require'hm._os.uielements'._newElement
+local newElement=require'hm._os.uielements'.newElement
 local cachedWindows=hm._core.cacheValues()
 local function newWin(axwin,pid,wid)
   if not axwin then return nil end
   assert(pid>0)
-  wid=wid or getwid(axwin,pid)
-  local o=cachedWindows[wid] if o then return o end
-  o={_ax=newElement(axwin),_pid=pid,_wid=wid}
-  if wid then cachedWindows[wid]=o log.v('Cached wid',wid)
-  else log.v('no wid for',pid) end
-  return new(o)
+  local ax=newElement(axwin,pid,{_role='AXWindow'})
+  local ref=ax._ref
+  local o=cachedWindows[ref] if o then return o end
+  --  wid=wid or ax:getWindowID()
+  o=new{_ax=ax,_pid=pid}
+  cachedWindows[ref]=o
+  log.v('cached axwin',ref)
+  return o
 end
----@function [parent=#hm.windows] _newWindow
+---@function [parent=#hm.windows] newWindow
 -- @param #cdata ax `AXUIElementRef`
 -- @param #number pid
 -- @param #number wid (optional)
 -- @return #window
 -- @dev
-windows._newWindow=newWin
+windows.newWindow=newWin
 
 package.loaded['hm.windows']=windows
 local applications=require'hm.applications'
@@ -71,8 +58,16 @@ local applications=require'hm.applications'
 ---The window's unique identifier.
 -- @field [parent=#window] #number id
 -- @readonlyproperty
-property(win,'id',function(self)self._wid=self._wid or getwid(self._ax) return self._wid end,false)
-
+property(win,'id',function(self) return self._ax:getWindowID() end)
+---The window title.
+-- @field [parent=#window] #string title
+-- @readonlyproperty
+property(win,'title',function(self) return self._ax.title end,false)
+---The window's accessibility subrole.
+-- @field [parent=#window] #string subrole
+-- @readonlyproperty
+-- @dev
+property(win,'subrole',function(self) return self._ax.subrole end,false)
 ---The application owning this window
 -- @field [parent=#window] hm.applications#application application
 -- @readonlyproperty
@@ -85,8 +80,8 @@ property(win,'standard',function(self)return self._ax.subrole=='AXStandardWindow
 -- @field [parent=#window] #boolean minimized
 -- @property
 property(win,'minimized',
-  function(self)return self._ax:getBooleanAttribute(c.NSAccessibilityMinimizedAttribute)end,
-  function(self,v) self._ax:setBooleanAttribute(c.NSAccessibilityMinimizedAttribute,v) end,'boolean')
+  function(self)return self._ax:getBooleanProp(c.NSAccessibilityMinimizedAttribute)end,
+  function(self,v) self._ax:setBooleanProp(c.NSAccessibilityMinimizedAttribute,v) end,'boolean')
 ---Whether the window is currently visible.
 -- A window is not visible if it's minimized or its parent application is hidden.
 -- Setting this value to `true` will unminimize the window and unhide the parent application.
@@ -111,7 +106,7 @@ property(win,'hidden',
 -- @property
 property(win,'frame',
   function(self)return geometry(self._ax.topLeft,self._ax.size) end,
-  function(self,v) self._ax.topleft=v.topleft self._ax.size=v.size end,'hm.types.geometry#rect')
+  function(self,v) self._ax.topleft=v.topleft self._ax.size=v.size end,'hm.types.geometry#rect',true)
 
 -- so apparently OSX enforces a 6s limit on apps to respond to AX queries;
 -- Karabiner's AXNotifier and Adobe Update Notifier fail in that fashion

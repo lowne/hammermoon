@@ -19,6 +19,8 @@ c.addfunction('AXObserverAddNotification',{retval='i','^{__AXObserver=}','^{__AX
 c.addfunction('AXValueGetValue',{retval='B','^{__CFType=}','i','^v'},false)
 -- CFString to NSString, cb refdata ^v to ^i
 c.addfunction('AXObserverCreate',{retval='i','i','^?',fp={[2]={'^{__AXObserver=}','^{__AXUIElement=}','@"NSString"','i'}},'^^{__AXObserver}'})
+-- private API yeah!
+c.addfunction('_AXUIElementGetWindow',{retval='i','^{__AXUIElement=}','^i'},false)
 
 local ffi=require'ffi'
 local cast=ffi.cast
@@ -37,7 +39,7 @@ local uielements=hm._core.module('hm._os.uielements',{uielement={
   __gc=function(self) end,
   __eq=function(e1,e2) return e2[1] and CFEqual(e1[1],e2[1]) end,
 },watcher={
-  __tostring=function(self)return sformat('uielement.watcher: [#%d] [pid:%d] %s (%s)',self._ref,self._pid,self._elem.role,self.isActive and 'active' or 'inactive') end,
+  __tostring=function(self)return sformat('uielement watcher: [#%d] [pid:%d] %s (%s)',self._ref,self._pid,self._elem.role,self.isActive and 'active' or 'inactive') end,
   __gc=function(self)end,
 }})
 local log=uielements.log
@@ -51,10 +53,21 @@ local new=elem._new
 local value_out=ffi.new'int[1]'
 local prop_out=ffi.new'CFTypeRef[1]'
 
+local _AXUIElementGetWindow=c._AXUIElementGetWindow
+---Only for window elements
+-- @return #number window id
+function elem:getWindowID()
+  local result=_AXUIElementGetWindow(self[1],value_out)
+  return result==0 and value_out[0] or
+    log.fw('%s: window ID <= [pid:%d]',require'hm._os.bridge.axerrors'[result],self._pid)
+end
+
 ---The process identifier of the application owning this uielement.
 -- @field [parent=#uielement] #number pid
 -- @readonlyproperty
-property(elem,'pid',function(self)return self._pid end,false)
+property(elem,'pid',function(self)return self._pid end)
+
+
 
 local AXUIElementCopyAttributeValue=c.AXUIElementCopyAttributeValue
 local function getProp(self,prop)
@@ -144,28 +157,30 @@ elem.setRawProp=setProp
 -- @param #string prop property name
 -- @param #number value
 -- @return #boolean `true` on success
-elem.setIntegerProp=setProp
+function elem:setIntegerProp(prop,value) return setProp(self,prop,toobj(value)) end
+--elem.setIntegerProp=setProp
 ---Sets an AX property of type boolean
 -- @function [parent=#uielement] setBooleanProp
 -- @param #uielement self
 -- @param #string prop property name
 -- @param #boolean value
 -- @return #boolean `true` on success
-elem.setBooleanProp=function(self,v)setProp(self,v and 1 or 0) end
+function elem:setBooleanProp(prop,value) return setProp(self,prop,toobj(value and 1 or 0)) end
+--elem.setBooleanProp=function(self,v)setProp(self,v and 1 or 0) end
 ---Sets an AX property of type string
 -- @function [parent=#uielement] setStringProp
 -- @param #uielement self
 -- @param #string prop property name
 -- @param #string value
 -- @return #boolean `true` on success
-elem.setStringProp=setProp
+elem.setStringProp=elem.setIntegerProp
 ---Sets an AX property of type array
 -- @function [parent=#uielement] setArrayProp
 -- @param #uielement self
 -- @param #string prop property name
 -- @param #list value
 -- @return #boolean `true` on success
-elem.setArrayProp=setProp
+elem.setArrayProp=elem.setIntegerProp
 
 local point,size=require'hm.types.geometry'.point,require'hm.types.geometry'.size
 ---Returns an AX property of type point
@@ -206,7 +221,7 @@ end,false)
 ---The element's `AXRole`
 -- @field [parent=#uielement] #string role
 -- @readonlyproperty
-property(elem,'role',function(self) return self:getStringProp(c.NSAccessibilityRoleAttribute) end)
+property(elem,'role',function(self) return self._role or self:getStringProp(c.NSAccessibilityRoleAttribute) end)
 ---The element's `AXSubrole`
 -- @field [parent=#uielement] #string subrole
 -- @readonlyproperty
@@ -278,13 +293,20 @@ local function newElem(axelem,pid)
   return o
     --  return setmetatable({_ax=axelem,_pid=pid},{__index=ui,__tostring=ui.tostring})
 end--]]
----@function [parent=#hm._os.uielements] _newElement
+
+---@function [parent=#hm._os.uielements] newElement
 -- @param #cdata ax `AXUIElementRef`
 -- @param #number pid (optional)
 -- @return #uielement
--- @dev
-uielements._newElement=newElem
+uielements.newElement=newElem
 
+local AXUIElementCreateApplication=c.AXUIElementCreateApplication
+---@function [parent=#hm._os.uielements] newElementForApplication
+-- @param #number pid
+-- @return #uielement
+function uielements.newElementForApplication(pid)
+  return newElem(AXUIElementCreateApplication(pid),pid,{_role='AXApplication'})
+end
 
 ----- AX watchers -----
 
@@ -302,7 +324,7 @@ local elementDestroyed = "AXUIElementDestroyed"
 ---@type eventNameList
 -- @list <#eventName>
 
-checkers['hm._os.uielement#eventName']=function(v) return type(v)=='string' and events[v] and true end
+checkers['hm._os.uielements#eventName']=function(v) return type(v)=='string' and events[v] and true end
 
 ---A uielement watcher
 -- @type watcher
@@ -318,7 +340,7 @@ local watcherCount=0
 -- @param #watcherCallback fn callback function
 -- @param data (optional)
 -- @return #watcher the new watcher
-function elem:newWatcher(fn,data) hmchecks('hm._os.uielement#uielement','callable')
+function elem:newWatcher(fn,data) checkargs('hm._os.uielements#uielement','callable')
   logw.v('Creating watcher for',self)
   watcherCount=watcherCount+1
   return newWatcher{_elem=self,_pid=self._pid,_isActive=false,_cb=fn,_data=data,_ref=watcherCount}
@@ -383,7 +405,7 @@ local runLoopAddSource=require'hm._os'.runLoopAddSource
 -- @param #watcher self
 -- @param #eventNameList events events to watch
 -- @return #watcher this watcher
-function watcher:start(events) hmsanitize('hm._os.uielement#watcher','listOrValue(hm._os.uielement#eventName)')
+function watcher:start(events) sanitizeargs('hm._os.uielements#watcher','listOrValue(hm._os.uielements#eventName)')
   if not globalWatcher then
     require'hm._os'.wsNotificationCenter:register('NSWorkspaceDidTerminateApplicationNotification',stopChildrenWatchers,true)
     globalWatcher=true

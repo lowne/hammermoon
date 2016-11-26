@@ -58,8 +58,7 @@ local function clearCache(pid) checkargs'uint'
 end
 
 local NSRunningApplication=c.NSRunningApplication
-local AXUIElementCreateApplication=c.AXUIElementCreateApplication
-local newElement=require'hm._os.uielements'._newElement
+local elemForApp=require'hm._os.uielements'.newElementForApplication
 local function newApp(nsapp,pid,info)
   if not nsapp then
     if not pid then return nil
@@ -70,7 +69,7 @@ local function newApp(nsapp,pid,info)
   assert(pid or nsapp)-- and applications[nsapp.processIdentifier])
   local o=cachedApps[pid]
   if o then return o end
-  o=pid==-1 and {} or {_ax=newElement(AXUIElementCreateApplication(pid),pid,{role='AXApplication'}),_pid=pid}
+  o=pid==-1 and {} or {_ax=elemForApp(pid),_pid=pid}
   o._name=tolua(nsapp.localizedName or (info and info:objectForKey'NSApplicationName'))
   o._bundleid=tolua(nsapp.bundleIdentifier or (info and info:objectForKey'NSApplicationBundleIdentifier'))
   o._launchTime=nsapp.launchDate and nsapp.launchDate.timeIntervalSinceReferenceDate or 0
@@ -322,7 +321,7 @@ function app:bringToFront()
   return self
 end
 package.loaded['hm.applications']=applications
-local newWindow=require'hm.windows'._newWindow
+local newWindow=require'hm.windows'.newWindow
 
 ---The application's main window.
 -- @field [parent=#application] hm.windows#window mainWindow
@@ -354,7 +353,7 @@ local axref=ffi.typeof'AXUIElementRef'
 property(app,'windows',function(self)
   local r=list()
   for i,axwin in ipairs(self._ax:getArrayProp(c.NSAccessibilityWindowsAttribute)) do
-    tinsert(r,newWindow(cast(axref,axwin),self._pid))
+    r:append(newWindow(cast(axref,axwin),self._pid))
   end
   return r
 end,false)
