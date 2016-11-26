@@ -1,11 +1,11 @@
 local function runtests()
   --  package.cpath=package.cpath..';./lib/?.so'
-  local open,lines=io.open,io.lines
+  --  local open,lines=io.open,io.lines
   local lfs=require'lfs'
   local inspect=require'lib.inspect'
   local getmetatable,setmetatable,tonumber,tostring,pairs,select,pcall,xpcall,rawset,loadstring,type,setfenv
     = getmetatable,setmetatable,tonumber,tostring,pairs,select,pcall,xpcall,rawset,loadstring,type,setfenv
-  local unpack,tconcat,tremove=unpack,table.concat,table.remove
+  local unpack,tconcat,tremove,tinsert=unpack,table.concat,table.remove,table.insert
   local sformat,srep=string.format,string.rep
 
   local capn,capv={},{}
@@ -25,8 +25,10 @@ local function runtests()
     {__index=baseSandbox,__newindex=function(t,k,v)capn[#capn+1]=k capv[#capv+1]=v end})
   local trace=debug.traceback
   local sleep
-  local function runfile(file)
-    log.i('running',file)
+  local function runfile(lines)
+    local hasError
+    local path=lines.path
+    log.i('running',path)
     local s,output='',{}
     local chunkStart,chunkLen=0,0
     local inlinePrint=function(...)
@@ -54,13 +56,14 @@ local function runtests()
       --      chunkLen=chunkLen+1
     end
     local inlineError=function(msg)
+      hasError=true
       msg=trace(msg)
-      log.e(file,msg)
+      log.e(path,msg)
       for l in msg:gmatch('(.-)\n') do
         if l:sub(1,5)~='stack' then
           if l:find('[C]',1,true) then break end
           local pre,st,offs,post=l:match('(.-)%[string %"%_%_(%d+)%"%]%:(%d+)(%:.+)')
-          inlinePrint(pre and (pre..file:sub(2)..':'..(tonumber(st)+tonumber(offs))..post) or l)
+          inlinePrint(pre and (pre..path:sub(2)..':'..(tonumber(st)+tonumber(offs))..post) or l)
         end
       end
     end
@@ -69,7 +72,7 @@ local function runtests()
       total=total+1
       local out=output[#output]:gsub('%s+%-%-.-$','')
       if type(pred)=='function' then pred=pred() end
-      if not pred then log.e(file,' - test failed:',out) end
+      if not pred then log.e(path,' - test failed:',out) hasError=true end
       passed=passed+(pred and 1 or 0)
       failed=failed+(pred and 0 or 1)
       output[#output]=out..(pred and ' -- ok' or ' -- FAILED')
@@ -112,7 +115,7 @@ local function runtests()
     nullSandbox.require=sandboxRequire
     getmetatable(nullSandbox).__index=fileSandbox
     local lastError
-    for line in lines(file) do
+    for _,line in ipairs(lines) do
       --      chunkLines=chunkLines+1
       --        line=line:gsub('%-%-%>.*','') -- remove generated output
       local lineprefix=line:sub(1,3)
@@ -172,9 +175,13 @@ local function runtests()
     output[#output+1]=''
     inlinePrint(total,'total tests,',passed,'passed,',failed,'failed')
     log.i(total,'total tests,',passed,'passed,',failed,'failed')
-    local f=open(file,'w')
-    f:write(tconcat(output,'\n')..'\n') f:flush() f:close()
     for m in pairs(sandboxPackages) do package.loaded[m]=nil log.d('unloaded package',m) end
+    local now=hasError and 0 or os.time()
+    for reqpath in pairs(lines.req) do
+      tinsert(output,1,sformat('--@file %s %d',reqpath,now))
+    end
+    local f=io.open(path,'w')
+    f:write(tconcat(output,'\n')..'\n') f:flush() f:close()
     return total,passed,failed
   end
   local total,passed,failed=0,0,0
@@ -184,8 +191,20 @@ local function runtests()
   local files={}
   for file in lfs.dir'tests' do
     local path='tests/'..file
-    if lfs.attributes(path).mode=='file' then
-      files[#files+1]=path
+    if lfs.attributes(path,'mode')=='file' then
+      local lines={req={}}
+      --      files[#files+1]=path
+      for line in io.lines(path) do
+        local reqpath,reqtime=line:match('%-%-@file ([%l._/]+)%s*(%d*)%s*$')
+        if reqpath then
+          lines.req[reqpath]=true
+          reqtime=reqtime and tonumber(reqtime) or 0
+          local mtime=lfs.attributes(reqpath,'modification')
+          --          lines[#lines+1]=sformat('--@file %s %d',reqpath,mtime)
+          if mtime>reqtime then lines.path=path end
+        else lines[#lines+1]=line end
+      end
+      if lines.path then lines.req[path]=true files[#files+1]=lines end
     end
   end
   local nfiles=#files
