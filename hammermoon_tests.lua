@@ -1,4 +1,10 @@
 #!/usr/bin/env ./luajit
+local cmd=arg[1]
+if cmd~='run' and cmd~='clean' and cmd~='runall' then
+  print('arg needed: "run", "runall", "clean"')
+  os.exit(1,1)
+end
+
 package.cpath="./?.so;./lib/?.so"
 package.path="./?.lua;./?/init.lua;./lib/?.lua;./lib/?/init.lua"
 
@@ -40,6 +46,8 @@ require'hammermoon_app'(function()
     {__index=baseSandbox,__newindex=function(t,k,v)capn[#capn+1]=k capv[#capv+1]=v end})
   local trace=debug.traceback
   local sleep
+  local function cleanfile(lines)
+  end
   local function runfile(lines)
     local path=lines.path
     log.i('running',path)
@@ -192,13 +200,14 @@ require'hammermoon_app'(function()
 
   local total,passed,failed=0,0,0
   local timestamps={}
-  if not lfs.attributes(TIMESTAMPS) then
-    local f=io.open(TIMESTAMPS,'w') f:write'' f:close()
-  end
+  --  if not lfs.attributes(TIMESTAMPS) then
+  --    local f=io.open(TIMESTAMPS,'w') f:write'' f:close()
+  --  end
   for line in io.lines(TIMESTAMPS) do
     local testfile,testtime=line:match('^([%l._/]+)%s*(%d+)%s*$')
     --    assert(testfile,testtime)
     timestamps[testfile]=tonumber(testtime)
+    if cmd=="runall" or cmd=="clean" then timestamps[testfile]=0 end
   end
   local files={}
   for file in lfs.dir(TESTSDIR) do
@@ -221,25 +230,40 @@ require'hammermoon_app'(function()
     end
   end
   local nfiles=#files
-  local runnerCoro=coroutine.wrap(function()
-    while files[1] do
-      local t,p,f=runfile(files[1])
-      timestamps[files[1].path]=f>0 and 0 or os.time()
-      total=total+t passed=passed+p failed=failed+f
-      tremove(files,1)
+  if cmd=="clean" then
+    local f=io.open(TIMESTAMPS,'w') f:write'' f:close()
+    for _,lines in ipairs(files) do
+      local out={}
+      for _,line in ipairs(lines) do
+        local subbed
+        line=line:gsub('%-%-[~>:].+$',function()subbed=true return '' end)
+        if not subbed or #line>0 then out[#out+1]=line end
+      end
+      local f=io.open(lines.path,'w')
+      f:write(tconcat(out,'\n')..'\n') f:flush() f:close()
     end
-    local f=io.open(TIMESTAMPS,'w')
-    for testfile,timestamp in pairs(timestamps) do f:write(sformat('%s %d\n',testfile,timestamp)) end
-    f:flush() f:close()
-    log.w(nfiles,' files processed')
-    log.w(total,'total tests,',passed,'passed,',failed,'failed')
     os.exit(1,1)
-  end)
-  local sleepTimer=hm.timer.new(runnerCoro)
-  sleep=function(s)
-    sleepTimer:runIn(s)
-    coroutine.yield(true)
+  else
+    local runnerCoro=coroutine.wrap(function()
+      while files[1] do
+        local t,p,f=runfile(files[1])
+        timestamps[files[1].path]=f>0 and 0 or os.time()
+        total=total+t passed=passed+p failed=failed+f
+        tremove(files,1)
+      end
+      local f=io.open(TIMESTAMPS,'w')
+      for testfile,timestamp in pairs(timestamps) do f:write(sformat('%s %d\n',testfile,timestamp)) end
+      f:flush() f:close()
+      log.w(nfiles,' files processed')
+      log.w(total,'total tests,',passed,'passed,',failed,'failed')
+      os.exit(1,1)
+    end)
+    local sleepTimer=hm.timer.new(runnerCoro)
+    sleep=function(s)
+      sleepTimer:runIn(s)
+      coroutine.yield(true)
+    end
+    runnerCoro()
   end
-  runnerCoro()
 end)
 

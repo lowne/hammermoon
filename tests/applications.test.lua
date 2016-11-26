@@ -1,44 +1,37 @@
+--@file hm/applications.lua
+--@file hm/_os/uielements.lua
+--@file tests/applications.test.lua
+
+
 sleep(0.5)
 thisapp=hm.applications.activeApplication
---> thisapp = application: [pid:21168] luajit-bin 
-test(thisapp.name=='luajit-bin') -- ok
-test(thisapp.active) -- ok
+test(thisapp.name=='luajit')  
+test(thisapp.active)  
 print(thisapp.ownsMenuBar)
---> true 
 --[[test(thisapp.ownsMenuBar==false) ]]
-
-test(hm.applications.applicationForPID(100).name=='loginwindow') -- ok
+test(hm.applications.applicationForPID(100).name=='loginwindow')  
 
 finderbundle=hm.applications.defaultBundleForBundleID'com.apple.finder'
---> finderbundle = app bundle: Finder.app (in /System/Library/CoreServices) 
-test(finderbundle.folder=='/System/Library/CoreServices') -- ok
-test(finderbundle.name=='Finder.app') -- ok
+test(finderbundle.folder=='/System/Library/CoreServices')  
+test(finderbundle.name=='Finder.app')  
 print(finderbundle._nsbundle.loaded)
---> false 
-test(finderbundle.application) -- ok
-test(finderbundle.application.running) -- ok
+test(finderbundle.application)  
+test(finderbundle.application.running)  
 
 Dash=hm.applications.runningApplications:toDictByField('name')['Dash']
---> Dash = application: [pid:21173] Dash 
-test(not Dash.active) -- ok
+test(not Dash.active)  
 Dash:activate()
---> application: [pid:21173] Dash 
 sleep(0.2)
-test(Dash.active) -- ok
-test(hm.applications.activeApplication==Dash) -- ok
-test(Dash.ownsMenuBar) -- ok
-test(hm.applications.menuBarOwningApplication==Dash) -- ok
+test(Dash.active)  
+test(hm.applications.activeApplication==Dash)  
+test(Dash.ownsMenuBar)  
+test(hm.applications.menuBarOwningApplication==Dash)  
 
 notesbundle=hm.applications.findBundle'Notes.app'
---> notesbundle = app bundle: Notes.app (in /Applications) 
-test(notesbundle) -- ok
+test(notesbundle)  
 notesapp=notesbundle:launch()
---> notesapp = application: [pid:21175] Notes 
-test(notesapp) -- ok
-test(notesapp.running) -- ok
+test(notesapp)  
+test(notesapp.running)  
 notesapp:quit()
---> application: [pid:21175] Notes 
 sleep(0.5)
-test(notesapp.running==false) -- ok
-
---> 16 total tests, 16 passed, 0 failed 
+test(notesapp.running==false)  
