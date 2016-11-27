@@ -5,13 +5,14 @@
 local c=require'objc'
 c.load'CoreFoundation'
 
-local tolua,toobj,nptr=c.tolua,c.toobj,c.nptr
-
-local geometry=require'hm.types.geometry'
 local pairs,ipairs,next,setmetatable=pairs,ipairs,next,setmetatable
 local sformat=string.format
 local property=hm._core.property
 local hmtype=hm.type
+local geometry=require'hm.types.geometry'
+local coll=require'hm.types.coll'
+local list=coll.list
+local cgwindow=require'hm._os.cgwindow'
 
 ---@type hm.windows
 -- @extends hm#module
@@ -35,7 +36,7 @@ local cachedWindows=hm._core.cacheValues()
 local function newWin(axwin,pid,wid)
   if not axwin then return nil end
   assert(pid>0)
-  local ax=newElement(axwin,pid,{_role='AXWindow'})
+  local ax=newElement(axwin,pid)
   local ref=ax._ref
   local o=cachedWindows[ref] if o then return o end
   --  wid=wid or ax:getWindowID()
@@ -63,6 +64,12 @@ property(win,'id',function(self) return self._ax:getWindowID() end)
 -- @field [parent=#window] #string title
 -- @readonlyproperty
 property(win,'title',function(self) return self._ax.title end,false)
+---The window's accessibility role.
+-- For *most* windows, this will be `"AXWindow"`.
+-- @field [parent=#window] #string role
+-- @readonlyproperty
+-- @dev
+property(win,'role',function(self) return self._ax.role end,false)
 ---The window's accessibility subrole.
 -- @field [parent=#window] #string subrole
 -- @readonlyproperty
@@ -108,33 +115,15 @@ property(win,'frame',
   function(self)return geometry(self._ax.topLeft,self._ax.size) end,
   function(self,v) self._ax.topleft=v.topleft self._ax.size=v.size end,'hm.types.geometry#rect',true)
 
--- so apparently OSX enforces a 6s limit on apps to respond to AX queries;
--- Karabiner's AXNotifier and Adobe Update Notifier fail in that fashion
-local SKIP_APPS={
-  ['com.apple.WebKit.WebContent']=true,['com.apple.qtserver']=true,['com.google.Chrome.helper']=true,
-  ['org.pqrs.Karabiner-AXNotifier']=true,['com.adobe.PDApp.AAMUpdatesNotifier']=true,
-  ['com.adobe.csi.CS5.5ServiceManager']=true,
-  ['org.hammerspoon.Hammerspoon']=true, --funnily enough
-}
 ---@type windowList
 -- @list <#window>
 
 ---All current windows.
 -- This property only includes windows in the current Mission Control space.
--- @field [parent=#hm.windows] #windowList allWindows
+-- @field [parent=#hm.windows] #windowList windows
 -- @readonlyproperty
-property(windows,'allWindows',function()
-  local r={}
-  for _,app in ipairs(applications.runningApplications) do
-    if app.kind()>=0 then
-      local bid=app.bundleID or 'N/A' --just for safety; universalaccessd has no bundleid (but it's kind()==-1 anyway)
-      if bid=='com.apple.finder' then --exclude the desktop "window"
-        -- check the role explicitly, instead of relying on absent :id() - sometimes minimized windows have no :id() (El Cap Notes.app)
-        for _,w in ipairs(app.allWindows) do if w.role=='AXWindow' then r[#r+1]=w end end
-      elseif not SKIP_APPS[bid] then for _,w in ipairs(app.allWindows) do r[#r+1]=w end end
-    end
-  end
-  return r
+property(windows,'windows',function()
+  return applications.runningApplications:imapcat(function(app)return app.windows end)
 end,false)
 
 ---All currently visible windows.
@@ -142,11 +131,17 @@ end,false)
 -- @field [parent=#hm.windows] #windowList visibleWindows
 -- @readonlyproperty
 property(windows,'visibleWindows',function()
-  local r={}
-  for _,app in ipairs(applications.runningApplications) do
-    if app.kind>0 and not app.hidden then for _,w in ipairs(app.visibleWindows) do r[#r+1]=w end end -- speedup by excluding hidden apps
-  end
-  return r
+  return applications.runningApplications:imapcat(function(app)return app.visibleWindows end)
+end,false)
+
+---All visible windows, ordered front to back.
+-- This property only includes windows in the current Mission Control space.
+-- @field [parent=#hm.windows] #windowList orderedWindows
+-- @readonlyproperty
+property(windows,'orderedWindows',function()
+  local ids=list(cgwindow.getWIDList(true))
+  local wins=windows.visibleWindows:toDictByField'id'
+  return ids:imap(function(id)return wins[id] end)
 end,false)
 
 ---The currently focused window.

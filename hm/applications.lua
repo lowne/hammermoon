@@ -346,15 +346,33 @@ property(app,'focusedWindow',
 ---@type windowList
 -- @list <hm.windows#window>
 
+local SKIP_APPS={
+  -- so apparently OSX enforces a 6s limit on apps to respond to AX queries;
+  -- Karabiner's AXNotifier and Adobe Update Notifier fail in that fashion
+  ['com.apple.WebKit.WebContent']=true,['com.apple.qtserver']=true,['com.google.Chrome.helper']=true,
+  ['org.pqrs.Karabiner-AXNotifier']=true,['com.adobe.PDApp.AAMUpdatesNotifier']=true,
+  ['com.adobe.csi.CS5.5ServiceManager']=true,
+  ['org.hammerspoon.Hammerspoon']=true, --funnily enough
+
+  --these fail immediately, but no point in querying anyway
+  ['com.apple.WebKit.Databases']=true,['com.apple.WebKit.Networking']=true,['com.apple.WebKit.PluginHost']=true,
+  ['com.tinyspeck.slackmacgap.helper']=true,
+  ['com.spotify.client.helper']=true,
+}
+
 local axref=ffi.typeof'AXUIElementRef'
 ---The application's windows.
 -- @field [parent=#application] #windowList windows
 -- @readonlyproperty
+-- @internalchange the ad-hoc filtering is done here at the source rather than downstream in hm.windows
 property(app,'windows',function(self)
-  local r=list()
-  for i,axwin in ipairs(self._ax:getArrayProp(c.NSAccessibilityWindowsAttribute)) do
+  local bid,r=self.bundleID,list()
+  if SKIP_APPS[bid] then return r end
+  local wins=self._ax:getArrayProp(c.NSAccessibilityWindowsAttribute)
+  for i,axwin in ipairs(wins) do
     r:append(newWindow(cast(axref,axwin),self._pid))
   end
+  if bid=='com.apple.finder' then r=r:ifilterByField('role','AXWindow') end
   return r
 end,false)
 ---The application's visible windows (not minimized).

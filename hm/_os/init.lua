@@ -6,6 +6,7 @@
 local c=require'objc'
 c.load'AppKit'
 c.load'CoreFoundation'
+c.load'ApplicationServices.HIServices'
 -- these wants (3rd arg) a CFString, but kCFRunLoopDefaultMode is defined as const CFString - hence the 'r' in the patch
 c.addfunction('CFRunLoopAddSource',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopSource=}','r^{__CFString=}'})
 c.addfunction('CFRunLoopRemoveSource',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopSource=}','r^{__CFString=}'})
@@ -19,7 +20,7 @@ local rawset,rawget,pairs,tinsert=rawset,rawget,pairs,table.insert
 
 ---@type hm._os
 -- @extends hm#module
-local os=hm._core.module('hm._os',nil,{'events'})
+local os=hm._core.module('hm._os',nil,{'events','nsurl','uielements'})
 
 --- @field [parent=#hm._os] hm._os.events#hm._os.events events
 
