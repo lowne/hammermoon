@@ -7,12 +7,13 @@ require'hm._os'
 local c=require'objc'
 local tolua,toobj,nptr=c.tolua,c.toobj,c.nptr
 c.load'CoreFoundation'
+c.load'Foundation'
 c.load'ApplicationServices.HIServices'
 c.load'CoreGraphics'
 -- patch AX stuff that uses CF
 -- this one expects (2nd arg) CFString (which objc.lua can't construct), allow NSStrings instead
-c.addfunction('AXUIElementCopyAttributeValue',{retval='i','^{__AXUIElement=}','@"NSString"','^^v'},false)
-c.addfunction('AXUIElementSetAttributeValue',{retval='i','^{__AXUIElement=}','@"NSString"','@'})
+--c.addfunction('AXUIElementCopyAttributeValue',{retval='i','^{__AXUIElement=}','@"NSString"','^^v'},false)
+--c.addfunction('AXUIElementSetAttributeValue',{retval='i','^{__AXUIElement=}','@"NSString"','@'})
 -- CFString to NSString, also refdata from ^v to i
 c.addfunction('AXObserverAddNotification',{retval='i','^{__AXObserver=}','^{__AXUIElement=}','@"NSString"','i'},false)
 -- this one wants (1st arg) an AXValueRef (outval from AXUIElementCopyAttributeValue) but we don't want to fficast every time
@@ -23,21 +24,21 @@ c.addfunction('AXObserverCreate',{retval='i','i','^?',fp={[2]={'^{__AXObserver=}
 c.addfunction('_AXUIElementGetWindow',{retval='i','^{__AXUIElement=}','^i'},false)
 
 local ffi=require'ffi'
-local cast=ffi.cast
+local C,cast,gc=ffi.C,ffi.cast,ffi.gc
 
 local property=hm._core.property
 
-local coll=require'hm.types.coll'
-local next,pairs,ipairs,type,setmetatable=next,pairs,ipairs,type,setmetatable
+local next,pairs,ipairs,type,setmetatable,rawset=next,pairs,ipairs,type,setmetatable,rawset
 local sformat,tinsert,tremove=string.format,table.insert,table.remove
+local cf=require'hm._os.cf'
+c.cdef'CFEqual' c.cdef'CFHash' c.cdef'CFRelease'
 
-local CFEqual=c.CFEqual
 ---@type hm._os.uielements
 -- @extends hm#module
 local uielements=hm._core.module('hm._os.uielements',{uielement={
   __tostring=function(self)return sformat('uielement: [%d] %s',self._ref,self.role) end,
   __gc=function(self) end,
-  __eq=function(e1,e2) return e2[1] and CFEqual(e1[1],e2[1]) end,
+  __eq=function(e1,e2) return e2[1] and C.CFEqual(e1[1],e2[1]) end,
 },watcher={
   __tostring=function(self)return sformat('uielement watcher: [#%d] [pid:%d] %s (%s)',self._ref,self._pid,self._elem.role,self.isActive and 'active' or 'inactive') end,
   __gc=function(self)end,
@@ -50,15 +51,34 @@ local log=uielements.log
 local elem=uielements._classes.uielement
 local new=elem._new
 
-local value_out=ffi.new'int[1]'
-local prop_out=ffi.new'CFTypeRef[1]'
+local attrs=setmetatable({
+  ['fullscreen']='NSAccessibilityFullScreenAttribute',
+  ['fullscreen']='AXFullScreen',
+--TODO test fullscreen
+},{
+  __index=function(t,k)
+    hmassertf(type(k)=='string','attribute must be a string')
+    local ck='NSAccessibility'..k:sub(1,1):upper()..k:sub(2)..'Attribute'
+    local attr=hmassertf(c[ck],'invalid AX attribute %s (%s not found)',k,ck)
+    attr=cf.makeString(tolua(attr))
+    rawset(t,k,attr)
+    return attr
+  end,
+  __newindex=function()error 'not allowed' end,
+})
 
-local _AXUIElementGetWindow=c._AXUIElementGetWindow
+elem.attrs=attrs
+
+--local object_out=ffi.new'int[1]'
+local id_out=ffi.new'int32_t[1]'
+local value_out=ffi.new'CFTypeRef[1]'
+
+--local _AXUIElementGetWindow=c._AXUIElementGetWindow
 ---Only for window elements
 -- @return #number window id
 function elem:getWindowID()
-  local result=_AXUIElementGetWindow(self[1],value_out)
-  return result==0 and value_out[0] or
+  local result=C._AXUIElementGetWindow(self[1],id_out)
+  return result==0 and id_out[0] or
     log.fw('%s: window ID <= [pid:%d]',require'hm._os.bridge.axerrors'[result],self._pid)
 end
 
@@ -68,231 +88,212 @@ end
 property(elem,'pid',function(self)return self._pid end)
 
 
-
-local AXUIElementCopyAttributeValue=c.AXUIElementCopyAttributeValue
-local function getProp(self,prop)
-  local res=AXUIElementCopyAttributeValue(self[1],prop,prop_out)
-  --TODO do something smarter with errors
-  return res==0 and prop_out[0] or log.fe('%s: %s <= %d',require'hm._os.bridge.axerrors'[res],tolua(prop),self._ref)
+--local AXUIElementCopyAttributeValue=c.AXUIElementCopyAttributeValue
+c.cdef'AXUIElementCopyAttributeValue'
+local function getAttr(self,attr,default)
+  log.vf('get %s for %d',attr,self._ref)
+  local res=C.AXUIElementCopyAttributeValue(self[1],attrs[attr],value_out)
+  if res==0 then return gc(value_out[0],function(self) log.w('CFRelease') C.CFRelease(self) end)
+  elseif default~=nil then return default
+    --TODO do something smarter with errors
+  else return log.fe('%s: %s <= %d',require'hm._os.bridge.axerrors'[res],attr,self._ref) end
 end
 
---typedef enum {kAXValueCGPointType = 1,kAXValueCGSizeType = 2,kAXValueCGRectType = 3,kAXValueCFRangeType = 4,
---   kAXValueAXErrorType = 5,kAXValueIllegalType = 0} AXValueType;
-local AXValueGetValue=c.AXValueGetValue
+--local AXUIElementSetAttributeValue=c.AXUIElementSetAttributeValue
+c.cdef'AXUIElementSetAttributeValue'
+local function setAttr(self,attr,v)
+  local result=C.AXUIElementSetAttributeValue(self[1],attrs[attr],v)
+  return result==0 and true or log.fe('%s: %s => %d',require'hm._os.bridge.axerrors'[result],attr,self._ref)
+end
+
+c.cdef'AXValueGetValue'
 local valueTypes,valueCasts={CGPoint=1,CGSize=2,CGRect=3,CFRange=4},{}
 for k in pairs(valueTypes) do valueCasts[k]=ffi.typeof(k..' *') end
-local function getValueProp(self,prop,cls)
-  local res=AXValueGetValue(getProp(self,prop),valueTypes[cls],value_out)
-  if not res then return log.fe('AXValueGetValue: %s <= %d',tolua(prop),self._ref) end
+local function getStructAttr(self,attr,cls)
+  local res=C.AXValueGetValue(getAttr(self,attr),valueTypes[cls],value_out)
+  if not res then return log.fe('AXValueGetValue: %s <= %d',attr,self._ref) end
   --TODO do something smarter with errors
   return cast(valueCasts[cls],value_out) -- cast to appropriate struct (which is bridged by objc.lua)
 end
-
-local function getNSObjectProp(self,prop,cls,sel)
-  local v=getProp(self,prop)
-  return v and tolua(cls[sel](cls, v))-- quite a lousy way to cast the result, but afaict it doesn't allocate
+c.cdef'AXValueCreate'
+local function setStructAttr(self,attr,cls,value)
+  local struct_ret=C.AXValueCreate(valueTypes[cls],value)
+  local res=setAttr(self,attr,struct_ret)
+  C.CFRelease(struct_ret)
+  return res
 end
 
-local AXUIElementSetAttributeValue=c.AXUIElementSetAttributeValue
-local function setProp(self,prop,v)
-  local result=AXUIElementSetAttributeValue(self[1],prop,v)
-  return result==0 and true or log.fe('%s: %s => %d',require'hm._os.bridge.axerrors'[result],tolua(prop),self._ref)
-end
-
----Checks if this element has a given AX property
--- @function [parent=#uielement] hasProp
+---Checks if this element has a given AX attribute
+-- @function [parent=#uielement] hasAttr
 -- @param #uielement self
--- @param #string prop
+-- @param #string attr
 -- @return #boolean
-function elem:hasProp(prop) return AXUIElementCopyAttributeValue(self[1],prop,prop_out)==0 end
----Returns an AX property without any conversion
--- @function [parent=#uielement] getRawProp
+function elem:hasAttr(attr) return getAttr(self,attr,false) and true end
+
+---Returns an AX attribute without any conversion
+-- @function [parent=#uielement] getRaw
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
 -- @return #cdata
-elem.getRawProp=getProp
+elem.getRaw=getAttr
 
-local NSString,NSNumber,NSArray=c.NSString,c.NSNumber,c.NSArray
-local getNumberFromCFNumberRef=c.caller('NSNumber','doubleValue')
+--local getNumberFromCFNumberRef=c.caller('NSNumber','doubleValue')
 
----Returns an AX property of type integer
--- @function [parent=#uielement] getIntegerProp
+---Returns an AX attribute of type integer
+-- @function [parent=#uielement] getInt
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
+-- @param default default value
 -- @return #number
-function elem:getIntegerProp(prop) return getNumberFromCFNumberRef(getProp(self,prop)) end
+function elem:getInt(attr,default) return cf.getInt(getAttr(self,attr,default)) end
+--function elem:getInteger(attr,default) return getNumberFromCFNumberRef(getAttr(self,attr,default)) end
 --function elem:getIntegerProp(prop) return tolua(getProp(self,prop)) end
 --function elem:getIntegerProp(prop) return getNSObjectProp(self,prop,NSNumber,'numberWithInteger') or 0 end
 
----Returns an AX property of type boolean
--- @function [parent=#uielement] getBooleanProp
+---Returns an AX attribute of type boolean
+-- @function [parent=#uielement] getBool
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
 -- @return #boolean
-function elem:getBooleanProp(prop) return self:getIntegerProp(prop)==1 end
----Returns an AX property of type string
--- @function [parent=#uielement] getStringProp
--- @param #uielement self
--- @param #string prop property name
--- @return #string
-function elem:getStringProp(prop) return getNSObjectProp(self,prop,NSString,'stringWithString') or '' end
----Returns an AX property of type array
--- @function [parent=#uielement] getArrayProp
--- @param #uielement self
--- @param #string prop property name
--- @return #table
-function elem:getArrayProp(prop) return getNSObjectProp(self,prop,NSArray,'arrayWithArray') or {} end
+function elem:getBool(attr) return self:getInt(attr)==1 end
 
----Sets an AX property without any conversion
--- @function [parent=#uielement] setRawProp
+--local getStringFromCFStringRef=c.caller('NSString','UTF8String')
+---Returns an AX attribute of type string
+-- @function [parent=#uielement] getString
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
+-- @param default default value
+-- @return #string
+function elem:getString(attr,default) return cf.getString(getAttr(self,attr,default)) end
+--function elem:getString(attr,default) return getStringFromCFStringRef(getAttr(self,attr,default)) end
+--function elem:getString(attr,default) return getNSObject(self,attr,NSString,'stringWithString') or '' end
+---Returns an AX attribute of type array
+-- @function [parent=#uielement] getArrayattr
+-- @param #uielement self
+-- @param #string attr attribute name
+-- @return #table
+function elem:getArray(attr,default) return cf.getArray(getAttr(self,attr,default)) end
+--function elem:getArray(attr) return getNSObject(self,attr,NSArray,'arrayWithArray') or {} end
+
+---Sets an AX attribute without any conversion
+-- @function [parent=#uielement] setRaw
+-- @param #uielement self
+-- @param #string attr attribute name
 -- @param #cdata value
 -- @return #boolean `true` on success
-elem.setRawProp=setProp
+elem.setRaw=setAttr
 
----Sets an AX property of type integer
--- @function [parent=#uielement] setIntegerProp
+---Sets an AX attribute of type integer
+-- @function [parent=#uielement] setInt
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
 -- @param #number value
 -- @return #boolean `true` on success
-function elem:setIntegerProp(prop,value) return setProp(self,prop,toobj(value)) end
+function elem:setInt(attr,value) return setAttr(self,attr,cf.makeInt(value)) end
+--function elem:setInteger(attr,value) return setAttr(self,attr,toobj(value)) end
 --elem.setIntegerProp=setProp
----Sets an AX property of type boolean
--- @function [parent=#uielement] setBooleanProp
+---Sets an AX attribute of type boolean
+-- @function [parent=#uielement] setBool
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
 -- @param #boolean value
 -- @return #boolean `true` on success
-function elem:setBooleanProp(prop,value) return setProp(self,prop,toobj(value and 1 or 0)) end
+function elem:setBool(attr,value) return self:setInt(attr,value and 1 or 0) end
 --elem.setBooleanProp=function(self,v)setProp(self,v and 1 or 0) end
----Sets an AX property of type string
--- @function [parent=#uielement] setStringProp
+---Sets an AX attribute of type string
+-- @function [parent=#uielement] setString
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
 -- @param #string value
 -- @return #boolean `true` on success
-elem.setStringProp=elem.setIntegerProp
----Sets an AX property of type array
--- @function [parent=#uielement] setArrayProp
+function elem:setString(attr,value) return setAttr(self,attr,cf.makeString(value)) end
+--elem.setString=elem.setInteger
+---Sets an AX attribute of type array
+-- @function [parent=#uielement] setArray
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
 -- @param #list value
 -- @return #boolean `true` on success
-elem.setArrayProp=elem.setIntegerProp
+
+--elem.setArray=elem.setInteger
 
 local point,size=require'hm.types.geometry'.point,require'hm.types.geometry'.size
----Returns an AX property of type point
--- @function [parent=#uielement] getPointProp
+---Returns an AX attribute of type point
+-- @function [parent=#uielement] getPoint
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
 -- @return hm.types.geometry#point
-function elem:getPointProp(prop) local p=getValueProp(self,prop,'CGPoint') return point(p.x,p.y) end
----Returns an AX property of type size
--- @function [parent=#uielement] getSizeProp
+function elem:getPoint(prop) local p=getStructAttr(self,prop,'CGPoint') return point(p.x,p.y) end
+---Returns an AX attribute of type size
+-- @function [parent=#uielement] getSize
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
 -- @return hm.types.geometry#size
-function elem:getSizeProp(prop) local s=getValueProp(self,prop,'CGSize') return size(s.width,s.height) end
+function elem:getSize(prop) local s=getStructAttr(self,prop,'CGSize') return size(s.width,s.height) end
 
-local NSMakePoint,NSMakeSize=c.NSMakePoint,c.NSMakeSize
----Sets an AX property of type point
--- @function [parent=#uielement] setPointProp
+--local NSMakePoint,NSMakeSize=C.NSMakePoint,c.NSMakeSize
+c.cdef'NSMakePoint' c.cdef'NSMakeSize'
+---Sets an AX attribute of type point
+-- @function [parent=#uielement] setPoint
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
 -- @param hm.types.geometry#point value
 -- @return #boolean `true` on success
-function elem:setPointProp(prop,value) return setProp(self,prop,NSMakePoint(value.x,value.y)) end
----Sets an AX property of type size
--- @function [parent=#uielement] setSizeProp
+function elem:setPoint(prop,value) return setAttr(self,prop,C.NSMakePoint(value.x,value.y)) end
+---Sets an AX attribute of type size
+-- @function [parent=#uielement] setSize
 -- @param #uielement self
--- @param #string prop property name
+-- @param #string attr attribute name
 -- @param hm.types.geometry#size value
 -- @return #boolean `true` on success
-function elem:setSizeProp(prop,value) return setProp(self,prop,NSMakeSize(value.w,value.h)) end
+function elem:setSize(prop,value) return setAttr(self,prop,C.NSMakeSize(value.w,value.h)) end
 
 ---The element's title
 -- @field [parent=#uielement] #string title
 -- @readonlyproperty
-property(elem,'title',function(self)
-  return self:hasProp(c.NSAccessibilityTitleAttribute) and self:getStringProp(c.NSAccessibilityTitleAttribute) or ''
-end,false)
+property(elem,'title',function(self) return self:getString('title','') end,false)
 ---The element's `AXRole`
 -- @field [parent=#uielement] #string role
 -- @readonlyproperty
-property(elem,'role',function(self) return self._role or self:getStringProp(c.NSAccessibilityRoleAttribute) end)
+property(elem,'role',function(self) return self._role or self:getString('role') end)
 ---The element's `AXSubrole`
 -- @field [parent=#uielement] #string subrole
 -- @readonlyproperty
-property(elem,'subrole',function(self) return self:getStringProp(c.NSAccessibilitySubroleAttribute) end,false)
+property(elem,'subrole',function(self) return self:getString('subrole') end,false)
 ---The element's selected text
 -- @field [parent=#uielement] #string selectedText
 -- @readonlyproperty
-property(elem,'selectedText',function(self) return self:getStringProp(c.NSAccessibilityRoleSelectedTextAttribute) end,false)
+property(elem,'selectedText',function(self) return self:getString('selectedText') end,false)
 ---The element's top left corner
 -- @field [parent=#uielement] hm.types.geometry#point topLeft
 -- @property
-property(elem,'topLeft',
-  function(self) return self:getPointProp(c.NSAccessibilityPositionAttribute) end,
-  function(self,v) self:setPointProp(c.NSaccessibilityPositionAttribute,v) end,'hm.types.geometry#point')
+property(elem,'topleft',
+  function(self) return self:getPoint'position' end,
+  function(self,v) self:setPoint('position',v) end,'hm.types.geometry#point')
 ---The element's size
 -- @field [parent=#uielement] hm.types.geometry#size size
 -- @property
 property(elem,'size',
-  function(self) return self:getSizeProp(c.NSAccessibilitySizeAttribute) end,
-  function(self,v) self:setSizeProp(c.NSAccessibilitySizeAttribute,v) end,'hm.types.geometry#size')
+  function(self) return self:getSize'size' end,
+  function(self,v) self:setSize('size',v) end,'hm.types.geometry#size')
 
 
 local cachedElements=hm._core.cacheValues()
-local CFHash=c.CFHash
-local AXUIElementGetPid=c.AXUIElementGetPid
+--local CFHash=c.CFHash
+c.cdef'AXUIElementGetPid'
+--local AXUIElementGetPid=c.AXUIElementGetPid
 local function newElem(ax,pid,o)
-  local hash=nptr(CFHash(ax))
+  local hash=nptr(C.CFHash(ax))
   if cachedElements[hash] then return cachedElements[hash] end
   if not pid then
-    local result=AXUIElementGetPid(ax,value_out)
-    pid=result==0 and value_out[0] or error'cannot get pid from axuielement'
+    local result=C.AXUIElementGetPid(ax,id_out)
+    pid=result==0 and id_out[0] or error'cannot get pid from axuielement'
   end
   o=o or {} o[1]=ax o._pid=pid o._ref=hash
   o=new(o)
   log.v('cached hash',hash) cachedElements[hash]=o
   return o
 end
---[[
-function elem:isApplication() return self:role()=='AXApplication' end
-local function isWindow(role,self)
-  return role=='AXWindow' or elem._hasProp(self,c.NSAccessibilityMinimizedAttribute)
-end
-function elem:isWindow() return isWindow(self:role(),self) end
-
-local newWin,newApp=hm.window._newWindow,hm.application._newApplication
-
-local cachedElements=hm._core.cacheValues()
---local cfptr_t=ffi.typeof('void*')
-local function newElem(axelem,pid)
-  --  local hash=nptr(CFHash(cast(cfptr_t,axelem)))
-  local hash=nptr(CFHash(axelem))
-  if cachedElements[hash] then return cachedElements[hash] end
-  if not pid then
-    local result=AXGetPid(axelem,value_out)
-    pid=result==0 and value_out[0] or error'cannot get pid from axuielement'
-  end
-  local o={_ax=axelem,_pid=pid}
-  local role=tolua(NSString:stringWithString(getProp(o,c.NSAccessibilityRoleAttribute)))
-  if isWindow(role,o) then
-    o=newWin(axelem,pid)
-  elseif role=='AXApplication' then
-    o=newApp(nil,pid)
-  else
-    --    assert(role~='AXApplication')
-    o=new({_ax=axelem,_pid=pid})
-  end
-  log.v('cached hash',hash)
-  cachedElements[hash]=o
-  return o
-    --  return setmetatable({_ax=axelem,_pid=pid},{__index=ui,__tostring=ui.tostring})
-end--]]
 
 ---@function [parent=#hm._os.uielements] newElement
 -- @param #cdata ax `AXUIElementRef`
@@ -300,12 +301,12 @@ end--]]
 -- @return #uielement
 uielements.newElement=newElem
 
-local AXUIElementCreateApplication=c.AXUIElementCreateApplication
+c.cdef'AXUIElementCreateApplication'
 ---@function [parent=#hm._os.uielements] newElementForApplication
 -- @param #number pid
 -- @return #uielement
 function uielements.newElementForApplication(pid)
-  return newElem(AXUIElementCreateApplication(pid),pid,{_role='AXApplication'})
+  return newElem(C.AXUIElementCreateApplication(pid),pid,{_role='AXApplication'})
 end
 
 ----- AX watchers -----

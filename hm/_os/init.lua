@@ -10,9 +10,6 @@ c.load'ApplicationServices.HIServices'
 -- these wants (3rd arg) a CFString, but kCFRunLoopDefaultMode is defined as const CFString - hence the 'r' in the patch
 c.addfunction('CFRunLoopAddSource',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopSource=}','r^{__CFString=}'})
 c.addfunction('CFRunLoopRemoveSource',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopSource=}','r^{__CFString=}'})
---release for all! \o/
-c.addfunction('CFRelease',{'^v'},false)
-c.addfunction('CFHash',{retval='Q','^v'})
 
 local tolua=c.tolua
 local rawset,rawget,pairs,tinsert=rawset,rawget,pairs,table.insert

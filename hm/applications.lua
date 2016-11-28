@@ -212,7 +212,7 @@ property(app,'path',function(self)return self.bundle.path end)
 -- @field [parent=#application] #boolean ownsMenuBar
 -- @readonlyproperty
 property(app,'ownsMenuBar',
-  function(self) return self._ax:getBooleanProp(c.NSAccessibilityFrontmostAttribute) end,false)
+  function(self) return self._nsapp.ownsMenuBar end,false)
 
 ---A string describing an application's kind.
 -- Valid values are:
@@ -327,20 +327,20 @@ local newWindow=require'hm.windows'.newWindow
 -- @field [parent=#application] hm.windows#window mainWindow
 -- @property
 property(app,'mainWindow',
-  function(self)return newWindow(self._ax:getRawProp(c.NSAccessibilityMainWindowAttribute),self._pid) end,
+  function(self)return newWindow(self._ax:getRaw'mainWindow',self._pid) end,
   function(self,win)
     if win.application~=self then return log.e(win,'belongs to another application, cannot set as main window for',self) end
-    self._ax:setRawProp(c.NSAccessibilityMainWindowAttribute,win._ax)
+    self._ax:setRaw('mainWindow',win._ax)
   end,'hm.windows#window')
 
 ---The application's focused window.
 -- @field [parent=#application] hm.windows#window focusedWindow
 -- @property
 property(app,'focusedWindow',
-  function(self)return newWindow(self._ax:getRawProp(c.NSAccessibilityFocusedWindowAttribute),self._pid)end,
+  function(self)return newWindow(self._ax:getRaw'focusedWindow',self._pid)end,
   function(self,win)
     if win.application~=self then return log.e(win,'belongs to another application, cannot set as focused window for',self) end
-    self._ax:setRawProp(c.NSAccessibilityFocusedWindowAttribute,win._ax)
+    self._ax:setRaw('focusedWindow',win._ax)
   end,'hm.windows#window')
 
 ---@type windowList
@@ -366,12 +366,10 @@ local axref=ffi.typeof'AXUIElementRef'
 -- @readonlyproperty
 -- @internalchange the ad-hoc filtering is done here at the source rather than downstream in hm.windows
 property(app,'windows',function(self)
-  local bid,r=self.bundleID,list()
+  local bid=self.bundleID
   if SKIP_APPS[bid] then return r end
-  local wins=self._ax:getArrayProp(c.NSAccessibilityWindowsAttribute)
-  for i,axwin in ipairs(wins) do
-    r:append(newWindow(cast(axref,axwin),self._pid))
-  end
+  local r=list(self._ax:getArray('windows',axref))
+    :imap(function(axwin) return newWindow(axwin,self._pid) end)
   if bid=='com.apple.finder' then r=r:ifilterByField('role','AXWindow') end
   return r
 end,false)

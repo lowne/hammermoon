@@ -87,8 +87,8 @@ property(win,'standard',function(self)return self._ax.subrole=='AXStandardWindow
 -- @field [parent=#window] #boolean minimized
 -- @property
 property(win,'minimized',
-  function(self)return self._ax:getBooleanProp(c.NSAccessibilityMinimizedAttribute)end,
-  function(self,v) self._ax:setBooleanProp(c.NSAccessibilityMinimizedAttribute,v) end,'boolean')
+  function(self)return self._ax:getBool'minimized' end,
+  function(self,v) self._ax:setBool('minimized',v) end,'boolean')
 ---Whether the window is currently visible.
 -- A window is not visible if it's minimized or its parent application is hidden.
 -- Setting this value to `true` will unminimize the window and unhide the parent application.
@@ -107,12 +107,24 @@ property(win,'visible',
 property(win,'hidden',
   function(self) return self.application.hidden end,
   function(self,v) self.application.hidden=v end,'boolean')
+---Whether the window is currently fullscreen.
+-- @field [parent=#window] #boolean fullscreen
+-- @property
+property(win,'fullscreen',
+  function(self)return self._ax:getBool'fullscreen' end,
+  function(self,v) self._ax:setBool('fullscreen',v) end,'boolean')
+---Whether the window is currently visible.
+-- A window is not visible if it's minimized or its parent application is hidden.
+-- Setting this value to `true` will unminimize the window and unhide the parent application.
+-- Setting this value to `false` will hide the parent application, unless the window is already minimized.
+-- @field [parent=#window] #boolean visible
+-- @property
 
 ---The window's frame in screen coordinates.
 -- @field [parent=#window] hm.types.geometry#rect frame
 -- @property
 property(win,'frame',
-  function(self)return geometry(self._ax.topLeft,self._ax.size) end,
+  function(self)return geometry(self._ax.topleft,self._ax.size) end,
   function(self,v) self._ax.topleft=v.topleft self._ax.size=v.size end,'hm.types.geometry#rect',true)
 
 ---@type windowList

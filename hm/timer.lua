@@ -5,6 +5,7 @@
 -- @internalchange Don't bother with NSTimer intermediates, we abstract directly from CFRunLoopTimer
 
 ------ OBJC -------
+local C=ffi.C
 local c=require'objc'
 local tolua,toobj,nptr=c.tolua,c.toobj,c.nptr
 c.load'CoreFoundation'
@@ -16,7 +17,8 @@ c.addfunction('CFRunLoopRemoveTimer',{retval='v','^{__CFRunLoop=}','^{__CFRunLoo
 --c.addfunction('CFRunLoopRunInMode',{retval='i','@"NSString"','d','B'})
 
 local currentRL=c.CFRunLoopGetCurrent()
-local CFAbsoluteTimeGetCurrent=c.CFAbsoluteTimeGetCurrent
+--local CFAbsoluteTimeGetCurrent=c.CFAbsoluteTimeGetCurrent
+c.cdef'CFAbsoluteTimeGetCurrent'
 local CFRunLoopAddTimer,CFRunLoopRemoveTimer=c.CFRunLoopAddTimer,c.CFRunLoopRemoveTimer
 local kCFRunLoopDefaultMode=c.kCFRunLoopDefaultMode
 local CFRunLoopTimerGetNextFireDate,CFRunLoopTimerSetNextFireDate=c.CFRunLoopTimerGetNextFireDate,c.CFRunLoopTimerSetNextFireDate
@@ -103,13 +105,13 @@ checkers['hm.timer#intervalString']=function(s) return parseInterval(s) and true
 -- @function [parent=#hm.timer] localTime
 -- @return #number number of seconds, with millisecond precision or better
 -- @internalchange high precision
-function timer.localTime() local tnow=date('*t') return tnow.sec+tnow.min*60+tnow.hour*3600+CFAbsoluteTimeGetCurrent()%1 end
+function timer.localTime() local tnow=date('*t') return tnow.sec+tnow.min*60+tnow.hour*3600+C.CFAbsoluteTimeGetCurrent()%1 end
 
 ---Returns the number of seconds since an arbitrary point in the distant past.
 -- This function should only be used for measuring time intervals. The starting point is Jan 1 2001 00:00:00 GMT, so *not* the UNIX epoch.
 -- @function [parent=#hm.timer] absoluteTime
 -- @return #number number of seconds, with millisecond precision or better
-function timer.absoluteTime() return CFAbsoluteTimeGetCurrent() end
+function timer.absoluteTime() return C.CFAbsoluteTimeGetCurrent() end
 
 ---Converts to number of seconds
 -- @function [parent=#hm.timer] toSeconds
@@ -153,7 +155,7 @@ local timerCount=0
 -- @apichange All `hs.timer` constructors are covered by the new `:run...()` methods
 function timer.new(fn,data) checkargs'callable'
   timerCount=timerCount+1
-  local o=new{_ref=timerCount,_runcb=fn,_timercb=fn,_data=data,_isRunning=false,_lastTrigger=CFAbsoluteTimeGetCurrent()}
+  local o=new{_ref=timerCount,_runcb=fn,_timercb=fn,_data=data,_isRunning=false,_lastTrigger=C.CFAbsoluteTimeGetCurrent()}
   if data=='timer' then o._data=o end
   log.d('Created',o) return o
 end
@@ -195,7 +197,7 @@ local function stop(self)
 end
 
 local function run(self)
-  local now=CFAbsoluteTimeGetCurrent()
+  local now=C.CFAbsoluteTimeGetCurrent()
   if self._interval==0 then stop(self) -- one-off
   elseif self._interval then start(self,now+self._interval) end --reschedule
   log.v('Executing',self)
@@ -256,7 +258,7 @@ property(tmr,'scheduled',
 
 nextTrigger=function(self) checkargs'hm.timer#timer'
   if not self._timer or not self._isRunning then return nil end
-  local delta=CFRunLoopTimerGetNextFireDate(self._timer)-CFAbsoluteTimeGetCurrent()
+  local delta=CFRunLoopTimerGetNextFireDate(self._timer)-C.CFAbsoluteTimeGetCurrent()
   return delta<NOT_SCHEDULED_INTERVAL_THRESHOLD and delta or nil
 end
 
@@ -271,14 +273,14 @@ property(tmr,'nextRun',nextTrigger,
   function(self,delay)
     if not delay then return stop(self) end
     if not self._timer then makeTimer(self,0) end
-    return start(self,CFAbsoluteTimeGetCurrent()+parseInterval(delay))
+    return start(self,C.CFAbsoluteTimeGetCurrent()+parseInterval(delay))
   end,'?false|hm.timer#intervalString')
 ---The timer's last execution time, in seconds since.
 -- If the timer has never been executed, this value is the time since creation.
 -- @field [parent=#timer] #number elapsed
 -- @readonlyproperty
 -- @apichange Was `<#hs.timer>:nextTrigger()` when negative, but only if the timer was not running.
-property(tmr,'elapsed',function(self)return CFAbsoluteTimeGetCurrent()-self._lastTrigger end,false)
+property(tmr,'elapsed',function(self)return C.CFAbsoluteTimeGetCurrent()-self._lastTrigger end,false)
 
 --[[
 ---Schedules execution of the timer at a given time of day.
@@ -321,7 +323,7 @@ function tmr:runIn(delay,data) checkargs('hm.timer#timer','hm.timer#intervalStri
     local time=timer.localTime()+delay
     log.i(self,'will run at',timeOfDayToString(time))
   end
-  makeTimer(self,0) return start(self,delay+CFAbsoluteTimeGetCurrent())
+  makeTimer(self,0) return start(self,delay+C.CFAbsoluteTimeGetCurrent())
 end
 
 ---Schedules repeated execution of the timer.
@@ -362,7 +364,7 @@ function tmr:runEvery(repeatInterval,delayOrStartTime,continueOnError,data)
   self._continueOnError=continueOnError
   repeatInterval=parseInterval(repeatInterval)
   local delay
-  if not delayOrStartTime then delay=CFAbsoluteTimeGetCurrent()+0.001 --was nil
+  if not delayOrStartTime then delay=C.CFAbsoluteTimeGetCurrent()+0.001 --was nil
   else delay=parseInterval(delayOrStartTime) --was interval
     if not delay then --was time of day
       delay=parseLocalTime(delayOrStartTime)
@@ -396,7 +398,7 @@ local function startPredicate(self,predicateCallback,checkInterval,continueOnErr
   if data~=nil then self._data=data end
   self._continueOnError=continueOnError
   makeTimer(self,parseInterval(checkInterval),predicateCallback)
-  return start(self,0.01+CFAbsoluteTimeGetCurrent())
+  return start(self,0.01+C.CFAbsoluteTimeGetCurrent())
 end
 ---Schedules repeated execution of the timer while a given predicate remains true.
 -- The given `predicateFn` will start being checked right away. While it returns `true`, the timer will
