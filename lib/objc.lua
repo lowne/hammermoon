@@ -200,7 +200,7 @@ end
 
 errors = true    --log non-fatal errors to stderr
 errcount = {}    --error counts per topic
-logtopics = {}   --topics to log (none by default)
+logtopics = {notwrapped=true}   --topics to log (none by default)
 
 local function writelog(topic, fmt, ...)
   io.stderr:write(_('[objc] %-16s %s\n', topic, _(fmt, ...)))
@@ -229,7 +229,7 @@ end
 checkredef = false --check incompatible redefinition attempts (makes parsing slower)
 printcdecl = false --print C declarations to stdout (then you can grab them and make static ffi headers)
 cnames = {global = {0}, struct = {0}} --C namespaces; ns[1] holds the count
-
+cdefs={}
 local function defined(name, namespace) --check if a name is already defined in a C namespace
   return not checkredef and cnames[namespace][name]
 end
@@ -641,6 +641,7 @@ end
 local function_caller --fw. decl.
 
 local function add_function(name, ftype, lazy) --cdef and call-wrap a global C function
+  cdefs[name]=ftype_ctype(ftype,name) -- store for objc.cdef
   if lazy == nil then lazy = lazyfuncs end
 
   local function addfunc()
@@ -650,7 +651,7 @@ local function add_function(name, ftype, lazy) --cdef and call-wrap a global C f
       err('symbol', 'missing C function: %s', name)
       return
     end
-    local caller = function_caller(ftype, cfunc)
+    local caller = function_caller(ftype, cfunc) or C[name]
     rawset(objc, name, caller) --overshadow the C function with the caller
     return caller
   end
@@ -660,7 +661,10 @@ local function add_function(name, ftype, lazy) --cdef and call-wrap a global C f
     --this is because in luajit2 can only hold as many as 64k ctypes total.
     rawset(objc, name, function(...)
       local func = addfunc()
-      if not func then return end
+      if not func then return
+      elseif func==C[name] then
+        log('notwrapped','call %s directly from ffi.C',name)
+      end
       return func(...)
     end)
   else
@@ -1664,7 +1668,7 @@ local method_caller = memoize2(function(cls, selname)
 
   local func = method_imp(method)
   local func = cast(ct, func)
-  local func = function_caller(ftype, func)
+  local func = function_caller(ftype, func) or func
 
   local can_retain = not noretain[selname]
   local is_release = selname == 'release' or selname == 'autorelease'
@@ -2108,7 +2112,7 @@ local function tolua(obj) --convert an objc object that converts naturally to a 
     return obj.doubleValue
 elseif isa(obj, objc.NSString) then
   return obj:UTF8String()
-    --		return obj.UTF8String
+    --  return obj.UTF8String
 elseif isa(obj, objc.NSDictionary) then
   local t = {}
   --		local count = tonumber(obj:count())
@@ -2146,8 +2150,21 @@ local function convert_fp_arg(ftype, arg)
   end
 end
 
+local stype_ct=memoize(stype_ctype)
+
+local CF_BRIDGED={
+  ['^{__CFString=}']           ={'struct objc_object *'},
+  ['r^{__CFString=}']          ={'struct objc_object *'},
+  ['CFStringRef']              ={'struct objc_object *'},
+  ['CFNumberRef']              =true,
+  ['^{__CFMutableArray=}']     =true,
+  ['CFMutableArrayRef']        =true,
+  ['^{__CFMutableDictionary=}']=true,
+  ['CFMutableDictionaryRef']   =true,
+}
+
 local function convert_arg(ftype, i, arg)
-  local argtype = ftype[i]
+  local argtype = ftype[i]:sub(1,1)
   if argtype == ':' then
     return selector(arg) --selector, string
   elseif argtype == '#' then
@@ -2157,7 +2174,19 @@ local function convert_arg(ftype, i, arg)
   elseif ftype.fp and ftype.fp[i] then
     return convert_fp_arg(ftype.fp[i], arg) --function
   else
-    return arg --pass through
+    local allowed_types=CF_BRIDGED[ftype[i]]
+    if allowed_types then
+      arg=toobj(arg)
+      local is_allowed
+      for _,ct in ipairs(allowed_types) do
+        if ffi.istype(ct,arg) then is_allowed=true break end
+      end
+      local nt=stype_ct(ftype[i])
+      check(is_allowed,'cannot cast %s to %s',arg,nt)
+      return cast(nt,toobj(arg)) --string, number, array-table, dict-table
+    else
+      return arg --pass through
+    end
   end
 end
 
@@ -2187,8 +2216,18 @@ local function convert_ret(ftype, ret)
     return ret --pass through
   end
 end
+
 function function_caller(ftype, func)
-  if #ftype == 0 then
+  local needs_conversion=ftype.fp or ftype.retval=='B' or ftype.retval=='*' or ftype.retval=='r*'
+  if not needs_conversion then
+    for _,argtype in ipairs(ftype) do
+      if CF_BRIDGED[argtype] then needs_conversion=true break end
+      argtype=argtype:sub(1,1)
+      if argtype==':' or argtype=='#' or argtype=='@' then needs_conversion=true break end
+    end
+  end
+  if not needs_conversion then return false
+  elseif #ftype == 0 then
     return function()
       return convert_ret(ftype, func())
     end
@@ -2346,23 +2385,32 @@ objc.tolua = tolua
 objc.nptr  = nptr
 objc.ipairs = array_ipairs
 
---autoload
-local submodules = {
-  inspect = 'objc_inspect',   --inspection tools
-  dispatch = 'objc_dispatch', --GCD binding
-}
-local function autoload(k)
-  return submodules[k] and require(submodules[k]) and objc[k]
+--force cdef
+objc.cdef=function(name)
+  local cdecl=cdefs[name]
+  check(cdecl,'objc.lua: %s not found',name)
+  return declare(name,'global',cdecl)
 end
 
---dynamic namespace
-setmetatable(objc, {
-  __index = function(t, k)
-    return class(k) or csymbol(k) or autoload(k) or error('objc.lua: '..k..' not found')
-  end,
-  __autoload = submodules, --for inspection
-})
 
+do
+  --autoload
+  local submodules = {
+    inspect = 'objc_inspect',   --inspection tools
+    dispatch = 'objc_dispatch', --GCD binding
+  }
+  local function autoload(k)
+    return submodules[k] and require(submodules[k]) and objc[k]
+  end
+
+  --dynamic namespace
+  setmetatable(objc, {
+    __index = function(t, k)
+      return class(k) or csymbol(k) or autoload(k) or error('objc.lua: '..k..' not found')
+    end,
+    __autoload = submodules, --for inspection
+  })
+end
 --print namespace
 if not ... then
   for k,v in pairs(objc) do
