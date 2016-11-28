@@ -1,7 +1,7 @@
 #!/usr/bin/env ./luajit
 local cmd=arg[1]
-if cmd~='run' and cmd~='clean' and cmd~='runall' then
-  print('arg needed: "run", "runall", "clean"')
+if cmd~='run' and cmd~='clean' and cmd~='runall' and cmd~='pad' then
+  print('arg needed: "run", "runall", "clean", "pad"')
   os.exit(1,1)
 end
 
@@ -197,7 +197,22 @@ require'hammermoon_app'(function()
     f:write(tconcat(output,'\n')..'\n') f:flush() f:close()
     return total,passed,failed
   end
-
+  if cmd=='pad' then
+    hm.timer.log.level=1
+    local timestamp=0
+    local path=arg[2] or 'scratchpad.lua'
+    while true do
+      repeat
+        hm.timer.sleep(1)
+        local pathmod=lfs.attributes(path,'modification')
+      until pathmod>timestamp
+      local lines={path=path}
+      for line in io.lines(path) do lines[#lines+1]=line end
+      runfile(lines)
+      timestamp=os.time()
+    end
+    os.exit(1,1)
+  end
   local total,passed,failed=0,0,0
   local timestamps={}
   --  if not lfs.attributes(TIMESTAMPS) then
