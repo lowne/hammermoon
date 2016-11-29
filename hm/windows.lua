@@ -2,9 +2,6 @@
 -- @module hm.windows
 -- @static
 
-local c=require'objc'
-c.load'CoreFoundation'
-
 local pairs,ipairs,next,setmetatable=pairs,ipairs,next,setmetatable
 local sformat=string.format
 local property=hm._core.property
@@ -83,12 +80,33 @@ property(win,'application',function(self)return applications.applicationForPID(s
 -- @field [parent=#window] #boolean standard
 -- @readonlyproperty
 property(win,'standard',function(self)return self._ax.subrole=='AXStandardWindow'end,false)
+---Whether the window is currently focused.
+-- @field [parent=#window] #boolean focused
+-- @property
+property(win,'focused',
+  function(self)return self._ax:getBool'focused' end,
+  function(self,v)return self._ax:setBool('focused',v) end,'boolean')
+---Focuses this window.
+-- @function [parent=#window] focus
+-- @param #window self
+-- @return #window self
+function win:focus() self.focused=true return self end
 ---Whether the window is currently minimized.
 -- @field [parent=#window] #boolean minimized
 -- @property
 property(win,'minimized',
   function(self)return self._ax:getBool'minimized' end,
   function(self,v) self._ax:setBool('minimized',v) end,'boolean')
+---Minimizes this window.
+-- @function [parent=#window] minimize
+-- @param #window self
+-- @return #window self
+function win:minimize() self.minimized=true return self end
+---Unminimizes this window.
+-- @function [parent=#window] unminimize
+-- @param #window self
+-- @return #window self
+function win:unminimize() self.minimized=false return self end
 ---Whether the window is currently visible.
 -- A window is not visible if it's minimized or its parent application is hidden.
 -- Setting this value to `true` will unminimize the window and unhide the parent application.
@@ -113,13 +131,54 @@ property(win,'hidden',
 property(win,'fullscreen',
   function(self)return self._ax:getBool'fullscreen' end,
   function(self,v) self._ax:setBool('fullscreen',v) end,'boolean')
----Whether the window is currently visible.
--- A window is not visible if it's minimized or its parent application is hidden.
--- Setting this value to `true` will unminimize the window and unhide the parent application.
--- Setting this value to `false` will hide the parent application, unless the window is already minimized.
--- @field [parent=#window] #boolean visible
--- @property
-
+---The window's close button, if present.
+-- If absent, this property is `false`.
+-- @field [parent=#window] hm._os.uielements#uielement closeButton
+-- @readonlyproperty
+-- @dev
+property(win,'closeButton',function(self) local bax=self._ax:getRaw('closeButton',false) return bax and newElement(bax) end)
+---The window's minimize button, if present.
+-- If absent, this property is `false`.
+-- @field [parent=#window] hm._os.uielements#uielement minimizeButton
+-- @readonlyproperty
+-- @dev
+property(win,'minimizeButton',function(self) local bax=self._ax:getRaw('minimizeButton',false) return bax and newElement(bax) end)
+---The window's fullscreen button, if present.
+-- If absent, this property is `false`.
+-- @field [parent=#window] hm._os.uielements#uielement fullscreenButton
+-- @readonlyproperty
+-- @dev
+property(win,'fullscreenButton',function(self) local bax=self._ax:getRaw('fullScreenButton',false) return bax and newElement(bax) end)
+---The window's zoom button, if present.
+-- If absent, this property is `false`.
+-- @field [parent=#window] hm._os.uielements#uielement zoomButton
+-- @readonlyproperty
+-- @dev
+property(win,'zoomButton',function(self) local bax=self._ax:getRaw('zoomButton',false) return bax and newElement(bax) end)
+---The (dialog) window's cancel button, if present.
+-- If absent, this property is `false`.
+-- @field [parent=#window] hm._os.uielements#uielement cancelButton
+-- @readonlyproperty
+-- @dev
+property(win,'cancelButton',function(self) local bax=self._ax:getRaw('cancelButton',false) return bax and newElement(bax) end)
+---The (dialog) window's default button, if present.
+-- If absent, this property is `false`.
+-- @field [parent=#window] hm._os.uielements#uielement defaultButton
+-- @readonlyproperty
+-- @dev
+property(win,'defaultButton',function(self) local bax=self._ax:getRaw('defaultButton',false) return bax and newElement(bax) end)
+---Closes this window
+-- @function [parent=#window] close
+-- @param #window self
+-- @return #boolean `true` if successful
+function win:close()
+  if self.closeButton and self.closeButton:click() then log.d(self,'closed via close button') return true
+    --  elseif self._ax:cancel() then log.d(self,'closed via cancel action') return true
+  elseif self.cancelButton and self.cancelButton:click() then log.d(self,'closed via cancel button') return true
+    --  elseif self._ax:confirm() then log.d(self,'closed via confirm action') return true
+  elseif self.defaultButton and self.defaultButton:click() then log.d(self,'closed via default button') return true
+  else return false end
+end
 ---The window's frame in screen coordinates.
 -- @field [parent=#window] hm.types.geometry#rect frame
 -- @property
@@ -159,10 +218,22 @@ end,false)
 ---The currently focused window.
 -- @field [parent=#hm.windows] #window focusedWindow
 -- @property
-property(windows,'focusedWindow',function()
-  local app=applications.frontmostApplication
-  return app and app.focusedWindow or log.e'no frontmost app or window!'
-end,function(w) w:focus() end,'hm.windows#window')
+property(windows,'focusedWindow',
+  function()
+    local app=applications.activeApplication
+    return app and app.focusedWindow or log.d'no focused app or window!'
+  end,
+  function(w) w.focused=true end,'hm.windows#window')
+
+---The currently focused or frontmost window.
+-- @field [parent=#hm.windows] #window frontmostWindow
+-- @readproperty
+property(windows,'frontmostWindow',function()
+  local w=windows.focusedWindow if w then return w end
+  return windows.orderedWindows[1] or log.e'no frontmost window!'
+end,false)
+
+
 
 
 
