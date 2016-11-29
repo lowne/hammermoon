@@ -14,10 +14,13 @@ c.load'CoreGraphics'
 -- this one expects (2nd arg) CFString (which objc.lua can't construct), allow NSStrings instead
 --c.addfunction('AXUIElementCopyAttributeValue',{retval='i','^{__AXUIElement=}','@"NSString"','^^v'},false)
 --c.addfunction('AXUIElementSetAttributeValue',{retval='i','^{__AXUIElement=}','@"NSString"','@'})
+
+-- bridgesupport is wrong: 3rd arg from @ to ^v (CFTypeRef)
+c.addfunction('AXUIElementSetAttributeValue',{retval='i','^{__AXUIElement=}','^{__CFString=}','^v'})
 -- CFString to NSString, also refdata from ^v to i
 c.addfunction('AXObserverAddNotification',{retval='i','^{__AXObserver=}','^{__AXUIElement=}','@"NSString"','i'},false)
 -- this one wants (1st arg) an AXValueRef (outval from AXUIElementCopyAttributeValue) but we don't want to fficast every time
-c.addfunction('AXValueGetValue',{retval='B','^{__CFType=}','i','^v'},false)
+--c.addfunction('AXValueGetValue',{retval='B','^{__CFType=}','i','^v'},false)
 -- CFString to NSString, cb refdata ^v to ^i
 c.addfunction('AXObserverCreate',{retval='i','i','^?',fp={[2]={'^{__AXObserver=}','^{__AXUIElement=}','@"NSString"','i'}},'^^{__AXObserver}'})
 -- private API yeah!
@@ -50,11 +53,16 @@ local log=uielements.log
 -- @class
 local elem=uielements._classes.uielement
 local new=elem._new
+local cachedElements=hm._core.cacheValues()
+local function clearCache(self)
+  local hash=nptr(C.CFHash(self[1]))
+  if not cachedElements[hash] then return end
+  cachedElements[hash]=nil
+  log.v('cleared hash',hash)
+end
 
 local attrs=setmetatable({
-  ['fullscreen']='NSAccessibilityFullScreenAttribute',
-  ['fullscreen']='AXFullScreen',
---TODO test fullscreen
+  ['fullscreen']=cf.makeString'AXFullScreen',
 },{
   __index=function(t,k)
     hmassertf(type(k)=='string','attribute must be a string')
@@ -66,10 +74,20 @@ local attrs=setmetatable({
   end,
   __newindex=function()error 'not allowed' end,
 })
-
 elem.attrs=attrs
 
---local object_out=ffi.new'int[1]'
+local actions=setmetatable({},{
+  __index=function(t,k)
+    hmassertf(type(k)=='string','action must be a string')
+    local ck='NSAccessibility'..k:sub(1,1):upper()..k:sub(2)..'Action'
+    local attr=hmassertf(c[ck],'invalid AX action %s (%s not found)',k,ck)
+    attr=cf.makeString(tolua(attr))
+    rawset(t,k,attr)
+    return attr
+  end,
+})
+elem.actions=actions
+
 local id_out=ffi.new'int32_t[1]'
 local value_out=ffi.new'CFTypeRef[1]'
 
@@ -77,9 +95,10 @@ local value_out=ffi.new'CFTypeRef[1]'
 ---Only for window elements
 -- @return #number window id
 function elem:getWindowID()
-  local result=C._AXUIElementGetWindow(self[1],id_out)
-  return result==0 and id_out[0] or
-    log.fw('%s: window ID <= [pid:%d]',require'hm._os.bridge.axerrors'[result],self._pid)
+  local res=C._AXUIElementGetWindow(self[1],id_out)
+  if res==0 then return id_out[0]
+  elseif res==-25202 then clearCache(self) return nil,'kAXErrorInvalidUIElement'  --it's gone
+  else return log.fw('%s: window ID <= [pid:%d]',require'hm._os.bridge.axerrors'[res],self._pid) end
 end
 
 ---The process identifier of the application owning this uielement.
@@ -95,6 +114,7 @@ local function getAttr(self,attr,default)
   local res=C.AXUIElementCopyAttributeValue(self[1],attrs[attr],value_out)
   if res==0 then return gc(value_out[0],function(self) log.w('CFRelease') C.CFRelease(self) end)
   elseif default~=nil then return default
+  elseif res==-25202 then clearCache(self) return nil,'kAXErrorInvalidUIElement'  --it's gone
     --TODO do something smarter with errors
   else return log.fe('%s: %s <= %d',require'hm._os.bridge.axerrors'[res],attr,self._ref) end
 end
@@ -102,27 +122,41 @@ end
 --local AXUIElementSetAttributeValue=c.AXUIElementSetAttributeValue
 c.cdef'AXUIElementSetAttributeValue'
 local function setAttr(self,attr,v)
-  local result=C.AXUIElementSetAttributeValue(self[1],attrs[attr],v)
-  return result==0 and true or log.fe('%s: %s => %d',require'hm._os.bridge.axerrors'[result],attr,self._ref)
+  local res=C.AXUIElementSetAttributeValue(self[1],attrs[attr],v)
+  if res==0 then return true
+  elseif res==-25202 then clearCache(self) return nil,'kAXErrorInvalidUIElement'  --it's gone
+  else return log.fe('%s: %s => %d',require'hm._os.bridge.axerrors'[res],attr,self._ref) end
 end
 
 c.cdef'AXValueGetValue'
-local valueTypes,valueCasts={CGPoint=1,CGSize=2,CGRect=3,CFRange=4},{}
-for k in pairs(valueTypes) do valueCasts[k]=ffi.typeof(k..' *') end
+local structTypes,structValues={CGPoint=1,CGSize=2,CGRect=3,CFRange=4},{}
+for k in pairs(structTypes) do
+  -- structCasts[k]=ffi.typeof(k..' *')
+  structValues[k]=ffi.new(k..'[1]')
+end
+
 local function getStructAttr(self,attr,cls)
-  local res=C.AXValueGetValue(getAttr(self,attr),valueTypes[cls],value_out)
+  local res=C.AXValueGetValue(getAttr(self,attr),structTypes[cls],structValues[cls])
   if not res then return log.fe('AXValueGetValue: %s <= %d',attr,self._ref) end
   --TODO do something smarter with errors
-  return cast(valueCasts[cls],value_out) -- cast to appropriate struct (which is bridged by objc.lua)
+  return structValues[cls][0]
+    --  return cast(structCasts[cls],struct_outs[cls]) -- cast to appropriate struct (which is bridged by objc.lua)
 end
 c.cdef'AXValueCreate'
 local function setStructAttr(self,attr,cls,value)
-  local struct_ret=C.AXValueCreate(valueTypes[cls],value)
+  local svalue=structValues[cls][0]
+  for k,v in pairs(value) do svalue[k]=v end
+  local struct_ret=C.AXValueCreate(structTypes[cls],svalue)
   local res=setAttr(self,attr,struct_ret)
   C.CFRelease(struct_ret)
   return res
 end
 
+c.cdef'AXUIElementPerformAction'
+local function performAction(self,action)
+  local res=C.AXUIElementPerformAction(self[1],actions[action])
+  return res==0 and true or log.fe('%s: %s <! %d',require'hm._os.bridge.axerrors'[res],action,self._ref)
+end
 ---Checks if this element has a given AX attribute
 -- @function [parent=#uielement] hasAttr
 -- @param #uielement self
@@ -168,7 +202,7 @@ function elem:getString(attr,default) return cf.getString(getAttr(self,attr,defa
 --function elem:getString(attr,default) return getStringFromCFStringRef(getAttr(self,attr,default)) end
 --function elem:getString(attr,default) return getNSObject(self,attr,NSString,'stringWithString') or '' end
 ---Returns an AX attribute of type array
--- @function [parent=#uielement] getArrayattr
+-- @function [parent=#uielement] getArray
 -- @param #uielement self
 -- @param #string attr attribute name
 -- @return #table
@@ -231,27 +265,27 @@ function elem:getPoint(prop) local p=getStructAttr(self,prop,'CGPoint') return p
 -- @return hm.types.geometry#size
 function elem:getSize(prop) local s=getStructAttr(self,prop,'CGSize') return size(s.width,s.height) end
 
---local NSMakePoint,NSMakeSize=C.NSMakePoint,c.NSMakeSize
-c.cdef'NSMakePoint' c.cdef'NSMakeSize'
+--c.cdef'NSMakePoint' c.cdef'NSMakeSize'
 ---Sets an AX attribute of type point
 -- @function [parent=#uielement] setPoint
 -- @param #uielement self
 -- @param #string attr attribute name
 -- @param hm.types.geometry#point value
 -- @return #boolean `true` on success
-function elem:setPoint(prop,value) return setAttr(self,prop,C.NSMakePoint(value.x,value.y)) end
+function elem:setPoint(prop,value) return setStructAttr(self,prop,'CGPoint',{x=value.x,y=value.y}) end
+--function elem:setPoint(prop,value) struct_values[0].x=x  return setAttr(self,prop,C.NSMakePoint(value.x,value.y)) end
 ---Sets an AX attribute of type size
 -- @function [parent=#uielement] setSize
 -- @param #uielement self
 -- @param #string attr attribute name
 -- @param hm.types.geometry#size value
 -- @return #boolean `true` on success
-function elem:setSize(prop,value) return setAttr(self,prop,C.NSMakeSize(value.w,value.h)) end
+function elem:setSize(prop,value) return setStructAttr(self,prop,'CGSize',{width=value.w,height=value.h}) end
 
 ---The element's title
 -- @field [parent=#uielement] #string title
 -- @readonlyproperty
-property(elem,'title',function(self) return self:getString('title','') end,false)
+property(elem,'title',function(self) return self:getString('title',cf.emptyString) end,false)
 ---The element's `AXRole`
 -- @field [parent=#uielement] #string role
 -- @readonlyproperty
@@ -277,8 +311,22 @@ property(elem,'size',
   function(self) return self:getSize'size' end,
   function(self,v) self:setSize('size',v) end,'hm.types.geometry#size')
 
+---Clicks this element
+-- @function [parent=#uielement] click
+-- @param #uielement self
+-- @return #boolean `true` if successful
+function elem:click() return performAction(self,'press') end
+---Performs a cancel action on this element
+-- @function [parent=#uielement] cancel
+-- @param #uielement self
+-- @return #boolean `true` if successful
+function elem:cancel() return performAction(self,'cancel') end
+---Performs a confirm action on this element
+-- @function [parent=#uielement] confirm
+-- @param #uielement self
+-- @return #boolean `true` if successful
+function elem:confirm() return performAction(self,'confirm') end
 
-local cachedElements=hm._core.cacheValues()
 --local CFHash=c.CFHash
 c.cdef'AXUIElementGetPid'
 --local AXUIElementGetPid=c.AXUIElementGetPid

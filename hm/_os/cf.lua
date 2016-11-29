@@ -4,7 +4,7 @@ local c=require'objc'
 --c.load'CoreFoundation'
 c.load'CoreFoundation'
 --release for all! \o/
---c.addfunction('CFRelease',{'^v'},false)
+c.addfunction('CFRelease',{'^v'},false)
 c.addfunction('CFHash',{retval='Q','^v'},false)
 
 local tonumber=tonumber
@@ -29,10 +29,12 @@ end
 
 local kCFNumberDoubleType=c.kCFNumberDoubleType
 local double_out=ffi.new'double[1]'
+c.cdef'CFNumberGetValue'
 function cf.getDouble(CFNumberRef)
   C.CFNumberGetValue(CFNumberRef,kCFNumberDoubleType,double_out)
   return double_out[0]
 end
+c.cdef'CFNumberCreate'
 function cf.makeDouble(v)
   double_out[0]=v
   return gc(C.CFNumberCreate(nil,kCFNumberDoubleType,int_out),C.CFRelease)
@@ -56,6 +58,8 @@ c.addfunction('CFStringCreateWithCString',{retval='^{__CFString=}','^{__CFAlloca
 function cf.makeString(s)
   return gc(C.CFStringCreateWithCString(nil,s,kCFStringEncodingUTF8),C.CFRelease)
 end
+
+cf.emptyString=cf.makeString''
 
 --local interned={}
 --function cf.makeString(s)
