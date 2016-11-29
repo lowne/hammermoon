@@ -2323,7 +2323,7 @@ objc.use_cbframe = use_cbframe
 objc.stop_using_cbframe = stop_using_cbframe
 
 --manual declarations
-objc.addfunction = add_function
+objc.addfunction = function(name,ftype,lazy) if ftype==nil then objc.cdef(name) else add_function(name,ftype,lazy or false) end end
 objc.addprotocol = add_informal_protocol
 objc.addprotocolmethod = add_informal_protocol_method
 
