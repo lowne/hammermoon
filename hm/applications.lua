@@ -15,7 +15,7 @@ local tolua,toobj,nptr=c.tolua,c.toobj,c.nptr
 local ffi=require'ffi'
 local cast=ffi.cast
 
-local pairs,ipairs,next,setmetatable,tonumber=pairs,ipairs,next,setmetatable,tonumber
+local pairs,ipairs,next,tonumber=pairs,ipairs,next,tonumber
 local sformat,unpack=string.format,unpack
 local coll=require'hm.types.coll'
 local list,dict=coll.list,coll.dict
@@ -326,6 +326,7 @@ local newWindow=require'hm.windows'.newWindow
 ---The application's main window.
 -- @field [parent=#application] hm.windows#window mainWindow
 -- @property
+-- @dev
 property(app,'mainWindow',
   function(self)return newWindow(self._ax:getRaw'mainWindow',self._pid) end,
   function(self,win)
@@ -340,7 +341,8 @@ property(app,'focusedWindow',
   function(self)return newWindow(self._ax:getRaw'focusedWindow',self._pid)end,
   function(self,win)
     if win.application~=self then return log.e(win,'belongs to another application, cannot set as focused window for',self) end
-    self._ax:setRaw('focusedWindow',win._ax)
+    win.focused=true
+    --    self._ax:setRaw('focusedWindow',win._ax)
   end,'hm.windows#window')
 
 ---@type windowList
@@ -367,7 +369,7 @@ local axref=ffi.typeof'AXUIElementRef'
 -- @internalchange the ad-hoc filtering is done here at the source rather than downstream in hm.windows
 property(app,'windows',function(self)
   local bid=self.bundleID
-  if SKIP_APPS[bid] then return r end
+  if SKIP_APPS[bid] then return list() end
   local r=list(self._ax:getArray('windows',axref))
     :imap(function(axwin) return newWindow(axwin,self._pid) end)
   if bid=='com.apple.finder' then r=r:ifilterByField('role','AXWindow') end
