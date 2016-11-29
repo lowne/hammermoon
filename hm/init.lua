@@ -235,8 +235,8 @@ function hm._lua_setup()
     end
     properties[t][fieldname]={get=getter,set=realsetter,values=setter==nil and cacheKeys() or nil,original=getTableName(t)..'.'..fieldname}
     local capitalized=fieldname:sub(1,1):upper()..fieldname:sub(2)
-    rawset(t,'get'..capitalized,getter)
-    if setter then rawset(t,'set'..capitalized,realsetter) end
+    if not rawget(t,'get'..capitalized) then rawset(t,'get'..capitalized,getter) end
+    if setter and not rawget(t,'set'..capitalized) then rawset(t,'set'..capitalized,realsetter) end
   end
 
   ---Deprecate a field or function of a module or class
