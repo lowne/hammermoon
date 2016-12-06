@@ -5,6 +5,11 @@
 --Ideas and code from TLC by Fjölnir Ásgeirsson (c) 2012, MIT license.
 --Tested with with LuaJIT 2.0.3, 32bit and 64bit on OSX 10.9 and 10.7.
 
+--Bridging additions by Mark Lowne.
+
+---@module objc
+-- @private
+
 local ffi = require'ffi'
 local cast = ffi.cast
 local OSX = ffi.os == 'OSX'
@@ -113,12 +118,13 @@ Ivar * class_copyIvarList(Class cls, unsigned int *outCount);
 
 local C = ffi.C                               --C namespace
 local P = setmetatable({}, {__index = _G})    --private namespace
+---@type objc
 local objc = {}                               --public namespace
 setfenv(1, P)                                 --globals go in P, which is published as objc.debug
 
 --helpers ----------------------------------------------------------------------------------------------------------------
 local type,tostring,tonumber,rawget,rawset=type,tostring,tonumber,rawget,rawset
-local pcall,xpcall=pcall,xpcall
+--local pcall,xpcall=pcall,xpcall
 local next,pairs,ipairs=next,pairs,ipairs
 local select=select
 
@@ -200,7 +206,7 @@ end
 
 errors = true    --log non-fatal errors to stderr
 errcount = {}    --error counts per topic
-logtopics = {notwrapped=true}   --topics to log (none by default)
+logtopics = {private=true}   --topics to log (none by default)
 
 local function writelog(topic, fmt, ...)
   io.stderr:write(_('[objc] %-16s %s\n', topic, _(fmt, ...)))
@@ -229,7 +235,8 @@ end
 checkredef = false --check incompatible redefinition attempts (makes parsing slower)
 printcdecl = false --print C declarations to stdout (then you can grab them and make static ffi headers)
 cnames = {global = {0}, struct = {0}} --C namespaces; ns[1] holds the count
-cdefs={}
+loaded_cfuncs={}
+cdecls={} --C declarations for all parsed functions (including not yet loaded ones)
 local function defined(name, namespace) --check if a name is already defined in a C namespace
   return not checkredef and cnames[namespace][name]
 end
@@ -244,7 +251,13 @@ local function redefined(name, namespace, new_cdecl) --check cdecl redefinitions
 end
 
 local function declare(name, namespace, cdecl) --define a C type, const or function via ffi.cdef
-  if redefined(name, namespace, cdecl) then return end
+  if redefined(name, namespace, cdecl) then return csymbol(name) end
+  if cdecl:find('(',1,true) then
+    if namespace=='global' and not cdecls[name] then
+      log('cdef','cdef private function: %s',cdecl)
+      cdecls[name]=cdecl
+    else log('cdef','cdef function: %s',cdecl) end
+  end
   local ok, cdeferr = pcall(ffi.cdef, cdecl)
   if ok then
     cnames[namespace][1] = cnames[namespace][1] + 1
@@ -257,8 +270,8 @@ local function declare(name, namespace, cdecl) --define a C type, const or funct
     end
     err('cdef', '%s\n\t%s', cdeferr, cdecl)
   end
-  cnames[namespace][name] = checkredef and cdecl or true --only store the cdecl if needed
-  return ok
+  cnames[namespace][name] = checkredef and cdecl or true
+  return csymbol(name)
 end
 
 --type encodings: parsing and conversion to C types ----------------------------------------------------------------------
@@ -550,7 +563,6 @@ function tag.depends_on(attrs)
 end
 
 local typekey = x64 and 'type64' or 'type'
-local valkey = x64 and 'value64' or 'value'
 
 function tag.string_constant(attrs)
   --note: some of these are NSStrings but we load them all as Lua strings.
@@ -560,7 +572,7 @@ end
 function tag.enum(attrs)
   if attrs.ignore == 'true' then return end
 
-  local s = attrs[valkey] or attrs.value
+  local s = attrs[x64 and 'value64' or 'value'] or attrs.value
   if not s then return end --value not available on this platform
 
   rawset(objc, global(attrs.name, 'enum'), tonumber(s))
@@ -588,8 +600,14 @@ function tag.struct(attrs)
   cdef_node(attrs, 'typedef', attrs.opaque ~= 'true' and 'cdef' or nil)
 end
 
+bridged_cftypes={}
 function tag.cftype(attrs)
   cdef_node(attrs, 'typedef', 'cdef')
+  if attrs.tollfree then
+    local type=attrs[typekey] or attrs.type
+    bridged_cftypes[attrs.name]=type--attrs.gettypeid_func
+    log('bridging','add bridged cftype %s',attrs.name)
+  end
 end
 
 function tag.opaque(attrs)
@@ -641,7 +659,7 @@ end
 local function_caller --fw. decl.
 
 local function add_function(name, ftype, lazy) --cdef and call-wrap a global C function
-  cdefs[name]=ftype_ctype(ftype,name) -- store for objc.cdef
+  cdecls[name]=ftype_ctype(ftype,name) -- store for objc.cdef
   if lazy == nil then lazy = lazyfuncs end
 
   local function addfunc()
@@ -652,6 +670,7 @@ local function add_function(name, ftype, lazy) --cdef and call-wrap a global C f
       return
     end
     local caller = function_caller(ftype, cfunc) or C[name]
+    loaded_cfuncs[name]=true
     rawset(objc, name, caller) --overshadow the C function with the caller
     return caller
   end
@@ -679,7 +698,7 @@ tag['function'] = function(attrs, getwhile)
   --so it's necessary that we guard against redefinitions.
   if defined(name, 'global') then return end
 
-  local ftype = {variadic = attrs.variadic == 'true' or nil}
+  local ftype = {variadic = attrs.variadic == 'true' or nil, already_retained={}, modifiers={}}
 
   for tag, attrs in getwhile'function' do
     if ftype and (tag == 'arg' or tag == 'retval') then
@@ -689,9 +708,12 @@ tag['function'] = function(attrs, getwhile)
         ftype = nil
       else
         local argindex = tag == 'retval' and 'retval' or #ftype + 1
-        if not (argindex == 'retval' and argtype == 'v') then
+        if not (argindex == 'retval' and argtype == 'v') then --FIXME forces nil check downstream
           ftype[argindex] = argtype
         end
+
+        ftype.already_retained[argindex]=attrs.already_retained or attrs.already_cfretained
+        ftype.modifiers[argindex]=attrs.type_modifier
 
         local fp = fp_arg(tag, attrs, getwhile)
         if fp then
@@ -986,10 +1008,6 @@ local function formal_protocol(name)
   return ptr(C.objc_getProtocol(name))
 end
 
-local function formal_protocol_name(proto)
-  return ffi.string(C.protocol_getName(proto))
-end
-
 local function formal_protocol_protocols(proto) --protocols of superprotocols not included
   return citer(own(C.protocol_copyProtocolList(proto, nil)))
 end
@@ -1032,22 +1050,27 @@ local function formal_protocol_ct(proto, sel, inst, required, for_callback)
   return ftype_ct(formal_protocol_ftype(proto, sel, inst, required), nil, for_callback)
 end
 
-ffi.metatype('struct Protocol', {
-  __tostring = formal_protocol_name,
-  __index = {
-    formal      = true,
-    name        = formal_protocol_name,
-    protocols   = formal_protocol_protocols,
-    properties  = formal_protocol_properties,
-    property    = formal_protocol_property,
-    methods     = formal_protocol_methods, --iterator() -> selname, mtype
-    mtype       = formal_protocol_mtype,
-    ftype       = formal_protocol_ftype,
-    ctype       = formal_protocol_ctype,
-    ct          = formal_protocol_ct,
-  },
-})
+do
+  local function formal_protocol_name(proto)
+    return ffi.string(C.protocol_getName(proto))
+  end
 
+  ffi.metatype('struct Protocol', {
+    __tostring = formal_protocol_name,
+    __index = {
+      formal      = true,
+      name        = formal_protocol_name,
+      protocols   = formal_protocol_protocols,
+      properties  = formal_protocol_properties,
+      property    = formal_protocol_property,
+      methods     = formal_protocol_methods, --iterator() -> selname, mtype
+      mtype       = formal_protocol_mtype,
+      ftype       = formal_protocol_ftype,
+      ctype       = formal_protocol_ctype,
+      ct          = formal_protocol_ct,
+    },
+  })
+end
 --informal protocols (must have the exact same API as formal protocols)
 
 local informal_protocols = {} --{name = proto}
@@ -1209,15 +1232,9 @@ ffi.metatype('struct objc_property', {
 })
 
 --methods
-
-local function method_selector(method)
-  return ptr(C.method_getName(method))
+local function method_imp(method) --NOTE: this is of type IMP (i.e. vararg, untyped).
+  return ptr(C.method_getImplementation(method))
 end
-
-local function method_name(method)
-  return selector_name(method_selector(method))
-end
-
 local function method_mtype(method) --NOTE: this runtime mtype might look different if corected by mta
   return ffi.string(C.method_getTypeEncoding(method))
 end
@@ -1226,34 +1243,41 @@ local function method_raw_ftype(method) --NOTE: this is the raw runtime ftype, n
   return mtype_ftype(method_mtype(method))
 end
 
-local function method_raw_ctype(method) --NOTE: this is the raw runtime ctype, not corrected by mta
-  return ftype_ctype(method_raw_ftype(method))
+do
+  local function method_selector(method)
+    return ptr(C.method_getName(method))
+  end
+
+  local function method_name(method)
+    return selector_name(method_selector(method))
+  end
+
+
+  local function method_raw_ctype(method) --NOTE: this is the raw runtime ctype, not corrected by mta
+    return ftype_ctype(method_raw_ftype(method))
+  end
+
+  local function method_raw_ctype_cb(method)
+    return ftype_ctype(method_raw_ftype(method), nil, true)
+  end
+
+
+  local method_exchange_imp = OSX and C.method_exchangeImplementations
+
+  ffi.metatype('struct objc_method', {
+    __tostring = method_name,
+    __index = {
+      selector        = method_selector,
+      name            = method_name,
+      mtype           = method_mtype,
+      raw_ftype       = method_raw_ftype,
+      raw_ctype       = method_raw_ctype,
+      raw_ctype_cb    = method_raw_ctype_cb,
+      imp             = method_imp,
+      exchange_imp    = method_exchange_imp,
+    },
+  })
 end
-
-local function method_raw_ctype_cb(method)
-  return ftype_ctype(method_raw_ftype(method), nil, true)
-end
-
-local function method_imp(method) --NOTE: this is of type IMP (i.e. vararg, untyped).
-  return ptr(C.method_getImplementation(method))
-end
-
-local method_exchange_imp = OSX and C.method_exchangeImplementations
-
-ffi.metatype('struct objc_method', {
-  __tostring = method_name,
-  __index = {
-    selector        = method_selector,
-    name            = method_name,
-    mtype           = method_mtype,
-    raw_ftype       = method_raw_ftype,
-    raw_ctype       = method_raw_ctype,
-    raw_ctype_cb    = method_raw_ctype_cb,
-    imp             = method_imp,
-    exchange_imp    = method_exchange_imp,
-  },
-})
-
 --classes
 
 local function classes() --list all loaded classes
@@ -1638,28 +1662,32 @@ end
 
 local refcounts = {} --number of collectable cdata references to an object
 
-local function inc_refcount(obj, n)
-  local refcount = (refcounts[nptr(obj)] or 0) + n
-  assert(refcount >= 0, 'over-releasing')
-  refcounts[nptr(obj)] = refcount ~= 0 and refcount or nil
-  return refcount
-end
-
-local function release_object(obj)
-  if inc_refcount(obj, -1) == 0 then
-    luavars[nptr(obj)] = nil
-  end
-end
-
-local function collect_object(obj) --note: assume this will be called multiple times on the same obj!
-  obj:release()
-end
 
 --methods for which we should refrain from retaining the result object
 noretain = {release=1, autorelease=1, retain=1, alloc=1, new=1, copy=1, mutableCopy=1}
 
 --cache it to avoid re-parsing, annotating, formatting, casting, function-wrapping, method-wrapping.
 local method_caller = memoize2(function(cls, selname)
+  local function inc_refcount(obj, n)
+    local refcount = (refcounts[nptr(obj)] or 0) + n
+    assert(refcount >= 0, 'over-releasing')
+    refcounts[nptr(obj)] = refcount ~= 0 and refcount or nil
+    return refcount
+  end
+
+  local function release_object(obj)
+    if inc_refcount(obj, -1) == 0 then
+      luavars[nptr(obj)] = nil
+      log('refcount','%s all refs collected',obj)
+    end
+  end
+
+  local function collect_object(obj) --note: assume this will be called multiple times on the same obj!
+    log('refcount','%s ref collected',obj)
+    obj:release()
+  end
+
+
   local sel, method = find_method(cls, selname)
   if not sel then return end
 
@@ -1673,43 +1701,139 @@ local method_caller = memoize2(function(cls, selname)
   local can_retain = not noretain[selname]
   local is_release = selname == 'release' or selname == 'autorelease'
   local log_refcount = (is_release or selname == 'retain') and logtopics.refcount
-
+  local xpcall,traceback=xpcall,debug.traceback
   return function(obj, ...)
+    local before_rc, after_rc, objstr, before_luarc, after_luarc
+    if log_refcount then
+      --get stuff from obj now because after the call obj can be a dead parrot
+      objstr = tostring(obj)
+      before_rc = tonumber(obj:retainCount())
+      before_luarc = inc_refcount(obj, 0)
+    end
 
+    local ok, ret = xpcall(func, traceback, obj, sel, ...)
+    if not ok then
+      check(false, '[%s %s] %s', tostring(cls), tostring(sel), ret)
+    end
+    if is_release then
+      ffi.gc(obj, nil) --disown this reference to obj
+      release_object(obj)
+      if before_rc == 1 then
+        after_rc = 0
+      end
+    elseif isobj(ret) then
+      if can_retain then
+        log('refcount','%s retain ref',ret)
+        ret = ret:retain() --retain() will make ret a strong reference so we don't have to
+      else
+        ffi.gc(ret, collect_object)
+        inc_refcount(ret, 1)
+      end
+    end
+
+    if log_refcount then
+      after_rc = after_rc or tonumber(obj:retainCount())
+      after_luarc = inc_refcount(obj, 0)
+      log('refcount', '%s: %d -> %d (%d -> %d)', objstr, before_luarc, after_luarc, before_rc, after_rc)
+    end
+
+    return ret
+  end
+end)
+
+local method_caller_imp = memoize2(function(cls, selname)
+  local sel, method = find_method(cls, selname)
+  if not sel then return end
+
+  local ftype = method_ftype(cls, sel, method)
+  local ct = ftype_ct(ftype)
+
+  local func = method_imp(method)
+  local func = cast(ct, func)
+  local xpcall,traceback=xpcall,debug.traceback
+  return function(obj, ...)
+    local ok, ret = xpcall(func, traceback, obj, sel, ...)
+    if not ok then check(false, '[%s %s] %s', tostring(cls), tostring(sel), ret)
+    else return ret end
+  end
+end)
+
+local method_caller_raw = memoize2(function(cls, selname)
+  local xpcall,traceback,gc=xpcall,debug.traceback,ffi.gc
+  local function inc_refcount(obj, n)
+    local refcount = (refcounts[nptr(obj)] or 0) + n
+    check(refcount >= 0, 'over-releasing')
+    refcounts[nptr(obj)] = refcount ~= 0 and refcount or nil
+    return refcount
+  end
+
+  local function release_object(obj)
+    if inc_refcount(obj, -1) == 0 then
+      luavars[nptr(obj)] = nil
+      log('refcount','%s all refs collected',obj)
+    end
+  end
+
+  local function collect_object(obj) --note: assume this will be called multiple times on the same obj!
+    log('refcount','%s ref collected',obj)
+    method_caller_imp(cls,'release')(obj)
+    gc(obj,nil)
+    release_object(obj)
+  end
+
+
+  local sel = find_method(cls, selname)
+  if not sel then return end
+  local call_imp=method_caller_imp(cls,selname)
+
+  local can_retain = not noretain[selname]
+  local is_release = selname == 'release' or selname == 'autorelease'
+  local log_refcount = (is_release or selname == 'retain') and logtopics.refcount
+  if log_refcount then
+    local retainCount=method_caller_imp(cls,'retainCount')
+    return function(obj,...)
       local before_rc, after_rc, objstr, before_luarc, after_luarc
-      if log_refcount then
-        --get stuff from obj now because after the call obj can be a dead parrot
-        objstr = tostring(obj)
-        before_rc = tonumber(obj:retainCount())
-        before_luarc = inc_refcount(obj, 0)
-      end
-
-      local ok, ret = xpcall(func, debug.traceback, obj, sel, ...)
-      if not ok then
-        check(false, '[%s %s] %s', tostring(cls), tostring(sel), ret)
-      end
+      --get stuff from obj now because after the call obj can be a dead parrot
+      objstr = tostring(obj)
+      before_rc = tonumber(retainCount(obj))
+      before_luarc = inc_refcount(obj, 0)
+      local ret = call_imp(obj,...)
       if is_release then
-        ffi.gc(obj, nil) --disown this reference to obj
+        gc(obj, nil) --disown this reference to obj
         release_object(obj)
         if before_rc == 1 then
           after_rc = 0
         end
-      elseif isobj(ret) then
-        if can_retain then
-          ret = ret:retain() --retain() will make ret a strong reference so we don't have to
-        else
-          ffi.gc(ret, collect_object)
-          inc_refcount(ret, 1)
-        end
+      else
+        gc(ret, collect_object)
+        inc_refcount(ret, 1)
       end
-
-      if log_refcount then
-        after_rc = after_rc or tonumber(obj:retainCount())
-        after_luarc = inc_refcount(obj, 0)
-        log('refcount', '%s: %d -> %d (%d -> %d)', objstr, before_luarc, after_luarc, before_rc, after_rc)
-      end
-
+      after_rc = after_rc or tonumber(retainCount(obj))
+      after_luarc = inc_refcount(obj, 0)
+      log('refcount', '%s: %d -> %d (%d -> %d)', objstr, before_luarc, after_luarc, before_rc, after_rc)
       return ret
+    end
+  elseif is_release then
+    return function(obj)
+      local ret = call_imp(obj)
+      gc(obj,nil)
+      release_object(obj)
+      return ret
+    end
+  elseif can_retain then
+    local retain=method_caller_imp(cls,'retain')
+    return function(obj,...)
+      local ret = call_imp(obj,...)
+      if isobj(ret) then retain(ret) end --should be in the user signature really
+      return ret
+    end
+  else
+    return function(obj,...)
+      local ret = call_imp(obj,...)
+      gc(ret,collect_object)
+      inc_refcount(ret,1)
+      return ret
+    end
   end
 end)
 
@@ -1943,29 +2067,29 @@ local function set_instance_field(obj, field, val)
   set_luavar(obj, field, val)
 end
 
-local object_tostring
+do
+  local object_tostring
+  if ffi.sizeof(intptr_ct) > 4 then
+    function object_tostring(obj)
+      if obj == nil then return 'nil' end
+      local i = cast('uintptr_t', obj)
+      local lo = tonumber(i % 2^32)
+      local hi = math.floor(tonumber(i / 2^32))
+      return _('id<%s: 0x%s>', class_name(obj), hi ~= 0 and _('%x%08x', hi, lo) or _('%x', lo))
+    end
+  else
+    function object_tostring(obj)
+      if obj == nil then return 'nil' end
+      return _('id<%s>0x%08x', class_name(obj), tonumber(cast('uintptr_t', obj)))
+    end
+  end
 
-if ffi.sizeof(intptr_ct) > 4 then
-  function object_tostring(obj)
-    if obj == nil then return 'nil' end
-    local i = cast('uintptr_t', obj)
-    local lo = tonumber(i % 2^32)
-    local hi = math.floor(tonumber(i / 2^32))
-    return _('<%s: 0x%s>', class_name(obj), hi ~= 0 and _('%x%08x', hi, lo) or _('%x', lo))
-  end
-else
-  function object_tostring(obj)
-    if obj == nil then return 'nil' end
-    return _('<%s>0x%08x', class_name(obj), tonumber(cast('uintptr_t', obj)))
-  end
+  ffi.metatype('struct objc_object', {
+    __tostring = object_tostring,
+    __index = get_instance_field,
+    __newindex = set_instance_field,
+  })
 end
-
-ffi.metatype('struct objc_object', {
-  __tostring = object_tostring,
-  __index = get_instance_field,
-  __newindex = set_instance_field,
-})
-
 --blocks -----------------------------------------------------------------------------------------------------------------
 
 --http://clang.llvm.org/docs/Block-ABI-Apple.html
@@ -2150,18 +2274,7 @@ local function convert_fp_arg(ftype, arg)
   end
 end
 
-local stype_ct=memoize(stype_ctype)
-
-local CF_BRIDGED={
-  ['^{__CFString=}']           ={'struct objc_object *'},
-  ['r^{__CFString=}']          ={'struct objc_object *'},
-  ['CFStringRef']              ={'struct objc_object *'},
-  ['CFNumberRef']              =true,
-  ['^{__CFMutableArray=}']     =true,
-  ['CFMutableArrayRef']        =true,
-  ['^{__CFMutableDictionary=}']=true,
-  ['CFMutableDictionaryRef']   =true,
-}
+--local stype_ct=memoize(function(stype) return ctype_ct(stype_ctype(stype)) end)
 
 local function convert_arg(ftype, i, arg)
   local argtype = ftype[i]:sub(1,1)
@@ -2174,29 +2287,10 @@ local function convert_arg(ftype, i, arg)
   elseif ftype.fp and ftype.fp[i] then
     return convert_fp_arg(ftype.fp[i], arg) --function
   else
-    local allowed_types=CF_BRIDGED[ftype[i]]
-    if allowed_types then
-      arg=toobj(arg)
-      local is_allowed
-      for _,ct in ipairs(allowed_types) do
-        if ffi.istype(ct,arg) then is_allowed=true break end
-      end
-      local nt=stype_ct(ftype[i])
-      check(is_allowed,'cannot cast %s to %s',arg,nt)
-      return cast(nt,toobj(arg)) --string, number, array-table, dict-table
-    else
-      return arg --pass through
-    end
+    return arg --pass through
   end
 end
 
---not a tailcall and not JITed but at least it doesn't make any garbage.
---NOTE: this stumbles on "call unroll limit reached" and doing it with
---an accumulator table triggers "NYI: return to lower frame".
-local function convert_args(ftype, i, ...)
-  if select('#', ...) == 0 then return end
-  return convert_arg(ftype, i, ...), convert_args(ftype, i + 1, select(2, ...))
-end
 
 local function toarg(cls, selname, argindex, arg)
   local ftype, argindex = method_arg_ftype(cls, selname, argindex)
@@ -2204,29 +2298,37 @@ local function toarg(cls, selname, argindex, arg)
   return convert_arg(ftype, argindex, arg)
 end
 
---wrap a function for automatic type conversion of its args and return value.
-local function convert_ret(ftype, ret)
-  if ret == nil then
-    return nil --NULL -> nil
-  elseif ftype.retval == 'B' then
-    return ret == 1 --BOOL -> boolean
-  elseif ftype.retval == '*' or ftype.retval == 'r*' then
-    return ffi.string(ret)
-  else
-    return ret --pass through
-  end
-end
 
 function function_caller(ftype, func)
-  local needs_conversion=ftype.fp or ftype.retval=='B' or ftype.retval=='*' or ftype.retval=='r*'
-  if not needs_conversion then
-    for _,argtype in ipairs(ftype) do
-      if CF_BRIDGED[argtype] then needs_conversion=true break end
-      argtype=argtype:sub(1,1)
-      if argtype==':' or argtype=='#' or argtype=='@' then needs_conversion=true break end
+  --wrap a function for automatic type conversion of its args and return value.
+  local function convert_ret(ftype, ret)
+    if ret == nil then
+      return nil --NULL -> nil
+    elseif ftype.retval == 'B' then
+      return ret == 1 --BOOL -> boolean
+    elseif ftype.retval == '*' or ftype.retval == 'r*' then
+      return ffi.string(ret)
+    else
+      return ret --pass through
     end
   end
-  if not needs_conversion then return false
+
+  --not a tailcall and not JITed but at least it doesn't make any garbage.
+  --NOTE: this stumbles on "call unroll limit reached" and doing it with
+  --an accumulator table triggers "NYI: return to lower frame".
+  local function convert_args(ftype, i, ...)
+    if select('#', ...) == 0 then return end
+    return convert_arg(ftype, i, ...), convert_args(ftype, i + 1, select(2, ...))
+  end
+
+  local needs_wrapping=ftype.fp or ftype.retval=='B' or ftype.retval=='*' or ftype.retval=='r*'
+  if not needs_wrapping then
+    for _,argtype in ipairs(ftype) do
+      argtype=argtype:sub(1,1)
+      if argtype==':' or argtype=='#' or argtype=='@' then needs_wrapping=true break end
+    end
+  end
+  if not needs_wrapping then log('notwrapped','%s',ftype_ctype(ftype))return false
   elseif #ftype == 0 then
     return function()
       return convert_ret(ftype, func())
@@ -2297,14 +2399,234 @@ end
 
 --iterators --------------------------------------------------------------------------------------------------------------
 
-local function array_next(arr, i)
-  if i >= arr:count() then return end
-  return i + 1, arr:objectAtIndex(i)
-end
 
 local function array_ipairs(arr)
+  local function array_next(arr, i)
+    if i >= arr:count() then return end
+    return i + 1, arr:objectAtIndex(i)
+  end
   return array_next, arr, 0
 end
+
+--bridging ---------------------------------------------------------------------------------------------------------------
+local noop=function(...)return ... end
+local function make_bridge_converter(argtype)
+  local method=argtype.bridged_in and 'make' or (argtype.retained and 'get_retained' or 'get')
+  local s1,s2=argtype[2],argtype[3]
+  if s1==false then s1=noop
+  elseif s1 then s1=make_bridge_converter(s1) end
+  if s2 then
+    if type(s2)=='string' then s2={[false]=s2} end
+    assert(type(s2)=='table')
+    local function get_field_converter(val)
+      if type(val)=='string' then val={bridged_in=argtype.bridged_in,bridged_out=argtype.bridged_out,val} end
+      return make_bridge_converter(val)
+    end
+    for k,v in pairs(s2) do s2[k]=get_field_converter(v) end
+    local default=s2[false] or noop
+    setmetatable(s2,{__index=function() return default end})
+  end
+  local level=s2 and objc.bridges.struct2 or (s1 and objc.bridges.struct1) or objc.bridges
+  check(level[argtype[1]],'No bridging for %s',argtype[1])
+  local fn=level[argtype[1]][method]
+  if not s1 then return fn
+  else return function(arg) return fn(arg,s1,s2) end -- adjust for structured type
+  end
+end
+local function parse_bridging_signature(argtypes)
+  local function normalize_ftype(ftype)
+    for i,stype in pairs(ftype) do
+      ftype[i]=stype:gsub('(.-):.+','%1'):gsub('([^%a]*)(%a+)Ref$','%1^{__%2=}')
+    end
+    ftype.retval=ftype[0] ftype[0]=nil
+    return ftype
+  end
+  local bridged_ins,bridged_outs,outs,outvars,ftype={},{},{},{},{}
+  for i=0,#argtypes do
+    local argtype=argtypes[i]
+    if type(argtype)=='string' then ftype[i]=argtype
+    elseif argtype.managed then
+      local converter=make_bridge_converter(argtype)
+      if argtype.bridged_in then
+        check(i>0,'retvalue cannot be IN')
+        bridged_ins[i]=converter
+        ftype[i]=argtype[1]
+      elseif argtype.bridged_out then
+        outs[i]=true
+        bridged_outs[i]=converter
+        if i~=0 then --allocate outvar ptr
+          outvars[i]=ffi.new(argtype[1]..'[1]')
+          ftype[i]='^'..argtype[1]
+        else ftype[0]=argtype[1] end
+      else error'nyi' end
+    elseif argtype.out then
+      assert(i==0)
+      outs[i]=true
+      ftype[i]=argtype[1]
+    end
+  end
+  return bridged_ins,bridged_outs,outs,outvars,normalize_ftype(ftype)
+end
+local function make_argtypes(ret,...)
+  if ret==nil then ret={'v'}
+  elseif type(ret)=='string' then ret={ret,out=true} end
+  local argtypes={...} argtypes[0]=ret
+  return argtypes
+end
+local function declare_bridged_function(force,ret,name,...)
+  local nargs=select('#',...)
+  checkredef=true
+  local bridged_ins,bridged_outs,outs,outvars,ftype=parse_bridging_signature(make_argtypes(ret,...)) --closure (besides ftype)
+  local newctype=ftype_ctype(ftype,name)
+  local oldctype=cdecls[name]
+  if force then
+    if oldctype~=nil and oldctype~=newctype then
+      log('bridging','different ctypes:\n       BridgeSupport: %s\n       forced:        %s',oldctype,newctype)
+    end
+  else
+    check(oldctype==nil or oldctype==newctype,'different ctypes:\n       BridgeSupport: %s\n       attempted:     %s',oldctype,newctype)
+  end
+  declare(name,'global',newctype)
+
+  -- in the baseline case, the tracer should skip over all the noops
+  local fn_bridge_in,fn_outvars,fn_bridge_out=noop,noop,noop
+  local fn_out=function(ret,...)return ret end
+  --complicate as required; no tailcalls anymore, but avoid garbage
+  if next(bridged_ins) then
+    local function bridge_in(idx,arg,...)
+      if idx>nargs then return end
+      local v=bridged_ins[idx]
+      if v~=nil then
+        v=v(arg)
+        log('bridging','%s => %s',arg,v)
+      else v=arg end
+      return v,bridge_in(idx+1,...)
+    end
+    fn_bridge_in=function(...) return bridge_in(1,...) end
+  end
+  if next(outvars) then
+    local function outvar(idx,arg,...)
+      if idx>nargs then return end
+      if outvars[idx] then log('bridging','replaced %s',outvars[idx]) end
+      return outvars[idx] or arg,outvar(idx+1,...)
+    end
+    fn_outvars=function(...) return outvar(1,...) end
+  end
+  --from here on out, retval is appended at the start
+  local fn_caller=function(...) return C[name](...),... end
+  if next(bridged_outs) then
+    local function bridge_out(idx,arg,...)
+      if idx>nargs then return end
+      local v=bridged_outs[idx]
+      arg=outvars[idx] and outvars[idx][0] or arg
+      if v~=nil then
+        v=v(arg)
+        log('bridging','%s <= %s',v,arg)
+      else v=arg end
+      return v,bridge_out(idx+1,...)
+    end
+    fn_bridge_out=function(...) return bridge_out(0,...) end -- and so start from 0
+    --collect the outvalues (including retvalue, if wanted)
+    local function out(idx,arg,...)
+      if idx>nargs then return end
+      if outs[idx] then return arg,out(idx+1,...)
+      else return out(idx+1,...) end
+    end
+    fn_out=function(...) return out(0,...) end
+  end
+
+  local fn=function(...)return fn_out(fn_bridge_out(fn_caller(fn_outvars(fn_bridge_in(...))))) end
+  return fn
+end
+local function declare_bridged_method_(fn,ret,...)
+  -- in the baseline case, the tracer should skip over all the noops
+  local fn_bridge_in=function(...)return ... end
+  local fn_ret=function(ret) return ret end
+  local nargs=select('#',...)
+  local bridged_ins,bridged_outs,outs,outvars,ftype=parse_bridging_signature(make_argtypes(ret,...)) --closure (besides ftype)
+  assert(next(outs)==nil or next(outs)==0,'method with outvalue in arg list')
+  assert(not next(outvars),'method with outvalue in arg list')
+  if next(bridged_ins) then
+    local function bridge_in(idx,arg,...)
+      if idx>nargs then return end
+      local v=bridged_ins[idx]
+      v=v and v(arg) or arg
+      if v~=arg then log('bridging','%s => %s',arg,v) end
+      return v,bridge_in(idx+1,...)
+    end
+    fn_bridge_in=function(...) return bridge_in(1,...) end
+  end
+  if next(bridged_outs) then
+    local k=next(bridged_outs)
+    assert(k==0,'method with outvalue in arg list')
+    assert(not next(bridged_outs,k),'method with more than 1 bridged outvalue') --FIXME allow
+    local converter=bridged_outs[0]
+    return function(...) return converter(fn(fn_bridge_in(...))) end
+  else
+    return function(...) return fn(fn_bridge_in(...)) end
+  end
+end
+
+local function declare_bridged_struct(name,t,singleton)
+  checkredef=true
+  --TODO check (partial) ftype against bridgesupport, ideally
+
+  local bridged_ins,bridged_outs,outs,outvars,members={},{},{},{},{} --closure
+  for k,membertype in pairs(t) do
+    members[k]=true
+    if type(membertype)=='string' then --ftype[i]=membertype
+    elseif membertype.managed then
+      local converter=make_bridge_converter(membertype)
+      if membertype.bridged_in then
+        bridged_ins[k]=converter
+        --        ftype[i]=membertype[1]
+      elseif membertype.bridged_out then
+        outs[k]=true
+        bridged_outs[k]=converter
+        outvars[k]=ffi.new(membertype[1]..'[1]')
+        --          ftype[i]='^'..membertype[1]
+        --        else ftype[0]=membertype[1] end
+      else error'nyi' end
+    else error'nyi' end
+  end
+  local struct_t=ffi.typeof('struct '..name)
+  local store=ffi.new('struct '..name..'[1]')
+  local convert_t=function(t)
+    for k,mem in pairs(t) do
+      local v=bridged_ins[k]
+      if v then
+        t[k]=v(mem)
+        log('bridging','%s => %s',mem,t[k])
+      end
+    end
+    return t
+  end
+  local fn
+  if singleton then
+    store[0]=struct_t{}
+    local struct=store[0]
+    fn=function(t,direct)
+      t=convert_t(t)
+      for k in pairs(members) do struct[k]=nil end --FIXME doesn't work for ints
+      for k,v in pairs(t) do struct[k]=v end
+      return direct and struct or store
+    end
+  else
+    fn=function(t,direct)
+      local struct=struct_t(convert_t(t))
+      if direct then return struct
+      else store[0]=struct return store end
+    end
+  end
+  return fn
+end
+
+
+--local function parsestype(stype)
+--  return stype:match('.?(%a+)%(?(%a*)%,?(%a*)%)?')
+--end
+
+
 
 --publish everything -----------------------------------------------------------------------------------------------------
 
@@ -2371,11 +2693,16 @@ objc.addmethod = add_class_method
 objc.swizzle = swizzle
 
 --runtime/call
-objc.caller = function(cls, selname)
-  return
-    method_caller(class(cls), tostring(selname)) or
+objc.methodcaller = function(cls, selname)
+  return method_caller(class(cls), tostring(selname)) or
     method_caller(metaclass(cls), tostring(selname))
 end
+objc.caller=objc.methodcaller --compat
+objc.classmethodcaller = function(cls, selname)
+  local fn=objc.methodcaller(cls,selname)
+  return function(...) return fn(cls,...) end
+end
+
 objc.callsuper = callsuper
 
 --hi-level type conversions
@@ -2387,20 +2714,57 @@ objc.ipairs = array_ipairs
 
 --force cdef
 objc.cdef=function(name)
-  local cdecl=cdefs[name]
+  local cdecl=cdecls[name]
   check(cdecl,'objc.lua: %s not found',name)
   return declare(name,'global',cdecl)
 end
 
+--bridging
+objc.bridge={}
+objc.bridge.fn=function(...) return declare_bridged_function(false,...) end
+objc.bridge.forcefn=function(...) return declare_bridged_function(true,...) end
+objc.bridge.struct=declare_bridged_struct
+
+objc.methodcallerraw = function(cls, selname)
+  return method_caller_raw(class(cls), tostring(selname)) or
+    method_caller_raw(metaclass(cls), tostring(selname))
+end
+objc.classmethodcallerraw = function(cls, selname)
+  local fn=objc.methodcallerraw(cls,selname)
+  return function(...) return fn(cls,...) end
+end
+objc.bridge.method=function(ret,cls,selname,...)
+  return declare_bridged_method_(objc.methodcallerraw(cls,selname),ret,...)
+end
+objc.bridge.classmethod=function(ret,cls,selname,...)
+  return declare_bridged_method_(objc.classmethodcallerraw(cls,selname),ret,...)
+end
+
+objc.bridge.IN=function(stype,s1,s2)return type(stype)=='string' and {bridged_in=true,managed=true,stype,objc.bridge.IN(s1),s2} or stype end
+objc.bridge.OUT=function(stype,s1,s2)return type(stype)=='string' and {out=true,bridged_out=true,managed=true,stype,objc.bridge.OUT(s1),s2} or stype end
+-- the common case is for struct elements to be managed by the struct itself, so don't release them
+objc.bridge.OUT_RETAINED=function(stype,s1,s2)return type(stype)=='string' and {out=true,bridged_out=true,managed=true,retained=true,stype,objc.bridge.OUT(s1),s2} or stype end
+objc.bridge.UNUSED=function(stype)return stype end
+objc.bridge.CDATA=function()return false end
+
+objc.log=log
+
+--function objc.managed(cdata) --TODO
+--  return ffi.gc(cdata,C.CFRelease(cdata))
+--end
+
+--local obj_ct=ffi.typeof'struct objc_object *'
+--objc.bridge=function(ptr) return cast(obj_ct,ptr) end --TODO
 
 do
   --autoload
   local submodules = {
     inspect = 'objc_inspect',   --inspection tools
     dispatch = 'objc_dispatch', --GCD binding
+    bridges = 'objc_bridges',
   }
   local function autoload(k)
-    return submodules[k] and require(submodules[k]) and objc[k]
+    if submodules[k] then rawset(objc,k,require(submodules[k])) return objc[k] end
   end
 
   --dynamic namespace
@@ -2410,18 +2774,17 @@ do
     end,
     __autoload = submodules, --for inspection
   })
-end
---print namespace
-if not ... then
-  for k,v in pairs(objc) do
-    print(_('%-10s %s', type(v), 'objc.'..k))
-    if k == 'debug' then
-      for k,v in pairs(P) do
-        print(_('%-10s %s', type(v), 'objc.debug.'..k))
+  --print namespace
+  if not ... then
+    for k,v in pairs(objc) do
+      print(_('%-10s %s', type(v), 'objc.'..k))
+      if k == 'debug' then
+        for k,v in pairs(P) do
+          print(_('%-10s %s', type(v), 'objc.debug.'..k))
+        end
       end
     end
   end
 end
-
-
+objc.load'Foundation'
 return objc
