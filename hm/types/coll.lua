@@ -125,6 +125,18 @@ function M:tostringShowsValues() return setmetatable(self,mt_dict_printvalues) e
 function M.list(table) checkargs'?table' return setmetatable(table or {},mt_list) end
 local list=M.list
 
+local tonumber=tonumber
+---Creates a list object from a C array of numbers
+-- @function [parent=#hm.types.coll] CtoNumberList
+-- @param #number n length of `array`
+-- @param #cdata array C array
+-- @return #coll.list the new list
+function M.CtoNumberList(n,arr) checkargs('positiveIntegerOrZero','cdata')
+  local r=list()
+  for i=0,n-1 do r[#r+1]=tonumber(arr[i]) end
+  return r
+end
+
 ---Unpacks the elements in this list.
 -- @function [parent=#coll.list] unpack
 -- @param #coll.list self
@@ -259,7 +271,7 @@ end
 ---Executes a function across a list in order, and collects the results.
 -- If this table has "holes", all elements after the first hole will be lost, as the table is iterated over with `ipairs`;
 -- you can use `hs.func:dict()` if necessary.
--- @function [parent=#coll.list] imap
+-- @function [parent=#coll.list] imapkv
 -- @param #coll.list self
 -- @param #function fn a function that accepts two parameters, a list index and its element, and returns a value.
 -- The values returned from this function will be collected, in order, into the result list; when `nil` is
@@ -274,7 +286,7 @@ end
 ---Executes a function across a list in order, and collects the results.
 -- If this table has "holes", all elements after the first hole will be lost, as the table is iterated over with `ipairs`;
 -- you can use `hs.func:dict()` if necessary.
--- @function [parent=#coll.list] imapv
+-- @function [parent=#coll.list] imap
 -- @param #coll.list self
 -- @param #function fn a function that accepts a list element and returns a value.
 -- The values returned from this function will be collected, in order, into the result list; when `nil` is

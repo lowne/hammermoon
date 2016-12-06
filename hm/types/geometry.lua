@@ -46,11 +46,18 @@
 --TODO guard against infinites etc everywhere (constructor, length,...)
 --TODO allow segments? (like rects, but no norm())
 
+local NSMakePoint,NSMakeSize,NSMakeRect
+do
+  local c=require'objc'
+  c.load'Foundation'
+  NSMakePoint,NSMakeSize,NSMakeRect=c.NSMakePoint,c.NSMakeSize,c.NSMakeRect
+end
+
 local rawget,rawset,type,pairs,ipairs,tonumber,tostring,sqrt=rawget,rawset,type,pairs,ipairs,tonumber,tostring,math.sqrt
 local min,max,floor,atan,smatch,sformat=math.min,math.max,math.floor,math.atan,string.match,string.format
 local getmetatable,setmetatable=getmetatable,setmetatable
 
-local geometry = {}
+local geometry = {}--hm._core.module{'hm.types.geometry'}
 
 --- hs.geometry:type() -> string
 --- Method
@@ -182,22 +189,12 @@ end
 local function fromNSPoint(nspoint) return new(nspoint.x,nspoint.y) end
 local function fromNSSize(nssize) return new(nil,nil,nssize.width,nssize.height) end
 local function fromNSRect(nsrect) local p,s=nsrect.origin,nsrect.size return new(p.x,p.y,s.width,s.height) end
-local pcall=pcall
 function geometry._fromobj(nsobj)
-  local function getmember(o,m)
-    local ok,res=pcall(function()return o[m]end)
-    return ok and res
-  end
-  if getmember(nsobj,'origin') then return fromNSRect(nsobj)
-  elseif getmember(nsobj,'x') then return fromNSPoint(nsobj)
+  if nsobj.origin then return fromNSRect(nsobj)
+  elseif nsobj.x then return fromNSPoint(nsobj)
   else return fromNSSize(nsobj) end
 end
 geometry._fromNSPoint=fromNSPoint geometry._fromNSSize=fromNSSize geometry._fromNSRect=fromNSRect
-local NSMakePoint,NSMakeSize,NSMakeRect
-do
-  local ok,c=pcall(require,'objc')
-  if ok then NSMakePoint,NSMakeSize,NSMakeRect=c.NSMakePoint,c.NSMakeSize,c.NSMakeRect end
-end
 function geometry._toobj(t)
   local tp=gettype(t)
   if tp=='rect' then return NSMakeRect(t._x,t._y,t._w,t._h)

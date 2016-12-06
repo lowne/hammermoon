@@ -364,7 +364,7 @@ function hm._lua_setup()
 
   local newLogger=hm.logger.new
   local function hmmodule(name,classes,submoduleNames) checkargs('string','?table','?listOrValue(string)')
-    assert(name:sub(1,3)=='hm.')
+    assertf(name:sub(1,3)=='hm.','invalid module name %s',name)
     log.i('Loading module',name)
     local m=setmetatable({log=newLogger(name)},
       {__type='hm#module',__name=name,__tostring=function()return 'module: '..name end,

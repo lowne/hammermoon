@@ -5,23 +5,29 @@
 -- @internalchange Don't bother with NSTimer intermediates, we abstract directly from CFRunLoopTimer
 
 ------ OBJC -------
-local C=ffi.C
-local c=require'objc'
-local tolua,toobj,nptr=c.tolua,c.toobj,c.nptr
-c.load'CoreFoundation'
-c.load'Foundation'
+local C=require'ffi'.C
+local nptr,kCFRunLoopDefaultMode,currentThread
+local CFRunLoopTimerCreate -- uses callback, needs wrapping
+do
+  local c=require'objc'
+  c.load'CoreFoundation'
+  c.load'Foundation'
+  nptr=c.nptr
+  kCFRunLoopDefaultMode=c.kCFRunLoopDefaultMode
+  currentThread=c.NSThread:currentThread()
 
--- these wants (3rd arg) a CFString, but kCFRunLoopDefaultMode is defined as const CFString - hence the 'r' in the patch
-c.addfunction('CFRunLoopAddTimer',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopTimer=}','r^{__CFString=}'})
-c.addfunction('CFRunLoopRemoveTimer',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopTimer=}','r^{__CFString=}'})
---c.addfunction('CFRunLoopRunInMode',{retval='i','@"NSString"','d','B'})
-
-local currentRL=c.CFRunLoopGetCurrent()
+  c.addfunction'CFAbsoluteTimeGetCurrent'
+  c.addfunction'CFRunLoopGetCurrent'
+  -- these wants (3rd arg) a CFString, but kCFRunLoopDefaultMode is defined as const CFString - hence the 'r' in the patch
+  c.addfunction('CFRunLoopAddTimer',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopTimer=}','r^{__CFString=}'})
+  c.addfunction('CFRunLoopRemoveTimer',{retval='v','^{__CFRunLoop=}','^{__CFRunLoopTimer=}','r^{__CFString=}'})
+  --c.addfunction('CFRunLoopRunInMode',{retval='i','@"NSString"','d','B'})
+  CFRunLoopTimerCreate=c.CFRunLoopTimerCreate
+  c.addfunction'CFRunLoopTimerGetNextFireDate'
+  c.addfunction'CFRunLoopTimerSetNextFireDate'
+end
+local currentRL=C.CFRunLoopGetCurrent()
 --local CFAbsoluteTimeGetCurrent=c.CFAbsoluteTimeGetCurrent
-c.cdef'CFAbsoluteTimeGetCurrent'
-local CFRunLoopAddTimer,CFRunLoopRemoveTimer=c.CFRunLoopAddTimer,c.CFRunLoopRemoveTimer
-local kCFRunLoopDefaultMode=c.kCFRunLoopDefaultMode
-local CFRunLoopTimerGetNextFireDate,CFRunLoopTimerSetNextFireDate=c.CFRunLoopTimerGetNextFireDate,c.CFRunLoopTimerSetNextFireDate
 local type,ipairs,pairs,tonumber,pcall=type,ipairs,pairs,tonumber,pcall
 local tostring,sformat,floor=tostring,string.format,math.floor
 local date=os.date
@@ -121,7 +127,6 @@ function timer.toSeconds(timeString) checkargs'hm.timer#intervalString|hm.timer#
   return parseInterval(timeString) or parseLocalTime(timeString)
 end
 
-local currentThread=c.NSThread:currentThread()
 ---Halts all processing for a given interval.
 -- **WARNING**: this function will stop *all* processing by Hammermoon.
 -- For anything other than very short intervals, use @{hm.timer.new()} with a callback instead.
@@ -179,12 +184,12 @@ property(tmr,'fn',
 
 local function start(self,nextTrigger)
   hmassertf(self._runcb,'%s has no timer function, cannot schedule',self)
-  CFRunLoopTimerSetNextFireDate(self._timer,nextTrigger)
+  C.CFRunLoopTimerSetNextFireDate(self._timer,nextTrigger)
   if self._isRunning then log.v('Rescheduled',self) return end
   self._isRunning=true
   log.v('Scheduled',self)
   runningTimers[nptr(self._timer)]=self
-  CFRunLoopAddTimer(currentRL,self._timer,kCFRunLoopDefaultMode)
+  C.CFRunLoopAddTimer(currentRL,self._timer,C.kCFRunLoopDefaultMode)
   return self
 end
 
@@ -193,7 +198,7 @@ local function stop(self)
   self._isRunning=false
   log.d('Unscheduled',self)
   runningTimers[nptr(self._timer)]=nil
-  CFRunLoopRemoveTimer(currentRL,self._timer,kCFRunLoopDefaultMode)
+  C.CFRunLoopRemoveTimer(currentRL,self._timer,kCFRunLoopDefaultMode)
 end
 
 local function run(self)
@@ -218,7 +223,7 @@ local function makeTimer(self,interval,timercb)
     stop(self) self._timer=nil -- have the wrong sort of timer, throw away the old one
   end
   if not self._timer then
-    self._timer=c.CFRunLoopTimerCreate(nil,0,highFreq and interval or DISTANT_FUTURE,0,0,timerCallback,nil)
+    self._timer=CFRunLoopTimerCreate(nil,0,highFreq and interval or DISTANT_FUTURE,0,0,timerCallback,nil)
     self._highFrequency=highFreq
   end
   self._interval=not highFreq and interval or nil
@@ -258,7 +263,7 @@ property(tmr,'scheduled',
 
 nextTrigger=function(self) checkargs'hm.timer#timer'
   if not self._timer or not self._isRunning then return nil end
-  local delta=CFRunLoopTimerGetNextFireDate(self._timer)-C.CFAbsoluteTimeGetCurrent()
+  local delta=C.CFRunLoopTimerGetNextFireDate(self._timer)-C.CFAbsoluteTimeGetCurrent()
   return delta<NOT_SCHEDULED_INTERVAL_THRESHOLD and delta or nil
 end
 

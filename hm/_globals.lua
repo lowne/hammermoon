@@ -179,7 +179,7 @@ function checkargs(...)
   end
 end
 
-for _,type in ipairs{'string','number','boolean','table','function','nil'} do checkers[type]=type end
+for _,type in ipairs{'string','number','boolean','table','function','cdata','nil'} do checkers[type]=type end
 
 local floor=math.floor
 checkers['uint']=function(v)return type(v)=='number' and v>0 and floor(v)==v end
@@ -191,8 +191,8 @@ checkers['positiveNumber']=function(v) return type(v)=='number' and v>0 end
 checkers['positiveNumberOrZero']=function(v) return type(v)=='number' and v>=0 end
 checkers['false']=function(v)return v==false end
 checkers['true']=function(v)return v==true end
-local function isCallable(v) return type(v)=='function' or (type(v)=='table' and getmetatable(v) and getmetatable(v).__call and true) end
-checkers['callable']=isCallable
+--local function isCallable(v) return type(v)=='function' or (type(v)=='table' and getmetatable(v) and getmetatable(v).__call and true) end
+checkers['callable']=function(v) return type(v)=='function' or (type(v)=='table' and getmetatable(v) and getmetatable(v).__call and true) end
 
 -- this is pretty pointless, but this template is used by e.g. 'value(sometype):list'
 checkers['value(_)']=function(v)return function(item,idx) if idx then return false,item end end,v,true end
