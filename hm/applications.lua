@@ -5,12 +5,7 @@
 
 local c=require'objc'
 c.load'CoreFoundation'
-c.load'CoreServices.LaunchServices'
 c.load'ApplicationServices.HIServices'
--- CFStringRef to NSString, return value CFArrayRef to NSArray
-c.addfunction('LSCopyApplicationURLsForBundleIdentifier',{retval='@"NSArray"','@"NSString"','^^v'},false)
-c.addfunction('LSCopyApplicationURLsForURL',{retval='@"NSArray"','@"NSURL"','I'},false)
-c.addfunction('_LSCopyAllApplicationURLs',{'^^v'})
 local tolua,toobj,nptr=c.tolua,c.toobj,c.nptr
 local ffi=require'ffi'
 local cast=ffi.cast
@@ -433,19 +428,17 @@ end
 ---@type bundleList
 -- @list <#bundle>
 
-local array_out=ffi.new'void*[1]'
+local bundleSorter=function(a,b)
+  local laf,lbf=#a.folder,#b.folder
+  if laf<lbf then return true elseif laf==lbf then return a._path<b._path end
+end
+local ls=require'hm._os.launchservices'
+
 ---All application bundles in the filesystem.
 -- This property is cached, so it won't reflect changes in the filesystem after the first time it's requested.
 -- @field [parent=#hm.applications] #bundleList allBundles
 -- @readonlyproperty
-property(applications,'allBundles',function()
-  c._LSCopyAllApplicationURLs(array_out)
-  return list(tolua(c.NSArray:arrayWithArray(array_out[0]))):imap(newBundle):sort(function(a,b)
-    local laf,lbf=#a.folder,#b.folder
-    if laf<lbf then return true elseif laf==lbf then return a._path<b._path end
-  end,true)
-  --  :sortByField('_path',true)
-end)
+property(applications,'allBundles',function() return list(ls.allApplications()):imap(newBundle):sort(bundleSorter,true) end)
 
 ---The application bundle.
 -- If the application does not have a bundle structure, this property is `nil`.
@@ -484,22 +477,13 @@ property(bundle,'application',function(self)
   return (apps:ifindByField('bundle',self))
 end,false)
 
-
---                              CFURLRef      CFArrayRef      ----                  int              ----
-ffi.cdef[[struct LSLaunchURLSpec_ {void* appURL; void* itemURLs; void* passThruParams; int launchFlags; void* asyncRefCon;};]]
-local launchURLSpec_t=ffi.typeof('struct LSLaunchURLSpec_')
-local launchURLSpec_p=ffi.new'struct LSLaunchURLSpec_[1]'
---local launchedAppURL_out=ffi.new'CFURLRef[1]'
-c.addfunction('LSOpenFromURLSpec',{retval='i','^v,^v'})
 ---Launches this bundle.
 -- @function [parent=#bundle] launch
 -- @param #bundle self
 -- @return #application the running application object for this bundle
 function bundle:launch()
-  local spec=launchURLSpec_t{appURL=self._nsbundle.bundleURL,launchFlags=c.kLSLaunchDontSwitch+c.kLSLaunchInhibitBGOnly}
-  launchURLSpec_p[0]=spec
-  local res=c.LSOpenFromURLSpec(launchURLSpec_p,nil)
-  hmassertf(res==0,'LSOpen error %d',res)
+  local ok,err=ls.launch(self._nsbundle.bundleURL)
+  if not ok then return log.e(err) end
   return self.application
 end
 
@@ -529,11 +513,27 @@ end
 -- @internalchange returns all bundles for a given bundle id
 -- @dev
 function applications.bundlesForBundleID(bid) checkargs'string'
-  return list(tolua(c.LSCopyApplicationURLsForBundleIdentifier(toobj(bid),nil))):imap(newBundle):sortByField('_path',true)
+  return ls.applicationURLsForBundleIdentifier(bid):imap(newBundle):sort(bundleSorter,true)
+    --  return list(tolua(c.LSCopyApplicationURLsForBundleIdentifier(toobj(bid),nil))):imap(newBundle):sortByField('_path',true)
 end
 
 local nsurl=require'hm._os.nsurl'
 
+
+---The required role for finding app bundles.
+-- Valid values are `"viewer"`, `"editor"`, `"all"` or `nil` (same as `"all"`)
+-- @type bundleRole
+-- @extends #string
+-- @checker hm.applications#bundleRole
+checkers['hm.applications#bundleRole']=function(v) return v=='all' or v=='editor' or v=='viewer' or (v==nil and 'all') end
+--checkers['hm.applications#bundleRole']=function(v)
+--  if v==nil or v=='all' then return c.kLSRolesAll
+--  elseif v=='editor' then return c.kLSRolesEditor
+--  elseif v=='viewer' then return c.kLSRolesViewer end
+--end
+
+
+--[[
 ---@return #bundle
 -- @dev
 function applications.defaultBundleForURL(url) sanitizeargs'url:NSURL'
@@ -545,30 +545,43 @@ end
 function applications.bundlesForURL(url) sanitizeargs'url:NSURL'
   return list(tolua(c.LSCopyApplicationURLsForURL(url,nil))):imap(newBundle)
 end
-
----The required role for finding app bundles.
--- Valid values are `"viewer"`, `"editor"`, `"all"` or `nil` (same as `"all"`)
--- @type bundleRole
--- @extends #string
--- @checker hm.applications#bundleRole
-checkers['hm.applications#bundleRole']=function(v)
-  if v==nil or v=='all' then return c.kLSRolesAll
-  elseif v=='editor' then return c.kLSRolesEditor
-  elseif v=='viewer' then return c.kLSRolesViewer end
-end
-
 ---@return #bundle
 -- @dev
 function applications.defaultBundleForFile(path,role) sanitizeargs('path:NSURL','hm.applications#bundleRole')
   return newBundle(c.LSCopyDefaultApplicationURLForURL(path,role,nil))
 end
-
 ---@return #bundleList
 -- @dev
 function applications.bundlesForFile(path,role) sanitizeargs('path:NSURL','hm.applications#bundleRole')
   return list(tolua(c.LSCopyApplicationURLsForURL(path,role))):imap(newBundle)
 end
+--]]
 
+---@return #bundle
+-- @dev
+function applications.defaultBundleForURL(url) sanitizeargs'url:NSURL'
+  local ret,err=ls.defaultApplicationForNSURL(url)
+  if ret then return newBundle(ret) else return log.e(err) end
+end
+
+---@return #bundleList
+-- @dev
+function applications.bundlesForURL(url) sanitizeargs'url:NSURL'
+  local ret,err=ls.applicationsForNSURL(url)
+  if ret then return list(ret):imap(newBundle) else return log.e(err) end
+end
+---@return #bundle
+-- @dev
+function applications.defaultBundleForFile(path,role) sanitizeargs('path:NSURL','hm.applications#bundleRole')
+  local ret,err=ls.defaultApplicationForNSURL(path,role)
+  if ret then return newBundle(ret) else return log.e(err) end
+end
+---@return #bundleList
+-- @dev
+function applications.bundlesForFile(path,role) sanitizeargs('path:NSURL','hm.applications#bundleRole')
+  local ret,err=ls.applicationsForNSURL(path,role)
+  if ret then return list(ret):imap(newBundle) else return log.e(err) end
+end
 
 
 
