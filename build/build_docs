@@ -4,19 +4,37 @@
 local SOURCE_DIRS                  = {'../hm'}
 local INCLUDE_UNDOCUMENTED         = true
 local VERBOSE                      = true
---comment any of these to skip
-local OUTPUT_MD_DIR                = 'md'
---local OUTPUT_HTML_DIR              = 'html'
 
---ends in / == folder, otherwise filename (will be a single file for all modules)
-local OUTPUT_USER_DOCS             = 'docs/'
-local OUTPUT_DEV_DOCS              = 'fulldocs/'
-local OUTPUT_MD_INDEX_FILE         = 'README'
-local OUTPUT_HTML_INDEX_FILE       = 'index'
-local OUTPUT_MODELS_DIR            = 'docmodels/' --just for debug
-local OUTPUT_API_CHANGES_FILE      = 'docs/?/API_CHANGES'
-local OUTPUT_INTERNAL_CHANGES_FILE = 'docs/?/INTERNAL_CHANGES'
---local OUTPUT_DEV_ONLY_FILE         = 'MODULE_DEVELOPERS'
+local function ext(t,rep,flt)
+  if type(t)=='string' then return t:gsub('{}',rep)
+  else local r={} for k,v in pairs(t) do r[k]=ext(v,rep) end r.filter=flt return r end
+end
+--comment any of the OUTPUT_<fmt> consts to skip
+--local OUTPUT_MODELS                = {basedir='docmodels',files='?/*.model'} --just for debug
+--local OUTPUT_METAMODELS            = {basedir='docmodels',files='?/*.metamodel'} --just for debug
+
+local FORMAT_MD                    = {basedir='../docs/md{}',format='md',files='?/*.md',index='?/README.md'}
+local OUTPUT_MD                    = ext(FORMAT_MD,'','-dev')
+local OUTPUT_MD_DEV                = ext(FORMAT_MD,'-developer','all')
+
+local OUTPUT_MD_APICHANGES         = {basedir='../docs/md-developer','apichange',file='?/API_CHANGES.md',filter='apichange',format='md'}
+local OUTPUT_MD_INTERNALCHANGES    = {basedir='../docs/md-developer','internalchange',file='?/INTERNAL_CHANGES.md',filter='internalchange',format='md'}
+
+local FORMAT_HTML                  = {basedir='../docs/html{}',format='html',files='?/*.html',index='?/index.html',
+  assets={{src='assets/rainbow.css'},{src='assets/rainbow.js'},{src='assets/docs.css'}}}
+local OUTPUT_HTML                  = ext(FORMAT_HTML,'','-dev')
+local OUTPUT_HTML_DEV              = ext(FORMAT_HTML,'-developer','all')
+
+local FORMAT_DOCSET                = {basedir='../docs/docset/Hammermoon{}.docset/Contents/Resources',
+  format='docset',file='?/sql',assets={{src='assets/Info{}.plist',dst='?/../Info.plist'}},
+  exec={'cp -R ../docs/html{}/ ?/Documents/','sqlite3 ?/docSet.dsidx < ?/sql','rm ?/sql','mkdir -p ../docs/docset',
+    'tar -C ../docs/docset --exclude=".DS_Store" -cvzf ../docs/docset/Hammermoon{}.tgz Hammermoon{}.docset',
+    'rm -rf ../docs/docset/Hammermoon{}.docset',
+    'echo "<entry><version>'..os.time()..'</version><url>http://lowne.github.io/hammermoon/docset/Hammermoon{}.tgz</url></entry>" > ../docs/docset/Hammermoon{}.xml',
+  },
+}
+local OUTPUT_DOCSET                = ext(FORMAT_DOCSET,'','-dev')
+local OUTPUT_DOCSET_DEV            = ext(FORMAT_DOCSET,'-developer','all')
 
 --- cwd
 local cwd=debug.getinfo(1).source:match("@?(.*)/") or '.'
@@ -26,15 +44,22 @@ require'lfs'.chdir(cwd)
 package.path=package.path..';./lib/?.lua;./lib/?/init.lua'
 package.cpath=package.cpath..';./lib/?.so'
 local fs=require'fs.lfs'
+local ipairs,pairs,tinsert,tconcat,sformat=ipairs,pairs,table.insert,table.concat,string.format
+local print=not VERBOSE and print or function(...) io.stderr:write(tconcat({...},' ')..'\n') end
+local function exec(...) local cmd=sformat(...) print('exec: '..cmd) os.execute(cmd) end
+local function execa(...) assert(exec(...)==0) end
+
 local builder=require'docbuilder' builder.verbose=VERBOSE
 local inspect=require'inspect'
-local ipairs,pairs,print,tinsert,tconcat=ipairs,pairs,print,table.insert,table.concat
-local rawprint=print
-local function print(...)return VERBOSE and rawprint(...)end
-local function join(path,name,ext) return (path and path:match'(.-)/?$'..fs.separator or '')..name..'.'..ext end
-local function writeFile(path,name,ext,s)
-  local dest=join(path,name,ext)
-  assert(fs.fill(dest,s)) rawprint('Saved '..dest)
+--local function print(...)return VERBOSE and rawprint(...)end
+local function path(basedir,fmt)return fmt:gsub('%?',basedir) end
+--local function join(path,name,ext) return (path and path:match'(.-)/?$'..fs.separator or '')..name..(ext and '.'..ext or '') end
+--local function writeFile(path,name,ext,s)
+--  local dest=join(path,name,ext)
+--  assert(fs.fill(dest,s)) rawprint('Saved '..dest)
+--end
+local function write(path,s)
+  assert(fs.fill(path,s)) print('Saved '..path)
 end
 
 --- let's go
@@ -46,14 +71,14 @@ for _,filePath in ipairs(filePaths) do if filePath:sub(-4)=='.lua' then
   local metamodel=builder.makeMetamodel(filePath,not INCLUDE_UNDOCUMENTED)
   if not metamodel.name then print'Skipped, no module name'
   else
-    if OUTPUT_MODELS_DIR then
-      writeFile(OUTPUT_MODELS_DIR,metamodel.name,'metamodel',inspect(metamodel,{depth=12}))
+    if OUTPUT_METAMODELS then
+      write(path(OUTPUT_METAMODELS.basedir,metamodel.name),inspect(metamodel,{depth=12}))
     end
     print('  Generating model for '..metamodel.name)
     local model,modelAnchors=builder.makeModel(metamodel)
     if not model then print'  Nothing found' else
-      if OUTPUT_MODELS_DIR then
-        writeFile(OUTPUT_MODELS_DIR,metamodel.name,'model',inspect(model,{depth=10}))
+      if OUTPUT_MODELS then
+        write(path(OUTPUT_MODELS.basedir,metamodel.name),inspect(model,{depth=10}))
       end
       for s,a in pairs(modelAnchors) do anchors[s]=a end  -- store all anchors
       tinsert(modules,model)
@@ -61,41 +86,73 @@ for _,filePath in ipairs(filePaths) do if filePath:sub(-4)=='.lua' then
   end
 end end
 table.sort(modules,function(a,b)return a.name<b.name end)
-local filters={['all']=OUTPUT_DEV_DOCS or nil,['-dev']=OUTPUT_USER_DOCS or nil,['dev']=OUTPUT_DEV_ONLY_FILE or nil,
-  ['apichange']=OUTPUT_API_CHANGES_FILE or nil,['internalchange']=OUTPUT_INTERNAL_CHANGES_FILE or nil}
-for flt,dirname in pairs(filters) do
+local outputs={OUTPUT_DOCSET,OUTPUT_DOCSET_DEV,OUTPUT_HTML,OUTPUT_HTML_DEV,OUTPUT_MD,OUTPUT_MD_APICHANGES,OUTPUT_MD_DEV,OUTPUT_MD_INTERNALCHANGES}
+local filters={}
+local toClean={}
+for _,out in pairs(outputs) do
+  local flt=out.filter
+  filters[flt]=filters[flt] or {}
+  assert(not filters[flt][out.format])
+  filters[flt][out.format]=out
+  toClean[out.basedir]=true
+end
+
+for flt,outs in pairs(filters) do
   print('Loading filter '..flt)
-  local filename
-  if dirname:sub(-1)~='/' then filename=dirname dirname='' end
   local filter=builder.makeMetadataTagFilter(flt)
-  local formats={md=OUTPUT_MD_DIR or nil,html=OUTPUT_HTML_DIR or nil}
-  local indexFiles={md=OUTPUT_MD_INDEX_FILE or nil,html=OUTPUT_HTML_INDEX_FILE or nil}
-  for format,destPath in pairs(formats) do
-    if filename then filename=filename:gsub('%?',destPath) destPath='.'
-    else destPath=dirname..destPath end
-    print('Loading template '..flt..'.'..format)
-    local indexFile=indexFiles[format]
-    local template=require'doctemplates'[flt][format]
-    local docs={ttag='docfiles'}
-    for _,module in ipairs(modules) do
-      print('Applying filter '..flt..' to '..module.name)
-      module=builder.filter(module,filter)
-      if not module then print('Nothing left')
-      else
-        print('Applying template '..flt..'.'..format..' for '..module.name)
-        local body=builder.template(module,template)
-        print('Resolving links for '..module.name)
-        body=builder.resolveLinks(not filename and module.name or 'N/A',body,anchors,template)
-        tinsert(docs,not filename and {body=body,name=module.name,link=join(nil,module.name,format),short=module.short,ttag='docfile'} or body)
-      end
-    end
-    if filename then writeFile(destPath,filename,format,tconcat(docs,'\n\n'))
+  local filteredModules={}
+  for _,module in ipairs(modules) do
+    print('Applying filter '..flt..' to '..module.name)
+    tinsert(filteredModules,builder.filter(module,filter))
+  end
+  for fmt,out in pairs(outs) do
+    print('Loading template '..flt..'.'..fmt)
+    local template=require'doctemplates'[flt][fmt]
+    if not template then print('No such template')
     else
-      for _,doc in ipairs(docs) do writeFile(destPath,doc.name,format,doc.body) end
-      if indexFile then
-        print('Generating ToC')
-        writeFile(destPath,indexFile,format,builder.template({ttag='toc',docfiles=docs},template))
+      if toClean[out.basedir]then
+        print('Cleaning up previous files in '..out.basedir)
+        exec('rm -rf %s',out.basedir)
+        exec('mkdir -p %s',out.basedir)
+        toClean[out.basedir]=nil
       end
+      local function tmpl(o) return builder.template(o,template) end
+      local docs={ttag='docfiles'}
+      for _,module in ipairs(filteredModules) do
+        print('Applying template '..flt..'.'..fmt..' for '..module.name)
+        local body=tmpl(module)
+        print('Resolving links for '..module.name)
+        --        body=builder.resolveLinks(not filename and module.name or 'N/A',body,anchors,template)
+        body=builder.resolveLinks(module.name,body,anchors,template)
+        tinsert(docs,{body=body,name=module.name,link=module.name..'.'..fmt,short=module.short,ttag='docfile'})
+      end
+      if out.file then --single file
+        local s='' for _,doc in ipairs(docs) do s=s..doc.body..'\n' end
+        write(path(out.basedir,out.file),tmpl{ttag='file',body=s})
+      else
+        for _,doc in ipairs(docs) do
+          local file=out.files:gsub('%*',doc.name)
+          write(path(out.basedir,file),tmpl{ttag='file',body=doc.body,name=doc.name})
+        end
+        if out.index then
+          print('Generating ToC')
+          write(path(out.basedir,out.index),tmpl{ttag='file',name='Table of Contents',body=tmpl{ttag='toc',docfiles=docs}})
+        end
+      end
+      if out.assets then
+        print'Copying assets'
+        for _,asset in ipairs(out.assets) do
+          local src,dst=asset.src,asset.dst or out.basedir
+          exec('cp %s %s',src,path(out.basedir,dst))
+        end
+      end
+      if out.exec then
+        print'Running commands'
+        for _,cmd in ipairs(out.exec) do
+          exec(path(out.basedir,cmd))
+        end
+      end
+      print('Template '..flt..'.'..fmt..' done')
     end
   end
 end

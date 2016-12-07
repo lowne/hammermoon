@@ -459,11 +459,11 @@ function M.template(item,templ)
   -- "?(field.subfield)": return optional string subfield
   -- "@@(field)": call field's ttag
   -- "@?(field)": call an optional field's ttag
-  -- ">>(field)": list with field's ttag
-  -- ">(field)": list with field's ttag..'.index'
+  -- "$>>(field)": list with field's ttag
+  -- "$>(field)": list with field's ttag..'.index'
   local function sub(s) return function(o) return
-    (s:gsub('>>%b()',function(tag) return list(o[tag:sub(4,-2)]) end)
-      :gsub('>%b()',function(tag) return listindex(o[tag:sub(3,-2)]) end)
+    (s:gsub('%$>>%b()',function(tag) return list(o[tag:sub(5,-2)]) end)
+      :gsub('%$>%b()',function(tag) return listindex(o[tag:sub(4,-2)]) end)
       :gsub('%$%b()',function(tag)
         tag=tag:sub(3,-2)
         if tag=='' then assert(type(o)=='string','$() called on non-string') return o
@@ -524,16 +524,16 @@ local resolved={}
 function M.resolveLinks(moduleName,doc,anchors,templ)
   local function makeLink(o,destModule,l)
     assert(o,'cannot resolve link: '..l..' in module '..moduleName)
-    local header=assert(templ[o.ttag..'.header'],'missing .header for '..o.ttag)(o)
+    local anchor=assert(templ[o.ttag..'.anchor'],'missing .anchor for '..o.ttag)(o)
     --    local anchor='#'..templ.anchor(header)
     --    if destModule~=moduleName then anchor=templ.filename(destModule)..anchor end
-    local anchor=templ.filename(destModule)..'#'..templ.anchor(header)
-    print('Link '..l..' resolved to '..anchor) return anchor
+    local href=templ.filename(destModule)..'#'..templ.href(anchor)
+    print('Link '..l..' resolved to '..href) return href
   end
   local function findAnchor(l)
     if resolved[l] then return resolved[l] end
     local destModule=assert(l:match('^(.-)#'),'missing module in link: '..l)
-    local anchor=makeLink(anchors[l],destModule,l) resolved[l]=anchor
+    local anchor=makeLink(anchors[l],destModule,l) --resolved[l]=anchor
     return anchor
   end
   local function findUserAnchor(l)
@@ -557,7 +557,7 @@ function M.resolveLinks(moduleName,doc,anchors,templ)
     end
     o=o or anchors[destModule..'#('..destModule..').'..destField]
     local anchor=makeLink(o,destModule,origl)
-    local res=templ[isType and 'userlinktype' or 'userlink'](origl,anchor)  resolved[origl]=res
+    local res=templ[isType and 'userlinktype' or 'userlink'](origl,anchor)  --resolved[origl]=res
     return res
   end
   -- fill in missing module name for internal links

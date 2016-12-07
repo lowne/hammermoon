@@ -6,23 +6,27 @@ Bundler not working atm :/
 Hammermoon docs are generated via a custom script using a [metalua]-generated model from [luadocumentor]. Modifications from vanilla luadocumentor include:
 
 - "inline" template engine
-- support for generating (github-flavored) markdown files in addition to html
+- support for arbitrary templates, not just HTML
 - support for various kinds of filtering
 - support for custom tags:
   - `@private` (do not include in docs; useful when `heuristics=true`)
   - `@static` for static tables (i.e. not used as metatables/classes)
+  - `@class` for classes
+  - `@property`/`@readonlyproperty` for property-like fields
   - `@const` for constant fields (e.g. event names)
   - `@dev` for advanced/dangerous stuff
   - `@apichange` and `@internalchange` to make the respective doc files (using the aforementioned filtering)
 
-TODO: [dashing] to be used to build the `.docset` file.
-
 [metalua]: https://github.com/fab13n/metalua
 [luadocumentor]: https://github.com/LuaDevelopmentTools/luadocumentor
-[dashing]: https://github.com/technosophos/dashing
+
+The docs builder includes templates for:
+
+- **Markdown** (github-flavored, meant for display directly on github as it uses github's header anchors)
+- **HTML**
+- **Docset** (for Dash.app).
 
 ### To build the docs:
-
 
 You'll need a *vanilla* Lua 5.1 interpreter (required by metalua); the easiest way is:
 
