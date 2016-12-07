@@ -19,10 +19,10 @@ Not even.
 
 ### Docs
 
-- [User documentation](build/docs/md/README.md) (no advanced stuff)
-- [Full documentation](build/fulldocs/md/README.md)
-- [API changes](build/docs/md/API_CHANGES.md) from Hammerspoon
-- [Internal changes](build/docs/md/INTERNAL_CHANGES.md) from Hammerspoon
+- [User documentation](docs/md/README.md) (no advanced stuff) - [Dash docset](dash-feed://https%3A%2F%2Flowne.github.io%2Fhammermoon%2Fdocset%2FHammermoon.xml)
+- [Full documentation](docs/md-developer/README.md) - [Dash docset](dash-feed://https%3A%2F%2Flowne.github.io%2Fhammermoon%2Fdocset%2FHammermoon-developer.xml)
+- [API changes](docs/md-developer/API_CHANGES.md) from Hammerspoon
+- [Internal changes](docs/md-developer/INTERNAL_CHANGES.md) from Hammerspoon
 
 ### Setup
 
