@@ -268,8 +268,10 @@ $(body)
 ]],
   ['entrytype']=function(o)
     local t=o.htag:lower()
-    local types={type='Type',tabl='Record',clas='Class',read='Property',prop='Property',fiel='Field',glob='Global',func='Function',meth='Method',modu='Module'}
-    return types[o.htag:lower():sub(1,4)] or error('wrong htag: '..t)
+    local types={global='Global',module='Module',type='Type',table='Record',class='Class',
+      readon='Property',proper='Property',field='Field',consta='Constant',
+      functi='Function',method='Method',constr='Constructor'}
+    return types[o.htag:lower():sub(1,6)] or error('wrong htag: '..t)
   end,
   ['dashanchor']='<a name="//apple_ref/cpp/$(entrytype)/$(fullname)" class="dashAnchor"></a>',
   ['module.title']='$(dashanchor)<h1 id="$(anchor)">Module <code>$(name)</code></h1>@(extra)?(short)?(long)$(subheader)',
@@ -334,8 +336,8 @@ $(body)
 
   ['functions.pre']='',
   ['function.title']='$(dashanchor)<h3 id="$(anchor)">$(htag) <code>$(fullname)($>(parameters))</code>$>(returns)</h3>@(extra)?(short)',
-  ['short']=function(o)return '<span class=short>'..MARKDOWN(o)..'</p>' end,
-  ['long']=function(o)return '<p class=long>'..MARKDOWN(o)..'</p>' end,
+  ['short']=function(o)return '<span class=short>'..MARKDOWN(o)..'</span>' end,
+  ['long']=function(o)return #o>0 and '<p class=long>'..MARKDOWN(o)..'</p>' or '' end,
   ['function.anchor']=function(o)return (o.parent and o.parent.name..'-' or '')..o.name end,
   ['functions.sep']='',
   ['functions.post']='',
@@ -367,7 +369,7 @@ $(body)
 
   ['extra']='?(dev)?(checker)?(apichange)?(internalchange)',
 
-  ['checker']='<blockquote>Defines type checker <code>$(short)</code></blockquote>',
+  ['checker']='<blockquote>Defines type checker(s): ?(short)</blockquote>',
   ['dev']='<blockquote><strong>Internal/advanced use only</strong></blockquote>',
   ['apichange']='<blockquote><strong>API CHANGE:</strong> ?(short)</blockquote>',
   ['internalchange']='<blockquote>INTERNAL CHANGE: ?(short)</blockquote>',

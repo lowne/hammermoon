@@ -345,7 +345,8 @@ function M.makeModel(metamodel)
     t.htag='Function'
     t.invokator=parent and '.' or ''
     if parent then
-      if t.parameters[1] and t.parameters[1].name=='self' then t.invokator=':' t.htag='Method' tremove(t.parameters,1) end
+      if t.parameters[1] and t.parameters[1].name=='self' then t.invokator=':' t.htag='Method' tremove(t.parameters,1)
+      elseif t.extra.constructor then t.htag='Constructor' end
     else t.htag='Global function' end
     if t.extra.prototype then t.htag='Function prototype' t.invokator='' t.parent=nil end -- t.ttag='prototype'
     local anc=sformat('%s#(%s).%s',module.name,t.parent and t.parent.name or '',t.name)
@@ -419,6 +420,15 @@ function M.makeModel(metamodel)
           return a.name<b.name
         else return true end
       elseif b.extra.readonlyproperty then return false
+      else return a.name<b.name end
+    end)
+    --constructors at the bottom
+    tsort(type.functions,function(a,b)
+      if a.extra.constructor then
+        if b.extra.constructor then
+          return a.name<b.name
+        else return false end
+      elseif b.extra.constructor then return true
       else return a.name<b.name end
     end)
     type.metamodel=nil --cleanup
