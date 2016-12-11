@@ -13,12 +13,11 @@ local cast=ffi.cast
 local pairs,ipairs,next,tonumber=pairs,ipairs,next,tonumber
 local sformat,unpack=string.format,unpack
 local coll=require'hm.types.coll'
-local list,dict=coll.list,coll.dict
+local list,dict,set=coll.list,coll.dict,coll.set
 local property=hm._core.property
 local hmtype=hm.type
 local timer=require'hm.timer'
 local newTimer=timer.new
-
 
 ---@type hm.applications
 -- @extends hm#module
@@ -596,7 +595,7 @@ local newWatcher=watcher._new
 local runningWatchers,watcherCount={},0
 
 ---Application event name.
--- Valid values are `"launching"`,`"launched"`,`"activated"`,`"deactivated"`,`"hidden"`,`"unhidden"`,`"terminated"`.
+-- Valid values are `"launching"`, `"launched"`, `"activated"`, `"deactivated"`, `"hidden"`, `"unhidden"`, `"terminated"`.
 -- @type eventName
 -- @extends #string
 -- @checker hm.applications#eventName
@@ -615,10 +614,14 @@ local workspaceEvents=dict{
   terminated  = tolua(c.NSWorkspaceDidTerminateApplicationNotification),
 }
 checkers['applications#eventName']=function(s) return workspaceEvents[s] end
+checkers['applications#eventNameList']=function(t)
+  if t=='all' then return workspaceEvents:listValues():toSet()
+  else return checkers['!listOrValue(applications#eventName'] end
+end
 local watcherEvents=workspaceEvents:toIndex()
 
 ---Callback for application watchers.
--- @function [parent=#hm.applications] watcherCallback
+-- @function [parent=#hm.applications] watcherFunction
 -- @param #application application the application that caused the event
 -- @param #eventName event the event
 -- @param data
@@ -649,16 +652,18 @@ local function terminatedCallback(notif,info)
 end
 ---Creates a new watcher for application events.
 -- @function [parent=#hm.applications] newWatcher
--- @param #watcherCallback fn (optional) callback function
+-- @param #watcherFunction fn (optional) callback function
 -- @param data (optional)
 -- @param #eventNameList events (optional)
 -- @param #string name
 -- @return #watcher the new watcher
+-- @constructor
 -- @dev
-function applications.newWatcher(fn,data,events,name) sanitizeargs('?callable','?','?listOrValue(applications#eventName)','?string')
+function applications.newWatcher(fn,data,events,name) sanitizeargs('?callable','?','?!listOrValue(applications#eventName)','?string')
   watcherCount=watcherCount+1
   log.d('Creating application watcher')
   local o=newWatcher({_isActive=false,_events=events and events:toSet(),_cb=fn,_data=data,_ref=watcherCount},name or sformat('app watcher: [#%d]',watcherCount))
+  if data=='watcher' then o._data=o end
   o.log.i('created')
   return o
 end
@@ -668,17 +673,34 @@ end
 property(watcher,'active',
   function(self) return self._isActive end,
   function(self,v) if v then self:start() else self:stop() end end,'boolean')
+---The events being watched.
+-- Setting this to `nil` or an empty list stops the watcher.
+-- @field [parent=#watcher] #eventNameList events
+-- @property
+property(watcher,'events',
+  function(self) return (self._events or set()):toList():sort(nil,true) end,
+  function(self,v)
+    self._events=v and v:toSet() or set()
+    if v==nil or not next(v) then return self:stop() end
+    if self._isActive then return self:start() end
+  end,'?listOrValue(applications#eventName)',true)
+---The callback function.
+-- Setting this to `nil` stops the watcher.
+-- @field [parent=#watcher] #function fn
+-- @property
+property(watcher,'fn',function(self)return self._cb end,
+  function(self,v) self._cb=v if v==nil then return self:stop() end if self._isActive then return self:start() end end,'?callable')
 
 ---Starts the watcher.
 -- @function [parent=#watcher] start
 -- @param #watcher self
 -- @param #eventNameList events (optional)
--- @param #watcherCallback fn (optional)
+-- @param #watcherFunction fn (optional)
 -- @param data (optional)
 -- @return #watcher self
 
 local registeredNotifications={}
-function watcher:start(fn,data,events) sanitizeargs('hm.applications#watcher','?callable','?','?listOrValue(applications#eventName)')
+function watcher:start(fn,data,events) sanitizeargs('hm.applications#watcher','?callable','?','?!listOrValue(applications#eventName)')
   if events then self._events=events:toSet()
   elseif not self._events then self._events=workspaceEvents:listValues():toSet() end
   if fn then self._cb=fn self._data=data
