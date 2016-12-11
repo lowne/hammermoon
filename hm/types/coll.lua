@@ -77,9 +77,15 @@ end
 checkers['listIndex']=isListIndex
 local function isList(t) return type(t)=='table' and M.everyk(t,isListIndex) end
 checkers['list']=isList
+local function isNonEmptyList(t) return isList(t) and t[1] and true end
+checkers['!list']=isNonEmptyList
 checkers['list(_)']=function(v)if isList(v) then return ipairs(v) end end
+local function nonEmptyListOf(t) if isNonEmptyList(t) then return ipairs(t) end end
+checkers['!list(_)']=nonEmptyListOf
 checkers['value(_):list']=function(v) return ipairs{v} end
+checkers['!value(_):list']=function(v) if v~=nil then return ipairs{v} end end
 checkers['listOrValue(_)']=function(v) if not isList(v) then v={v} end return ipairs(v) end
+checkers['!listOrValue(_)']=function(v) if not isList(v) then v={v} end return nonEmptyListOf(v) end
 local function isSet(t)
   if type(t)~='table' then return false end
   local val
