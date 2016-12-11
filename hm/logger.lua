@@ -1,8 +1,9 @@
 local date,time = os.date,os.time
 local min,max,tmove,tinsert=math.min,math.max,table.move,table.insert
 local sformat,ssub,slower,srep,sfind=string.format,string.sub,string.lower,string.rep,string.find
-local ipairs,type,select,rawget,rawset,print=ipairs,type,select,rawget,rawset,print
-local function printf(...) return print(sformat(...)) end
+local ipairs,type,select,rawget,rawset=ipairs,type,select,rawget,rawset
+local iowrite=io.write
+local function printf(...) return iowrite(sformat(...)) end
 local ERROR,WARNING,INFO,DEBUG,VERBOSE=1,2,3,4,5
 local MAXLEVEL=VERBOSE
 local LEVELS={nothing=0,error=ERROR,warning=WARNING,info=INFO,debug=DEBUG,verbose=VERBOSE}
@@ -22,7 +23,10 @@ local timeempty='        '
 ---Simple logger for debugging purposes.
 -- @module hm.logger
 -- @static
-local logger=hm._core.protoModule('logger')
+local logger=hm.protoModule('logger')
+hm.protoModule=nil
+local histSize=0
+local stdout=true
 
 local instances=setmetatable({},{__mode='kv'})
 
@@ -57,16 +61,14 @@ logger.setModulesLogLevel=function(lvl)
 end
 
 local history={}
-local histIndex,histSize=0,0
+local histIndex=0
 
 ---The number of log entries to keep in the history.
 -- The starting value is 0 (history is disabled). To enable the log history, set this at the top of your userscript.
 -- If you change history size (other than from 0) after creating any logger instances, things will likely break.
 -- @field [parent=#hm.logger] #number historySize
 -- @apichange function hm.logger.historySize([v]) -> field hm.logger.historySize
-hm._core.property(logger,'historySize',
-  function() return histSize end,
-  function(v) assert(type(v)=='number','size must be a number') histSize=min(v,1000000) end)
+
 --cannot deprecate the previous function as it has the same name
 
 local function store(s)
@@ -120,7 +122,7 @@ end
 -- @param #number entries (optional) the maximum number of entries to print; if omitted, all entries in the history will be printed
 logger.printHistory=function(...)
   for _,e in ipairs(logger.filterHistory(...)) do
-    printf('%s %s%s %s%s',date('%X',e.time),LEVELFMT[e.level][1],sformat(idf,e.id),LEVELFMT[e.level][2],e.message)
+    printf('%s %s%s %s%s\n',date('%X',e.time),LEVELFMT[e.level][1],sformat(idf,e.id),LEVELFMT[e.level][2],e.message)
     --     printf('%s %s%s %s%s',date('%X',e.time),LEVELFMT[e.level][1],sformat(idf,e.id),LEVELFMT[e.level][2],e.message)
   end
 end
@@ -131,15 +133,15 @@ local lf = function(loglevel,lvl,id,fmt,...)
   local ct = time()
   local msg=sformat(fmt,...)
   if histSize>0 then store({time=ct,level=lvl,id=id,message=msg}) end
-  if loglevel<lvl then return end
+  if not stdout or loglevel<lvl then return end
   id=sformat(idf,id)
   --   id=sformat(idf,id)
   local stime = timeempty
   if ct-lasttime>0 or lvl<3 then stime=date('%X') lasttime=ct end
   if id==lastid and lvl>3 then id=idempty else lastid=id end
-  if lvl==ERROR then print'********' end
-  printf('%s %s%s %s%s',stime,LEVELFMT[lvl][1],id,LEVELFMT[lvl][2],msg)
-  if lvl==ERROR then print'********' return nil,msg end
+  if lvl==ERROR then printf'********\n' end
+  printf('%s %s%s %s%s\n',stime,LEVELFMT[lvl][1],id,LEVELFMT[lvl][2],msg)
+  if lvl==ERROR then printf'********\n' return nil,msg end
 end
 local l = function(loglevel,lvl,id,...)
   if histSize>0 or loglevel>=lvl or lvl==ERROR then return lf(loglevel,lvl,id,srep('%s',select('#',...),' '),...) end
@@ -209,6 +211,22 @@ function logger.new(id,loglevel)
     end
   })
 end
+
+local mt=getmetatable(logger)
+mt.__index=function(t,k)
+  if k=='historySize' then return histSize
+  elseif k=='stdout' then return stdout
+  end
+end
+mt.__newindex=function(t,k,v)
+  if k=='historySize' then
+    hmassert(checkers.positiveIntegerOrZero(v),'historySize must be a positive integer or 0')
+    histSize=min(v,1000000)
+  elseif k=='stdout' then hmassert(type(v)=='boolean','stdout must be a boolean') stdout=v
+  end
+  error'!'
+end
+
 return logger
 
 ---Sets the log level of the logger instance
