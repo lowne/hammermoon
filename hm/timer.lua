@@ -146,7 +146,7 @@ end
 local tmr=timer._classes.timer
 local new=tmr._new
 
-local runningTimers=hm._core.retainValues()
+local runningTimers={}--hm._core.retainValues()
 local timerCount=0
 
 ---Creates a new timer.

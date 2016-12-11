@@ -1,6 +1,6 @@
 local newproxy,type,getmetatable,setmetatable,rawget,rawset=newproxy,type,getmetatable,setmetatable,rawget,rawset
-local pairs,ipairs=pairs,ipairs
-local tinsert,sformat=table.insert,string.format
+local pairs,ipairs,next=pairs,ipairs,next
+local tinsert,tsort,sformat=table.insert,table.sort,string.format
 
 
 
@@ -12,10 +12,7 @@ local tinsert,sformat=table.insert,string.format
 --checkers=checkers
 
 --require'compat53'
-require'hm._globals'
 
----@private
-sanitizeargs=checkargs
 
 --- Hammermoon main module
 -- @module hm
@@ -52,9 +49,12 @@ function hm.type(obj)
   local t=type(obj)
   if t=='table' then
     local mt=getmetatable(obj)
-    return mt.__type or 'table'
+    return mt and mt.__type or 'table'
   else return t end
 end
+require'hm._globals'
+---@private
+sanitizeargs=checkargs
 
 
 ---Debug options
@@ -116,19 +116,9 @@ function hm._lua_setup()
 
   local rawrequire=require
   local function hmrequire(modname)
-    --    if not loadedModules[modname] then print('[Loading module: '..modname..']') end
     local ok,mod=xpcall(rawrequire,debug.traceback,modname)
     if ok and mod then
       loadedModules[modname]=true
-      if type(mod)=='table' then
-        local gc=rawget(mod,'__gc')
-        if gc and not rawget(mod,'__proxy') then
-          assert(not rawget(mod,'__proxy'))
-          local proxy=newproxy(true)
-          getmetatable(proxy).__gc=function()log.i('Unloading module:',modname) return gc(mod) end
-          rawset(mod,'__proxy',proxy)
-        end
-      end
       return mod
     else error(mod) end
   end
@@ -138,7 +128,6 @@ function hm._lua_setup()
     elseif modname:sub(1,3)=='hs.' then return hmrequire('hs_compat.'..modname:sub(4))
     else return rawrequire(modname) end
   end
-
 
   local function cacheValues(t) return setmetatable(t or {},{__mode='v'}) end
   local function cacheKeys(t) return setmetatable(t or {},{__mode='k'}) end
@@ -152,61 +141,8 @@ function hm._lua_setup()
     deprecationWarnings[f.key]={} -- don't bother us for a bit
   end
 
-  --[[
-  local function makeLazyCaller(cls,obj)
-    return setmetatable({},{
-      __index=function(lazyCaller,methodName)
-        local m=cls[methodName]
-        assert(isCallable(m),'No such method: '..methodName)
-        local caller=function(a,b,c,d,e,f,g) return function() return m(obj,a,b,c,d,e,f,g) end end
-        local f=setmetatable({},{
-          __index=function(_,k)
-            if k=='call' then
-            end
-          end,
-          __call=caller,
-        })
-        rawset(lazyCaller,methodName,f) return f
-      end,
-    })
-  end
---]]
-  local properties,deprecated=cacheKeys(),cacheKeys()
-  local submodules={}
-  local module__index=function(t,k)
-    local f=properties[t] and properties[t][k] if f then return f.get() end
-    f=deprecated[t] and deprecated[t][k] if f then warnDeprecation(f) return f.values[t] end
-    f=submodules[t] and submodules[t][k] if f then f=hmrequire(f) rawset(t,k,f) return f end
-    return nil
-  end
-  local function makeclass__index(cls)
-    return function(self,k)
-      local f=properties[cls] and properties[cls][k]
-      if f then
-        local values=f.values
-        if values then --immutable property
-          if values[self]~=nil then return values[self]
-          else local v=f.get(self) values[self]=v return v end
-        else return f.get(self) end
-      end
-      f=deprecated[cls] and deprecated[cls][k] if f then warnDeprecation(f) return f.values[self] end
-      return cls[k]
-    end
-  end
-  local module__newindex=function(t,k,v)
-    local f=properties[t] and properties[t][k]
-    if f then if f.set then f.set(v) else error(f.original..' is read only',2) end return end -- no tail call (for checks.lua)
-    f=deprecated[t] and deprecated[t][k] if f then warnDeprecation(f) f.values[t]=v return end
-    return rawset(t,k,v)
-  end
-  local function makeclass__newindex(cls)
-    return function(self,k,v)
-      local f=properties[cls] and properties[cls][k]
-      if f then if f.set then f.set(self,v) else error(f.original..' is read only',2) end return end -- no tail call (for checks.lua)
-      f=deprecated[cls] and deprecated[cls][k] if f then warnDeprecation(f) f.values[self]=v return end
-      return rawset(self,k,v)
-    end
-  end
+  --  local submodules=cacheKeys()
+  --  local properties,deprecated=cacheKeys(),cacheKeys()
 
   ---Add a property to a module or class.
   -- This function will add to the module or class a user-facing field that uses custom getter and setter.
@@ -223,21 +159,27 @@ function hm._lua_setup()
 
   local function getTableName(t) return getmetatable(t).__name end
   local function property(t,fieldname,getter,setter,type,sanitize)
+    local function make_moduleSetter(setter,proptype,sanitize)
+      if sanitize then return function(v) sanitizeargs(proptype) return setter(v) end
+      else return function(v) checkargs(proptype) return setter(v) end end
+    end
+    local function make_objSetter(setter,cls,proptype,sanitize)
+      if sanitize then return function(o,v) sanitizeargs(cls,proptype) setter(o,v) return o end
+      else return function(o,v) checkargs(cls,proptype) setter(o,v) return o end end
+    end
     checkargs('hm#module|hm#module.class|hs_compat#module','string','function','function|false|nil','?string','?boolean')
     assert(rawget(t,fieldname)==nil,'property is shadowed by existing field')
-    properties[t]=properties[t] or {}
     local realsetter=setter
     if setter and type then
-      if hm.type(t)=='hm#module.class' then
-        local clsname=tostring(t)
-        realsetter=function(o,v) (sanitize and sanitizeargs or checkargs)(clsname,type) setter(o,v) return o end
-      else realsetter=function(v,b) (sanitize and sanitizeargs or checkargs)(type)return setter(v) end end
+      realsetter=hm.type(t)=='hm#module.class' and make_objSetter(setter,tostring(t),type,sanitize)
+        or make_moduleSetter(setter,type,sanitize)
     end
-    properties[t][fieldname]={get=getter,set=realsetter,values=setter==nil and cacheKeys() or nil,original=getTableName(t)..'.'..fieldname}
+    t._properties[fieldname]={get=getter,set=realsetter,values=setter==nil and cacheKeys() or nil,original=getTableName(t)..'.'..fieldname}
     local capitalized=fieldname:sub(1,1):upper()..fieldname:sub(2)
     if not rawget(t,'get'..capitalized) then rawset(t,'get'..capitalized,getter) end
     if setter and not rawget(t,'set'..capitalized) then rawset(t,'set'..capitalized,realsetter) end
   end
+  local function property_direct(t) return function(...) return property(t,...) end end
 
   ---Deprecate a field or function of a module or class
   -- @function [parent=#hm._core] deprecate
@@ -262,51 +204,197 @@ function hm._lua_setup()
     if type(fld)=='function' then original=original..'()' end
     local msgdeprecated=allow and ' is deprecated' or ' is no longer supported'
     local msgreplace=replacement and '; use '..replacement..' instead' or ''
-    deprecated[t]=deprecated[t] or {}
     local values=cacheKeys(isClass and {} or {[t]=fld})
-    deprecated[t][fieldname]={values=values,allow=allow,key=original,msg=original..msgdeprecated..msgreplace}
+    t._deprecated[fieldname]={values=values,allow=allow,key=original,msg=original..msgdeprecated..msgreplace}
     rawset(t,fieldname,nil)
   end
 
-  ---Hammermoon core facilities for use by extensions.
-  --@type hm._core
-  --@field hm.logger#logger log Logger instance for Hammermoon's core
-  --@static
-  --@dev
-  local core={rawrequire=rawrequire,
-    property=property,deprecate=function(...)return deprecate(true,...)end,
-    disallow=function(...)return deprecate(false,...) end,
-    cacheValues=cacheValues,cacheKeys=cacheKeys,retainValues=retainValues,retainKeys=retainKeys}
+  ---Declare event names.
+  -- Event names needn't be declared all at once; in fact a class/module A that uses class/module B is free to extend
+  -- B with additional events (which will be emitted by A)
+  -- @function [parent=#hm._core] declareEvents
+  -- @param #module module @{<#module>} table or @{<#module.class>} table
+  -- @param #eventList events event names
 
-  ---@private
-  core.protoModule=function(name)return setmetatable({},{__type='hm#module',__name='hm.'..name}) end -- used only by logger
+  local function declareEvents(t,eventList) checkargs('hm#module|hm#module.class','!listOrValue(string)')
+    for _,event in ipairs(eventList) do
+      event=event:lower()
+      hmassertf(not t._events[event],'duplicate event declaration for %s: %s',t,event)
+      hmassert(event~='any','cannot declare special event "any')
+      t._events[event]=true
+    end
+  end
 
-  ---@field [parent=#hm] #hm._core _core
-  hm._core=core
+  local module__index=function(t,k)
+    if type(k)~='string' then return nil end
+    local f=rawget(t,'_properties')[k] if f then return f.get() end
+    f=rawget(t,'_deprecated')[k] if f then warnDeprecation(f) return f.values[t] end
+    f=rawget(t,'_submodules')[k] if f then f=hmrequire(f) rawset(t,k,f) return f end
+  end
+  local function make_class__index(cls)
+    return function(self,k)
+      if type(k)=='string' then
+        local f=rawget(cls,'_properties')[k]
+        if f then
+          local values=f.values
+          if values then --immutable property
+            if values[self]~=nil then return values[self]
+            else local v=f.get(self) values[self]=v return v end
+          else return f.get(self) end
+        end
+        f=rawget(cls,'_deprecated')[cls] if f then warnDeprecation(f) return f.values[self] end
+      end
+      return cls[k]
+    end
+  end
+  local module__newindex=function(t,k,v)
+    if type(k)=='string' then
+      local f=rawget(t,'_properties')[k]
+      if f then if f.set then f.set(v) else error(f.original..' is read only',2) end return end -- no tail call (for checks.lua)
+      if k:sub(1,2)=='on' then
+        local event=k:lower():sub(3)
+        local fn=v if event~='any' then fn=function(_,...) return v(...) end end --strip event arg on specific hook
+        rawget(t,'handler')(fn,nil,event):start()
+        return
+      end
+      f=rawget(t,'_deprecated')[k] if f then warnDeprecation(f) f.values[t]=v return end
+    end
+    return rawset(t,k,v)
+  end
+  local function make_class__newindex(cls)
+    return function(self,k,v)
+      if type(k)=='string' then
+        local f=rawget(cls,'_properties')[k]
+        if f then if f.set then f.set(self,v) else error(f.original..' is read only',2) end return end -- no tail call (for checks.lua)
+        if k:sub(1,2)=='on' then
+          local event=k:lower():sub(3)
+          local fn=v if event~='any' then fn=function(_,...) return v(...) end end --strip event arg on specific hook
+          rawget(cls,'handler')(self,fn,nil,event):start()
+          return
+        end
+        f=rawget(cls,'_deprecated')[k] if f then warnDeprecation(f) f.values[self]=v return end
+      end
+      return rawset(self,k,v)
+    end
+  end
 
-  setmetatable(hm,{
-    __index=function(t,k)
-      rawset(t,k,hmrequire('hm.'..k))
-      return rawget(t,k)
-    end,
-    __newindex=function(t,k)error'Only Hammermoon modules can go into table hm' end,
-  })
-
-  checkers['hm#module']='hm#module'
-  checkers['hm#module.class']='hm#module.class'
-  hm.logger.defaultLogLevel=2
-  log=hm.logger.new'core'
-  log.d'Autoload extensions ready'
-  core.log=log
-
-  ---For compatibility with Hammerspoon userscripts
-  hs=setmetatable({},{
-    __index=function(t,k)
-      rawset(t,k,hmrequire('hs_compat.'..k))
-      return rawget(t,k)
-    end,
-    __newindex=function(t,k)error'Not allowed' end,
-  })
+  local handlerProto={}
+  do
+    function handlerProto.getActive(self) return self._isActive end
+    function handlerProto.setActive(self,v) if v then self:start() else self:stop() end return self end
+    function handlerProto.getFn(self) return self._fn end
+    function handlerProto.setFn(self,fn) self._fn=fn if fn==nil then self:stop() end return self end
+    function handlerProto.getData(self) return self._data end
+    local function setData(self,data) self._data=data=='handler' and self or data return self end
+    handlerProto.setData=setData
+    function handlerProto.getEvents(self)
+      local eventList={}
+      for k in pairs(self._events) do tinsert(eventList,k) end
+      tsort(eventList) return eventList
+    end
+    local function setEvents(self,eventList)
+      local events,validEvents={},self._parent._events
+      for _,event in ipairs(eventList) do
+        hmassertf(event=='any' or validEvents[event],'%s has no event %s',self._parent,event)
+        events[event]=true
+      end
+      if events.any then events={any=true} end -- discard redundant events
+      hmassert(next(events),'no events given')
+      self._events=events
+    end
+    handlerProto.setEvents=function(self,eventList)
+      local restart=self._isActive
+      self:stop()
+      setEvents(self,eventList)
+      if restart then self:start() end
+      return self
+    end
+    local handlerCount=0
+    function handlerProto._newProto(parent,obj,fn,data,events)
+      handlerCount=handlerCount+1
+      local po={_object=obj,_parent=parent,_fn=fn,_ref=handlerCount,_isActive=false,_events={}}
+      setData(po,data) if events then setEvents(po,events) end
+      po._name=sformat('handler [#%d]',handlerCount)
+      return po
+    end
+    --      function handlerProto._newModuleHandler(module,...) return new(module,nil,...) end
+    --      handlerProto._newObjectHandler=new
+    do
+      local select=select
+      local function vararg_append(last,n,first,...) if n==0 then return last else return first,vararg_append(last,n-1,...) end end
+      local function emit(handlers,...)
+        if handlers==nil then return end
+        for _,handler in ipairs(handlers) do
+          if handler._data~=nil then
+            local ret=handler._fn(vararg_append(handler._data,select('#',...),...))
+            if ret=='stop' then handler:stop() end
+          else
+            local ret=handler._fn(...)
+            if ret=='stop' then handler:stop() end
+          end
+        end
+      end
+      local function handlerEmit(handlers,event,...)
+        emit(handlers[event],event,...)
+        return emit(handlers.any,event,...)
+      end
+      function handlerProto._moduleEmit(parent,event,...) checkargs('hm#module','string')
+        event=event:lower()
+        hmassertf(parent._events[event],'%s did not declare event %s',parent,event)
+        return handlerEmit(parent._handlers,event,...)
+      end
+      function handlerProto._objectEmit(parent,obj,event,...) checkargs('hm#module.class','?','string')
+        event=event:lower()
+        hmassertf(parent._events[event],'%s did not declare event %s',parent,event)
+        local handlers=parent._handlers[obj]
+        return handlers and handlerEmit(handlers,event,...)
+      end
+  end
+  do
+    local tremove=table.remove
+    local function removeHandler(self,handlers)
+      if handlers==nil then return end
+      for i,handler in ipairs(handlers) do
+        if handler==self then tremove(handlers,i) return end
+      end
+    end
+    function handlerProto._stop(self)
+      if not self._isActive then return self end
+      self.log.d('stopping',self)
+      local handlers=self._parent._handlers
+      if self._object then handlers=handlers[self._object] end
+      for event in pairs(self._events) do
+        removeHandler(self,handlers[event])
+      end
+      self._isActive=false return self
+    end
+  end
+  do
+    local tinsert=table.insert
+    function handlerProto._start(self,eventList,fn,data) sanitizeargs('hm#handler','?!listOrValue(string)','?callable')
+      --      self:stop()
+      self.log.d(self._isActive and 'restarting' or 'starting',self)
+      if not self._parent._isHandlersSetupDone then
+        if self._parent._setupWatchers then self._parent._setupWatchers() end
+        self._parent._isHandlersSetupDone=true
+      end
+      if eventList~=nil then self:stop() setEvents(self,eventList)
+      elseif not next(self._events) then return log.e('handler has no events, cannot start: ',self) end
+      if fn~=nil then self._fn=fn
+      elseif not self._fn then return log.e('handler has no function, cannot start: ',self) end
+      if data~=nil then setData(self,data) end
+      local handlers=self._parent._handlers
+      if self._object then
+        handlers[self._object]=handlers[self._object] or {}
+        handlers=handlers[self._object]
+      end
+      for event in pairs(self._events) do
+        if handlers[event] then tinsert(handlers[event],self) else handlers[event]={self} end
+      end
+      self._isActive=true return self
+    end
+  end
+  end
 
   ---Declare a new Hammermoon module.
   -- Use this function to create the table for your module.
@@ -329,6 +417,7 @@ function hm._lua_setup()
   -- @usage function myclass:mymethod() ... end
   -- @usage ...
   -- @usage return mymodule -- at the end of the file
+  -- @dev
   -- @apichange Doesn't exist in Hammerspoon
   -- @internalchange Allows allocation tracking, properties, deprecation; handled by core
 
@@ -342,42 +431,123 @@ function hm._lua_setup()
   -- @class
   -- @checker hm#module
 
+  ---Emit a module-level event.
+  -- @function [parent=#module] _emit
+  -- @param #string event event name
+  -- @param ... additional args to pass to event handlers
+
+  ---Create a module-level handler.
+  -- @function [parent=#module] handler
+  -- @param #handlerFunction fn (optional)
+  -- @param data (optional)
+  -- @param #eventList events
+  -- @return #hm.handler the new handler
+
+  ---See @{hm._core.property()}
+  -- @function [parent=#module] _property
+  -- @param #string fieldname
+  -- @param #function getter
+  -- @param #function setter
+  -- @param #string type
+  -- @param #boolean sanitize
+  -- @dev
+
+  ---See @{hm._core.declareEvents()}
+  -- @function [parent=#module] _declareEvents
+  -- @param #eventList events event names
+  -- @dev
+
   ---Implement this function to perform any required cleanup when a module is unloaded
   -- @function [parent=#module] __gc
   -- @dev
 
-  ---Type for Hammermoon object classes
+  ---Type for Hammermoon classes
   -- @type module.class
-  -- @dev
   -- @class
   -- @checker hm#module.class
 
-  ---@type module.classes
-  -- @map <#string,#module.class>
+  ---Create a new object.
+  -- Objects created by this function have their lifecycle tracked by Hammermoon's core.
+  -- @function [parent=#module.class] _new
+  -- @param #table t initial values for the new object
+  -- @param #string name (optional) if provided, the object will have its own logger instance with the given name
+  -- @return #module.object a new object instance
+  -- @dev
+
+  ---See @{hm._core.property()}
+  -- @function [parent=#module.class] _property
+  -- @param #string fieldname
+  -- @param #function getter
+  -- @param #function setter
+  -- @param #string type
+  -- @param #boolean sanitize
+  -- @dev
+
+  ---See @{hm._core.declareEvents()}
+  -- @function [parent=#module.class] _declareEvents
+  -- @param #eventList events event names
+  -- @dev
 
   ---Type for Hammermoon objects
   -- @type module.object
+  -- @extends #module.class
   -- @field hm.logger#logger log the object logger (only if created with a name)
-  -- @dev
   -- @class
 
+  ---Emit an object-level event.
+  -- @function [parent=#module.class] _emit
+  -- @param #module.class self
+  -- @param #string event event name
+  -- @param ... additional args to pass to event handlers
 
-  local newLogger=hm.logger.new
+  ---Create an object-level handler.
+  -- @function [parent=#module.class] handler
+  -- @param #module.class self
+  -- @param #handlerFunction fn (optional)
+  -- @param data (optional)
+  -- @param #eventList events
+  -- @return #hm.handler the new handler
+
+  ---Destroys all handlers associated with this object.
+  -- @function [parent=#module.class] _destroyHandlers
+  -- @param #module.class self
+
+  ---@type module.classes
+  -- @map <#string,#module.class>
+  -- @dev
+
+
+
+  ---@private
+  hm.protoModule=function(name)return setmetatable({},{__type='hm#module',__name='hm.'..name}) end -- used only by logger
+  require'hm.logger'.defaultLogLevel=5
+  local newLogger=require'hm.logger'.new
+  log=newLogger'core'
+  local handlerClass
+  local function make_directFunction(fn,t) return function(...) return fn(t,...) end end
+  --  local function make_eventsSet()return setmetatable({},{__index={_setupHandlers=true,_destroyHandlers=true}}) end
   local function hmmodule(name,classes,submoduleNames) checkargs('string','?table','?listOrValue(string)')
     assertf(name:sub(1,3)=='hm.','invalid module name %s',name)
     log.i('Loading module',name)
-    local m=setmetatable({log=newLogger(name)},
-      {__type='hm#module',__name=name,__tostring=function()return 'module: '..name end,
-        __index=module__index,__newindex=module__newindex})
+    local m=setmetatable({log=newLogger(name),
+      _events={},_handlers={},_properties={},_deprecated={},_submodules={}},
+    {__type='hm#module',__name=name,__tostring=function()return 'module: '..name end,
+      __index=module__index,__newindex=module__newindex})
+    rawset(m,'_property',make_directFunction(property,m))
+    rawset(m,'_declareEvents',make_directFunction(declareEvents,m))
     if classes then
       for className,objmt in pairs(classes) do
         local fullname=name..'#'..className
+        if fullname=='hm.core#handler' then fullname='hm#handler' end
         checkers[fullname]=fullname
         --        log.d('added type',fullname)
-        local cls=setmetatable({},{__tostring=function()return fullname end,__type='hm#module.class',__name=fullname})
+        local cls=setmetatable({log=m.log,_properties=cacheKeys(),_deprecated={}},
+          {__tostring=function()return fullname end,__type='hm#module.class',__name=fullname})
+        rawset(cls,'_property',make_directFunction(property,cls))
+
         objmt.__type=fullname
-        objmt.__index=makeclass__index(cls)
-        objmt.__newindex=makeclass__newindex(cls)
+        objmt.__index=make_class__index(cls)
+        objmt.__newindex=make_class__newindex(cls)
         local make=function(o,name) --hmcheck('table','?string')
           setmetatable(o,objmt) o.log=name and newLogger(name) if name then o._name=name end
           log.v('allocated:',o) return o
@@ -385,30 +555,181 @@ function hm._lua_setup()
         local gc=objmt.__gc
         local new=not gc and make or function(o,name)
           -- attach gc handler to our objects; if/when luajit gets the new gc that directly allows __gc in the metatable, this will be unnecessary
-          assert(not rawget(o,'__proxy'))
+          hmassert(not rawget(o,'__proxy'))
           local proxy=newproxy(true)
           getmetatable(proxy).__gc=function()log.v('collecting:',o) return gc(o) end
           rawset(o,'__proxy',proxy)
           return make(o,name)
         end
-        ---Create a new instance.
-        --Objects created by this function have their lifecycle tracked by Hammermoon's core.
-        --@function [parent=#module.class] _new
-        --@param #table t initial values for the new object
-        --@param #string name (optional) if provided, the object will have its own logger instance with the given name
-        --@return #module.object a new object instance
-        --@dev
-        cls._new=new
-        --        cls._metatable=classmt
+        rawset(cls,'_new',new)
+        if fullname~='hm#handler' then
+          rawset(cls,'_declareEvents',make_directFunction(declareEvents,cls))
+          rawset(cls,'_events',{}) rawset(cls,'_handlers',cacheKeys())
+          cls._isHandlersSetupDone=false --FIXME
+          local oemit=handlerProto._objectEmit
+          rawset(cls,'_emit',make_directFunction(handlerProto._objectEmit,cls))
+          local nh=handlerClass._new
+          local nph=handlerProto._newProto
+          rawset(cls,'handler',function(self,fn,data,events) sanitizeargs(fullname,'?callable','?','?!listOrValue(string)')
+            return nh(nph(cls,self,fn,data,events))
+          end)
+          rawset(cls,'_destroyHandlers',function (self)
+            local handlers=cls._handlers[self]
+            if handlers then for handler in pairs(handlers) do handler:destroy() end end
+            cls._handlers[self]=nil
+          end)
+        end
         classes[className]=cls
         --        m['_class_'..className]=cls
       end
-      m._classes=classes
+      rawset(m,'_classes',classes)
     end
-    submodules[m]={}
-    for _,sub in ipairs(submoduleNames or {}) do submodules[m][sub]=name..'.'..sub end
+    for _,sub in ipairs(submoduleNames or {}) do m._submodules[sub]=name..'.'..sub end
+    local proxy=newproxy(true)
+    getmetatable(proxy).__gc=function()
+      log.i('Unloading module:',name) --FIXME
+      if m._isHandlersSetupDone and m._destroyWatchers then m._destroyWatchers(m) end
+      local gc=m.__gc
+      return gc and gc(m)
+    end
+    rawset(m,'__proxy',proxy)
+    if name~='hm.core' then
+      rawset(m,'_emit',make_directFunction(handlerProto._moduleEmit,m))
+      do
+        local nph=handlerProto._newProto
+        local nh=handlerClass._new
+        rawset(m,'handler',function(fn,data,events,name) sanitizeargs('?callable','?','?!listOrValue(string)','?string')
+          return nh(nph(m,nil,fn,data,events),name)
+        end)
+      end
+      m._isHandlersSetupDone=false --FIXME
+    end
     return m
   end
+  checkers['hm#module']='hm#module'
+  checkers['hm#module.class']='hm#module.class'
+
+
+  ---Hammermoon core facilities for use by modules.
+  -- @type hm._core
+  -- @field hm.logger#logger log Logger instance for Hammermoon's core
+  -- @static
+  -- @dev
+
+
+  local core=hmmodule('hm.core',{['handler']={__gc=function(self)end,__tostring=function(self)
+    if self._isActive then return sformat('%s (active on %s)',self._name,self._parent)
+    else return sformat('%s (inactive)',self._name) end
+  end}}) --#module
+  do
+    handlerClass=core._classes.handler
+    ---Type for Hammermoon handler objects
+    -- @type hm.handler
+    -- @class
+    -- @checker hm#hm.handler
+    local handler=handlerClass
+    for k,v in pairs(handlerProto) do
+      if k:sub(1,1)~='_' then handler[k]=v end
+    end
+    ---Whether the handler is currently active.
+    -- Setting this to `false` or `nil` stops the handler; `true` starts the handler.
+    -- @field [parent=#hm.handler] #boolean active
+    -- @property
+    handler._property('active',handler.getActive,handler.setActive,'boolean')
+    ---Generic handler function.
+    -- The full signature can be found on each module's documentation.
+    -- @function [parent=#hm.handler] handlerFunction
+    -- @param #string eventName the event being handled
+    -- @param ... additional arguments sent by the emitter; the last argument is the `data` passed to `.handler()`
+    -- @return #string if "stop", the handler automatically becomes inactive
+    -- @prototype
+
+    ---The handler's function.
+    -- Setting this to `nil` stops the handler. Otherwise, if the handler is active,
+    -- all subsequent events will be handled by the new function.
+    -- @field [parent=#hm.handler] #handlerFunction fn
+    -- @property
+    handler._property('fn',handler.getFn,handler.setFn,'?callable')
+
+    ---The handler's arbitrary data.
+    -- This will be passed to the @{#handlerFunction} as the last argument.
+    -- The special value `"handler"` will pass the handler object itself.
+    -- @field [parent=#hm.handler] data
+    -- @property
+    handler._property('data',handler.getData,handler.setData,'?')
+    ---@type eventList
+    -- @list <#string>
+
+    ---The events handled by this handler.
+    -- @field [parent=#hm.handler] #eventList events
+    -- @property
+    handler._property('events',handler.getEvents,handler.setEvents,'!listOrValue(string)',true)
+
+    ---Starts the handler.
+    -- @function [parent=#hm.handler] start
+    -- @param #hm.handler self
+    -- @param #eventList events (optional)
+    -- @param #handlerFunction fn (optional)
+    -- @param data (optional)
+    -- @return #hm.handler self
+    handler.start=handlerProto._start
+
+    ---Stops the handler.
+    -- @function [parent=#hm.handler] stop
+    -- @param #hm.handler self
+    -- @return #hm.handler self
+    handler.stop=handlerProto._stop
+
+    ---Destroys the handler.
+    -- @function [parent=#hm.handler] destroy
+    -- @param #hm.handler self
+    -- @return #hm.handler self
+    function handler:destroy()
+      self:stop()
+      self._object=nil self._events=nil self._fn=nil self._data=nil
+      self._parent=nil
+    end
+
+  end
+
+  core.rawrequire=rawrequire
+  core.property=property
+  core.declareEvents=declareEvents
+  core.deprecate=function(...)return deprecate(true,...)end
+  core.disallow=function(...)return deprecate(false,...) end
+  core.cacheValues=cacheValues core.cacheKeys=cacheKeys--,retainValues=retainValues,retainKeys=retainKeys}
+
+  --  local core={rawrequire=rawrequire,
+  --    property=property,deprecate=function(...)return deprecate(true,...)end,
+  --    disallow=function(...)return deprecate(false,...) end,
+  --    cacheValues=cacheValues,cacheKeys=cacheKeys,retainValues=retainValues,retainKeys=retainKeys}
+
+
+  ---@field [parent=#hm] #hm._core _core
+  hm._core=core
+
+  setmetatable(hm,{
+    __index=function(t,k)
+      rawset(t,k,hmrequire('hm.'..k))
+      return rawget(t,k)
+    end,
+    __newindex=function(t,k)error'Only Hammermoon modules can go into table hm' end,
+  })
+
+  --  hm.logger.defaultLogLevel=2
+  --  log=hm.logger.new'core'
+  log.d'Autoload extensions ready'
+  core.log=log
+
+  ---For compatibility with Hammerspoon userscripts
+  hs=setmetatable({},{
+    __index=function(t,k)
+      rawset(t,k,hmrequire('hs_compat.'..k))
+      return rawget(t,k)
+    end,
+    __newindex=function(t,k)error'Not allowed' end,
+  })
+
 
   core.module=hmmodule
 

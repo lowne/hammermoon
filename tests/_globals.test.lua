@@ -7,6 +7,7 @@ terr("assertf(false,'%s','assertf')",'assertf')
 test(type(errorf)=='function') 
 terr(function()errorf('%sf','error')end,'errorf') 
 test(type(checkargs)=='function') 
+test(type(sanitizeargs)=='function') 
 
 fboolean=function(a) checkargs'boolean' return true end
 test(fboolean(false)) 
@@ -49,3 +50,15 @@ test(flist2(-5))
 terr'flist2"hum"' 
 test(flist2{1,nil,'haha',3}) 
 terr'flist2{1,"haha",3}' 
+
+print(checkers['!listOrValue(string)']())
+print(checkers['!listOrValue(string)']{})
+
+flist3=function(a) sanitizeargs'!listOrValue(string)' return type(a)=='table' end
+test(flist3{'hah','hoh'}) 
+test(flist3'huh') 
+terr'flist3(44)' 
+terr'flist3()' 
+terr'flist3{}' 
+terr'flist3{false}' 
+terr'flist3{"true",true}' 
