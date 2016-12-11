@@ -53,6 +53,7 @@ hmassertf=assertf
 --   - checkers can also sanitize args ("list(string)|string:list" converts "str" to {"str"})
 
 local type,getmetatable,ipairs,rawget,rawset,rawequal=type,getmetatable,ipairs,rawget,rawset,rawequal
+local hmtype=hm.type or type
 local getlocal,setlocal,getinfo=debug.getlocal,debug.setlocal,debug.getinfo
 
 local check_one
@@ -64,10 +65,11 @@ local check_one
 -- @field [parent=#global] #checkersDict checkers
 checkers = setmetatable({},{
   __index=function(t,k)
-    local metatype,subtypes,sanitizedtype=k:match('(%w+)(%b()):?(.*)')
+    local metatype,subtypes,sanitizedtype=k:match('([^:(]+)(%b()):?(.*)')
     if metatype then
       metatype=metatype..'(_)'
       if #sanitizedtype>0 then metatype=metatype..':'..sanitizedtype end
+      hmassertf(rawget(t,metatype),'no checker for metatype %s (from %s)',metatype,k)
       subtypes=subtypes:sub(2,-2)
       local sub={}
       for subtype in subtypes:gmatch('[^,]+') do sub[#sub+1]=subtype end
@@ -112,7 +114,7 @@ checkers = setmetatable({},{
           return changed and newstruct or true
         end
       else error('no subtypes found in '..k) end
-      t[k]=f
+      rawset(t,k,f)
       return f
     end
   end,
@@ -173,7 +175,7 @@ function checkargs(...)
       for type in arg:gmatch'[^|?]+' do types[#types+1]=type:match'[^:]+':gsub('value%((.-)%)','%1') end
       types=table.concat(types,' or ')
       name=name and " ('"..name.."')" or ''
-      error(string.format(fmt, i, name, fname or "?", types, type(val))..'\n'..(err or ''), 3)
+      error(string.format(fmt, i, name, fname or "?", types, hmtype(val))..'\n'..(err or ''), 3)
     elseif newval~=true then setlocal(2,i,newval)
     end
   end
