@@ -24,9 +24,10 @@ local TEMPLATE_BASE=extend{
 
   ['function.link']='@[#($(plainparent)).$(name)]',
   ['field.link']='@[#($(plainparent)).$(name)]',
+  ['event.link']='@[#($(plainparent)).$(name)]',
   ['type.link']='@[#($(name))]',
 
-  ['type']='$(title)$>>(fields)$>>(functions)',
+  ['type']='$(title)$>>(fields)$>>(functions)$>>(events)',
 
   ['fullname']='?(parent)$(invokator)$(name)',
   ['parent']='$(fullname)',
@@ -48,6 +49,7 @@ local TEMPLATE_BASE=extend{
   ['returns.index.post']='',
 
   ['field']='$(title)?(long)$(usage)',
+  ['event']='$(title)?(long)$(usage)',
 
   ['extra']='?(dev)?(apichange)',
 
@@ -102,12 +104,16 @@ local TEMPLATE_MD_INDEX_LISTS=extend{
   ['function.index']='  * [`$(name)($>(parameters))`]($(link))$>(returns) - @(htag)',
 
   ['field.index']='  * [`$(name)`]($(link)) : @@(type) - @(htag)',
+  ['events.index.pre']='  * ',
+  ['event.index']='[`"$(name)"`]($link))',
+  ['events.index.sep']=', ',
+  ['events.index.post']=' - events',
 
   ['types.index.pre']=MD_LINE,
   ['types.index.sep']='',
   ['types.index.post']=MD_BR,
 
-  ['type.index']='* $(htag) [`$(name)`]($(link))\n$>(fields)$>(functions)\n\n',
+  ['type.index']='* $(htag) [`$(name)`]($(link))\n$>(fields)$>(functions)$>(events)\n\n',
 
   ['htag']=function(o)return o:lower()end,
   ['functions.index.pre']='',
@@ -183,6 +189,12 @@ local TEMPLATE_MD=extend(TEMPLATE_BASE,TEMPLATE_MD_INDEX_LISTS,{
   ['fields.sep']=MD_LINE,
   ['fields.post']='',
 
+  ['events.pre']='',
+  ['event.title']='### $(header)\n\@(extra)$(short)\n\n',
+  ['event.header']='$(htag) `"$(name)"`',
+  ['event.anchor']='$(htag) `"$(name)"`',
+  ['events.sep']=MD_LINE,
+  ['events.post']='',
 
   ['extra']='?(dev)?(checker)?(apichange)?(internalchange)',
 
@@ -270,7 +282,7 @@ $(body)
     local t=o.htag:lower()
     local types={global='Global',module='Module',type='Type',table='Record',class='Class',
       readon='Property',proper='Property',field='Field',consta='Constant',
-      functi='Function',method='Method',constr='Constructor'}
+      functi='Function',method='Method',constr='Constructor',hook='Hook',event='Event'}
     return types[o.htag:lower():sub(1,6)] or error('wrong htag: '..t)
   end,
   ['dashanchor']='<a name="//apple_ref/cpp/$(entrytype)/$(fullname)" class="dashAnchor"></a>',
@@ -295,12 +307,16 @@ $(body)
   ['returns.index.pre']=' &ndash;&rsaquo; ',
 
   ['field.index']='<dd><a href=$(link)><code>$(name)</code></a> : @@(type) - @(htag)</dd>',
+  ['events.index.pre']='<dd>',
+  ['event.index']='<a href=$(link)><code>"$(name)"</code></a>',
+  ['events.index.sep']=', ',
+  ['events.index.post']=' - events</dd>',
 
   ['types.index.pre']='<dl>',
   ['types.index.sep']='</dl><dl>',
   ['types.index.post']='</dl>',
 
-  ['type.index']='<dt>$(htag) <a href=$(link)><code>$(name)</code></a></dt>$>(fields)$>(functions)',
+  ['type.index']='<dt>$(htag) <a href=$(link)><code>$(name)</code></a></dt>$>(fields)$>(functions)$>(events)',
 
   ['htag']=function(o)return o:lower()end,
   ['functions.index.pre']='',
@@ -366,6 +382,11 @@ $(body)
   ['fields.sep']='',
   ['fields.post']='',
 
+  ['events.pre']='',
+  ['event.title']='$(dashanchor)<h3 id="$(anchor)">$(htag) <code>"$(name)"</code></h3>@(extra)?(short)',
+  ['event.anchor']=function(o)return (o.parent and o.parent.name..'-' or '')..o.name end,
+  ['events.sep']='',
+  ['events.post']='',
 
   ['extra']='?(dev)?(checker)?(apichange)?(internalchange)',
 
@@ -443,11 +464,15 @@ local TEMPLATE_DOCSET=extend(TEMPLATE_HTML,{
   ['types.index.pre']='',
   ['types.index.sep']='',
   ['types.index.post']='',
+  ['events.index.pre']='',
+  ['events.index.sep']='',
+  ['events.index.post']='',
 
-  ['module.title']='INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ("$(name)","Module","$(link)");\n',
-  ['function.index']='INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ("$(fullname)","$(entrytype)","$(link)");\n',
-  ['field.index']='INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ("$(fullname)","$(entrytype)","$(link)");\n',
-  ['type.index']='INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ("$(fullname)","$(entrytype)","$(link)");\n$>(fields)$>(functions)',
+  ['module.title']="INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$(name)','Module','$(link)');\n",
+  ['function.index']="INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$(fullname)','$(entrytype)','$(link)');\n",
+  ['field.index']="INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$(fullname)','$(entrytype)','$(link)');\n",
+  ['event.index']="INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$(name)','$(entrytype)','$(link)');\n",
+  ['type.index']="INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$(fullname)','$(entrytype)','$(link)');\n$>(fields)$>(functions)$>(events)",
   ['type.fullname']=function(o)return sformat(o.extra.static and '%s' or '<#%s>',o.name) end,
 
   ['anchor']=function(o)return (o.parent and o.parent.name..'-' or '')..o.name end,

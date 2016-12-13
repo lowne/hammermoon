@@ -74,7 +74,7 @@ local function includeTag(tag) return function() return function(o)
   if not defaultFilter(o) then return
   elseif o.extra[tag] then return o
   elseif o.parent and o.parent.extra[tag] then return o end
-  for _,children in ipairs{'globalfunctions','globalfields','types','functions','fields','prototypes'} do
+  for _,children in ipairs{'globalfunctions','globalfields','types','functions','fields','prototypes','events'} do
     if o[children] and o[children][1] then return o end
   end
 end end end
@@ -113,6 +113,7 @@ function M.filter(module,filter)
     local dt=copy(t)
     flt(t,dt,'functions')
     flt(t,dt,'fields')
+    flt(t,dt,'events')
     tinsert(r.types,filter(dt) or nil)
   end
   return filter(r) or nil
@@ -271,7 +272,7 @@ function M.makeModel(metamodel)
     local t=copyAttrs(o) --#type
     t.ttag='type' t.metamodel=o t.htag=t.extra.static and 'Table' or (t.extra.class and 'Class' or 'Type')
     t.headersize=(t.extra.class or t.extra.static) and 2 or 3
-    t.functions={ttag='functions'} t.fields={ttag='fields'}
+    t.functions={ttag='functions'} t.fields={ttag='fields'} t.events={ttag='events'}
     t.type={ttag='internaltype',name=t.name,module=module.name}--,typedef=o}
     typedefs[t.name]=t
     --    if t.extra.list then
@@ -346,7 +347,8 @@ function M.makeModel(metamodel)
     t.invokator=parent and '.' or ''
     if parent then
       if t.parameters[1] and t.parameters[1].name=='self' then t.invokator=':' t.htag='Method' tremove(t.parameters,1)
-      elseif t.extra.constructor then t.htag='Constructor' end
+      elseif t.extra.constructor then t.htag='Constructor'
+      elseif t.extra.hook then t.htag='Hook' end
     else t.htag='Global function' end
     if t.extra.prototype then t.htag='Function prototype' t.invokator='' t.parent=nil end -- t.ttag='prototype'
     local anc=sformat('%s#(%s).%s',module.name,t.parent and t.parent.name or '',t.name)
@@ -364,8 +366,9 @@ function M.makeModel(metamodel)
     t.htag=parent and 'Field' or 'Global field'
     if t.extra.const then t.htag='Constant'
     elseif t.extra.property then t.htag='Property'
-    elseif t.extra.readonlyproperty then t.htag='Property (read-only)' end
-    local anc=sformat('%s#(%s).%s',module.name,parent and parent.name or '',t.name)
+    elseif t.extra.readonlyproperty then t.htag='Property (read-only)'
+    elseif t.extra.event then t.htag='Event' t.ttag='event' end
+    local anc=sformat('%s#(%s).%s',module.name,t.parent and t.parent.name or '',t.name)
     print('    Added anchor to field ',anc)
     anchors[anc]=t
     return t
@@ -383,11 +386,13 @@ function M.makeModel(metamodel)
   tinsert(module.types,moduleType)
   anchors[sformat('%s#()',module.name)]=moduleType
   --- gather types
-  local classes,othertypes={},{}
+
+  --  local classes,othertypes={},{}
   for k,v in sortedpairs(metamodel.types) do if v~=moduleTypeDef then
     assert(v.tag=='functiontypedef' or v.tag=='recordtypedef',v.name..' found inside types: '..v.tag)
     if v.tag=='recordtypedef' then
-      v=newType(v) if v then if v.extra.class then classes[v.name]=v else othertypes[v.name]=v end end
+      tinsert(module.types,newType(v) or nil)
+      --      v=newType(v) if v then if v.extra.class then classes[v.name]=v else othertypes[v.name]=v end end
     end
   end end
   local prototypes={}
@@ -402,8 +407,16 @@ function M.makeModel(metamodel)
     else tinsert(module.globalfields,newField(item)) end
   end
   --- add types
-  for k,v in sortedpairs(classes) do tinsert(module.types,v) end --classes first
-  for k,v in sortedpairs(othertypes) do tinsert(module.types,v) end --classes first
+  local function sorthtag(t,pri)
+    tsort(t,function(a,b)
+      local pria,prib=assert(pri[a.htag],a.htag),assert(pri[b.htag],b.htag)
+      if pria==prib then return a.name<b.name
+      else return pria<prib end
+    end)
+  end
+  sorthtag(module.types,{['Module']=0,['Class']=1,['Table']=2,['Type']=3})
+  --  for k,v in sortedpairs(classes) do tinsert(module.types,v) end --classes first
+  --  for k,v in sortedpairs(othertypes) do tinsert(module.types,v) end --classes first
   for _,v in ipairs(module.types) do
     local type=v --#type
     print('  Traversing type '..type.name)
@@ -411,26 +424,11 @@ function M.makeModel(metamodel)
       print('    Adding field '..item.name)
       local itemtype=getItemType(item) --#itemtype
       if itemtype.ttag=='functiontype' then addFunction(newFunction(item,type),type.functions)
-      else tinsert(type.fields,newField(item,type)) end
+      else item=newField(item,type) tinsert(item.extra.event and type.events or type.fields,item) end
     end
-    -- readonly properties on top
-    tsort(type.fields,function(a,b)
-      if a.extra.readonlyproperty then
-        if b.extra.readonlyproperty then
-          return a.name<b.name
-        else return true end
-      elseif b.extra.readonlyproperty then return false
-      else return a.name<b.name end
-    end)
-    --constructors at the bottom
-    tsort(type.functions,function(a,b)
-      if a.extra.constructor then
-        if b.extra.constructor then
-          return a.name<b.name
-        else return false end
-      elseif b.extra.constructor then return true
-      else return a.name<b.name end
-    end)
+    --    for _,fld in ipairs(type.fields) do
+    sorthtag(type.fields,{['Property (read-only)']=1,['Property']=2,['Field']=3,['Event']=4})
+    sorthtag(type.functions,{['Function']=1,['Method']=2,['Constructor']=3,['Hook']=4})
     type.metamodel=nil --cleanup
   end
   --- remove "shadow" types that might be used by prototypes
@@ -471,9 +469,9 @@ function M.template(item,templ)
   -- "@?(field)": call an optional field's ttag
   -- "$>>(field)": list with field's ttag
   -- "$>(field)": list with field's ttag..'.index'
-  local function sub(s) return function(o) return
-    (s:gsub('%$>>%b()',function(tag) return list(o[tag:sub(5,-2)]) end)
-      :gsub('%$>%b()',function(tag) return listindex(o[tag:sub(4,-2)]) end)
+  local function sub(s) return function(o) --print((o.name or '?')..' '..(o.ttag or '?')..': '..s)
+    return (s:gsub('%$>>%b()',function(tag) local sub=tag:sub(5,-2) return list(assert(o[sub],'no list tag '..sub..' in '..o.ttag)) end)
+      :gsub('%$>%b()',function(tag) local sub=tag:sub(4,-2) return listindex(assert(o[sub],'no list tag '..sub..' in '..o.ttag)) end)
       :gsub('%$%b()',function(tag)
         tag=tag:sub(3,-2)
         if tag=='' then assert(type(o)=='string','$() called on non-string') return o
@@ -553,6 +551,7 @@ function M.resolveLinks(moduleName,doc,anchors,templ)
     if not l:find('#',1,true) then l='#'..l end
     local destModule,destField=l:match('^([%w._]*)#(.+)')
     assert(destField,'cannot resolve user link: '..origl)
+    destField=destField:gsub('"','')
     destModule=#destModule>0 and destModule or moduleName
     if isType then o=anchors[destModule..'#('..destField..')']
     else
@@ -571,7 +570,7 @@ function M.resolveLinks(moduleName,doc,anchors,templ)
     return res
   end
   -- fill in missing module name for internal links
-  return doc:gsub('@%[%s*(#[%w_()%.]-)%s*%]', function(l)return '@['..moduleName..l..']' end)
+  return doc:gsub('@%[%s*(#[%w_().]-)%s*%]', function(l)return '@['..moduleName..l..']' end)--:gsub('%"','')
     -- find the actual links
     :gsub('@%[%s*(.-)%s*%]', findAnchor)
     :gsub('@{%s*(.-)%s*}', findUserAnchor)

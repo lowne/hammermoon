@@ -27,7 +27,7 @@ local OUTPUT_HTML_DEV              = ext(FORMAT_HTML,'-developer','all')
 
 local FORMAT_DOCSET                = {basedir='../docs/docset/Hammermoon{}.docset/Contents/Resources',
   format='docset',file='?/sql',assets={{src='assets/Info{}.plist',dst='?/../Info.plist'}},
-  exec={'cp -R ../docs/html{}/ ?/Documents/','sqlite3 ?/docSet.dsidx < ?/sql','rm ?/sql','mkdir -p ../docs/docset',
+  exec={'cp -R ../docs/html{}/ ?/Documents/','sqlite3 ?/docSet.dsidx < ?/sql','cat ?/sql','rm ?/sql','mkdir -p ../docs/docset',
     'tar -C ../docs/docset --exclude=".DS_Store" -cvzf ../docs/docset/Hammermoon{}.tgz Hammermoon{}.docset',
     'rm -rf ../docs/docset/Hammermoon{}.docset',
     'echo "<entry><version>'..os.time()..'</version><url>http://lowne.github.io/hammermoon/docset/Hammermoon{}.tgz</url></entry>" > ../docs/docset/Hammermoon{}.xml',
@@ -52,7 +52,7 @@ local function execa(...) assert(exec(...)==0) end
 local builder=require'docbuilder' builder.verbose=VERBOSE
 local inspect=require'inspect'
 --local function print(...)return VERBOSE and rawprint(...)end
-local function path(basedir,fmt)return fmt:gsub('%?',basedir) end
+local function path(fmt,basedir,name)return fmt:gsub('%?',basedir):gsub('%*',name or '') end
 --local function join(path,name,ext) return (path and path:match'(.-)/?$'..fs.separator or '')..name..(ext and '.'..ext or '') end
 --local function writeFile(path,name,ext,s)
 --  local dest=join(path,name,ext)
@@ -72,13 +72,13 @@ for _,filePath in ipairs(filePaths) do if filePath:sub(-4)=='.lua' then
   if not metamodel.name then print'Skipped, no module name'
   else
     if OUTPUT_METAMODELS then
-      write(path(OUTPUT_METAMODELS.basedir,metamodel.name),inspect(metamodel,{depth=12}))
+      write(path(OUTPUT_METAMODELS.files,OUTPUT_METAMODELS.basedir,metamodel.name),inspect(metamodel,{depth=12}))
     end
     print('  Generating model for '..metamodel.name)
     local model,modelAnchors=builder.makeModel(metamodel)
     if not model then print'  Nothing found' else
       if OUTPUT_MODELS then
-        write(path(OUTPUT_MODELS.basedir,metamodel.name),inspect(model,{depth=10}))
+        write(path(OUTPUT_MODELS.files,OUTPUT_MODELS.basedir,metamodel.name),inspect(model,{depth=10}))
       end
       for s,a in pairs(modelAnchors) do anchors[s]=a end  -- store all anchors
       tinsert(modules,model)
@@ -128,28 +128,28 @@ for flt,outs in pairs(filters) do
       end
       if out.file then --single file
         local s='' for _,doc in ipairs(docs) do s=s..doc.body..'\n' end
-        write(path(out.basedir,out.file),tmpl{ttag='file',body=s})
+        write(path(out.file,out.basedir),tmpl{ttag='file',body=s})
       else
         for _,doc in ipairs(docs) do
-          local file=out.files:gsub('%*',doc.name)
-          write(path(out.basedir,file),tmpl{ttag='file',body=doc.body,name=doc.name})
+          --          local file=out.files:gsub('%*',doc.name)
+          write(path(out.files,out.basedir,doc.name),tmpl{ttag='file',body=doc.body,name=doc.name})
         end
         if out.index then
           print('Generating ToC')
-          write(path(out.basedir,out.index),tmpl{ttag='file',name='Table of Contents',body=tmpl{ttag='toc',docfiles=docs}})
+          write(path(out.index,out.basedir),tmpl{ttag='file',name='Table of Contents',body=tmpl{ttag='toc',docfiles=docs}})
         end
       end
       if out.assets then
         print'Copying assets'
         for _,asset in ipairs(out.assets) do
           local src,dst=asset.src,asset.dst or out.basedir
-          exec('cp %s %s',src,path(out.basedir,dst))
+          exec('cp %s %s',src,path(dst,out.basedir))
         end
       end
       if out.exec then
         print'Running commands'
         for _,cmd in ipairs(out.exec) do
-          exec(path(out.basedir,cmd))
+          exec(path(cmd,out.basedir))
         end
       end
       print('Template '..flt..'.'..fmt..' done')
